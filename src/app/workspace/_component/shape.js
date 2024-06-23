@@ -129,7 +129,7 @@ export default class Shapes {
     )
       return;
     // to get the current active shape so to show the shape options
-    this.currentActive = null;
+    config.currentActive = null;
 
     const { x: clickX, y: clickY } = this.getTransformedMouseCoords(e);
 
@@ -213,7 +213,7 @@ export default class Shapes {
       (!square || circle.xRadius * 2 < square.width) &&
       (!text || circle.xRadius * 2 < text.width)
     ) {
-      this.currentActive = circle;
+      config.currentActive = circle;
       circle.isActive = true;
     } else if (
       square &&
@@ -221,23 +221,22 @@ export default class Shapes {
       (!text || square.width < text.width) &&
       (!minLine || square.width < minLine.maxX - minLine.minX)
     ) {
-      this.currentActive = square;
+      config.currentActive = square;
       square.isActive = true;
     } else if (
       text &&
       (!circle || text.width < circle.xRadius * 2) &&
       (!square || text.width < square.width)
     ) {
-      this.currentActive = text;
+      config.currentActive = text;
       text.isActive = true;
     } else if (
       minLine &&
       (!square || minLine.maxX - minLine.minX < square.width)
     ) {
-      this.currentActive = minLine;
+      config.currentActive = minLine;
       minLine.isActive = true;
     }
-
     this.draw();
   }
 
@@ -2030,7 +2029,6 @@ export default class Shapes {
     this.canvas.addEventListener("mousemove", this.mouseMove.bind(this));
     this.canvas.addEventListener("keydown", this.mouseMove.bind(this));
     this.canvas.addEventListener("click", this.canvasClick.bind(this));
-    return this.currentActive;
   }
 
   cleanup() {

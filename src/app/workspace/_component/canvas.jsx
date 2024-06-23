@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { config } from "@/lib/utils.ts";
 import Shape from "./shape.js";
 import { Button } from "@/components/ui/button.tsx";
 import {
@@ -28,7 +29,7 @@ export default function Canvas() {
   const [lineMap, setLineMap] = useState(new Map());
   const [breakPoints, setBreakPoints] = useState(new Map());
   const [mode, setMode] = useState("free");
-  const [currentActive, setCurrentActive] = useState({});
+  const [currentActive, setCurrentActive] = useState(null);
 
   const canvasRef = useRef(null);
   const breakPointsRef = useRef(null);
@@ -55,6 +56,10 @@ export default function Canvas() {
     );
 
     const canvasClick = (e) => {
+      if (config.currentActive !== currentActive) {
+        setCurrentActive(config.currentActive);
+      }
+
       if (mode === "free") return;
       const { x: mouseX, y: mouseY } = shape.getTransformedMouseCoords(e);
       if (mode === "rect") {
@@ -76,17 +81,28 @@ export default function Canvas() {
       } else if (mode === "sphere") {
         const newSphere = new Circle(mouseX, mouseY, 50, 50);
         const newMap = new Map(circleMap);
-        newMap.set(Date.now(), newSphere);
+        const key = Date.now();
+        newMap.set(key, newSphere);
         setCircleMap(newMap);
+
         setMode("free");
+        const newBreakPoint = new Map(breakPoints);
+        newBreakPoint.set(key, {
+          minX: newSphere.x - newSphere.xRadius,
+          minY: newSphere.y - newSphere.yRadius,
+          maxX: newSphere.x + newSphere.xRadius,
+          maxY: newSphere.y + newSphere.yRadius,
+          mid: newSphere.x,
+        });
+        setBreakPoints(newBreakPoint);
       }
+
       shape.draw(); // Trigger draw after adding new shape
     };
 
-    setCurrentActive(shape.initialize());
+    shape.initialize();
     canvas.addEventListener("click", canvasClick);
     shape.draw();
-    console.log(currentActive);
 
     return () => {
       shape.cleanup();
@@ -113,6 +129,19 @@ export default function Canvas() {
           </Button>
         ))}
       </div>
+
+      {currentActive && (
+        <div className="absolute bottom-3 left-[50%] z-[999] translate-x-[-50%] flex items-center divide-x-2 border border-zinc-800 gap-1">
+          <div className="">
+            <BoxIcon
+              fill={`${currentActive?.fillStyle}`}
+              width="20px"
+              height="20px"
+            />
+          </div>
+          {currentActive?.type}
+        </div>
+      )}
     </>
   );
 }

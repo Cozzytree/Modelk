@@ -18,6 +18,7 @@ export class Rect extends DefaultStyles {
     this.y = y;
     this.width = width;
     this.height = height;
+    this.type = "rect";
   }
 }
 
@@ -29,5 +30,6 @@ export class Circle extends DefaultStyles {
     this.xRadius = xRadius;
     this.yRadius = yRadius;
     this.pointTo = [];
+    this.type = "sphere";
   }
 }
