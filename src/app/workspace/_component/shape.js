@@ -244,10 +244,10 @@ export default class Shapes {
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height); // Clear the this.canvas
 
     this.context.save();
-    this.context.translate(
-      -scrollBar.scrollPositionX,
-      -scrollBar.scrollPositionY
-    );
+    // this.context.translate(
+    //   -scrollBar.scrollPositionX,
+    //   -scrollBar.scrollPositionY
+    // );
     this.context.scale(Scale.scale, Scale.scale);
     this.context.lineWidth = this.lineWidth;
     this.context.fillStyle = "white";
@@ -629,10 +629,12 @@ export default class Shapes {
 
   getTransformedMouseCoords(event) {
     const rect = this.canvas.getBoundingClientRect();
-    const mouseX =
-      (event.clientX - rect.left + scrollBar.scrollPositionX) / Scale.scale;
-    const mouseY =
-      (event.clientY - rect.top + scrollBar.scrollPositionY) / Scale.scale;
+    // const mouseX =
+    //   (event.clientX - rect.left + scrollBar.scrollPositionX) / this.scale;
+    // const mouseY =
+    //   (event.clientY - rect.top + scrollBar.scrollPositionY) / this.scale;
+    const mouseX = (event.clientX - rect.left) / Scale.scale;
+    const mouseY = (event.clientY - rect.top) / Scale.scale;
     return { x: mouseX, y: mouseY };
   }
 
@@ -656,7 +658,6 @@ export default class Shapes {
       // horizontel resizing parameters
       if (leftEdge && verticalBounds) {
         rect.isActive = true;
-        rect.horizontalResizing = true;
         isResizing = true;
         this.isDraggingOrResizing = true;
         this.resizeElement = {
@@ -666,7 +667,6 @@ export default class Shapes {
         };
       } else if (rightEdge && verticalBounds) {
         rect.isActive = true;
-        rect.horizontalResizing = true;
         isResizing = true;
         this.resizeElement = {
           direction: "right-edge",
@@ -738,7 +738,8 @@ export default class Shapes {
         { cond: withinTopRightCorner, d: "top-right" },
       ].forEach((any) => {
         if (any.cond) {
-          return (this.resizeElement = {
+          isResizing = true;
+          this.resizeElement = {
             key,
             rectMaxX: rect.x + rect.width,
             rectMaxY: rect.y + rect.height,
@@ -747,13 +748,13 @@ export default class Shapes {
             y: rect.y,
             width: rect.width,
             height: rect.height,
-          });
+          };
+          return;
         }
       });
     });
 
     if (isResizing) return;
-
     // sphere resize
     this.circleMap.forEach((arc, key) => {
       const forXless = arc.x - arc.xRadius;
@@ -1150,7 +1151,7 @@ export default class Shapes {
       }
     }
 
-    if (rectResize || circleResize || textResize) return;
+    if (this.resizeElement?.key) return;
 
     let rect = this.rectMap.get(this.dragElement);
     let arc = this.circleMap.get(this.dragElement);
@@ -1729,6 +1730,7 @@ export default class Shapes {
       -scrollBar.scrollPositionX,
       -scrollBar.scrollPositionY
     );
+    this.breakPointsCtx.scale(Scale.scale, Scale.scale);
     this.breakPointsCtx.lineWidth = 1.2;
     this.breakPointsCtx.strokeStyle = "red";
 
@@ -2021,24 +2023,22 @@ export default class Shapes {
   }
 
   initialize() {
+    this.canvas.addEventListener("mouseup", this.mouseUp.bind(this));
+    this.canvas.addEventListener("mousemove", this.mouseMove.bind(this));
     this.canvas.addEventListener(
       "mousedown",
       this.mouseDownDragAndResize.bind(this)
     );
-    this.canvas.addEventListener("mouseup", this.mouseUp.bind(this));
-    this.canvas.addEventListener("mousemove", this.mouseMove.bind(this));
-    this.canvas.addEventListener("keydown", this.mouseMove.bind(this));
     this.canvas.addEventListener("click", this.canvasClick.bind(this));
   }
 
   cleanup() {
+    this.canvas.removeEventListener("mouseup", this.mouseUp.bind(this));
+    this.canvas.removeEventListener("mousemove", this.mouseMove.bind(this));
     this.canvas.removeEventListener(
       "mousedown",
       this.mouseDownDragAndResize.bind(this)
     );
-    this.canvas.removeEventListener("mouseup", this.mouseUp.bind(this));
-    this.canvas.removeEventListener("mousemove", this.mouseMove.bind(this));
-    this.canvas.removeEventListener("keydown", this.mouseMove.bind(this));
     this.canvas.removeEventListener("click", this.canvasClick.bind(this));
   }
 }

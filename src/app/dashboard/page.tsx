@@ -63,8 +63,6 @@ export default function Home() {
     activeTeam?._id && refetch();
   }, [activeTeam, refetch]);
 
-  const token = document.cookie.split(";")[0].split("=")[1];
-
   return (
     <div className="w-full grid grid-cols-[auto_1fr] h-[100dvh] overflow-y-auto">
       <Sidebar
@@ -128,7 +126,7 @@ export default function Home() {
                         <TableRow key={index} className="w-full">
                           <TableCell className="w-[30%]">
                             <Link
-                              href={`http://localhost:5173/${file?._id}/${token}`}
+                              href={`http://localhost:5173/${file?._id}`}
                               className="block w-full h-full"
                             >
                               {file?.name}
@@ -136,13 +134,13 @@ export default function Home() {
                           </TableCell>
                           <TableCell className="w-[20%]">
                             <Link
-                              href={`http://localhost:5173/${file?._id}/${token}`}
+                              href={`http://localhost:5173/${file?._id}`}
                               className="block w-full h-full"
                             ></Link>
                           </TableCell>
                           <TableCell className="">
                             <Link
-                              href={`http://localhost:5173/${file?._id}/${token}`}
+                              href={`http://localhost:5173/${file?._id}`}
                               className="block w-full h-full"
                             >
                               {new Intl.DateTimeFormat("en-GB", {
@@ -152,7 +150,7 @@ export default function Home() {
                           </TableCell>
                           <TableCell className="">
                             <Link
-                              href={`http://localhost:5173/${file?._id}/${token}`}
+                              href={`http://localhost:5173/${file?._id}`}
                               className="block w-full h-full "
                             >
                               0
@@ -160,13 +158,13 @@ export default function Home() {
                           </TableCell>
                           <TableCell className="">
                             <Link
-                              href={`http://localhost:5173/${file?._id}/${token}`}
+                              href={`http://localhost:5173/${file?._id}`}
                               className="block w-full h-full"
                             ></Link>
                           </TableCell>
                           <TableCell className="">
                             <Link
-                              href={`http://localhost:5173/${file?._id}/${token}`}
+                              href={`http://localhost:5173/${file?._id}`}
                               className="block w-full h-full"
                             >
                               {file?.author}

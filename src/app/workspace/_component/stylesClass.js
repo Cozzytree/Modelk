@@ -33,3 +33,18 @@ export class Circle extends DefaultStyles {
     this.type = "sphere";
   }
 }
+
+export class Line extends DefaultStyles {
+  constructor(lineType) {
+    super();
+    this.startTo = null;
+    this.endTo = null;
+    this.curvePoints = [];
+    this.lineType = lineType;
+    this.type = "line";
+    this.minX = null;
+    this.maxX = null;
+    this.minY = null;
+    this.maxY = null;
+  }
+}

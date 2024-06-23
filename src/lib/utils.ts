@@ -18,6 +18,17 @@ export const fontsizes = [
   { size: "Large", q: 35 },
   { size: "Extra Large", q: 45 },
 ];
+
+export const thickness = [
+  { size: "S", q: 1 },
+  { size: "M", q: 3 },
+  { size: "L", q: 5 },
+  { size: "XL", q: 7 },
+];
+
+export const radius = ["0px", "10px"];
+export const lineType = ["elbow", "staright"];
+
 export const colors = [
   "#FF5733",
   "#33FF57",
@@ -40,3 +51,5 @@ export const Scale = {
   scale: 1,
   scalingFactor: 1.1,
 };
+
+export const ScalingFactor = 1.1;

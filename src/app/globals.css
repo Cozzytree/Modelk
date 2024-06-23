@@ -2,6 +2,108 @@
 @tailwind components;
 @tailwind utilities;
 
+h1.ce-header {
+  @apply text-3xl font-extrabold;
+}
+h2.ce-header {
+  @apply text-2xl font-bold;
+}
+
+h3.ce-header {
+  @apply text-xl font-bold;
+}
+
+h5.ce-header {
+  @apply text-base font-bold;
+}
+
+h5.ce-header {
+  @apply text-base font-semibold;
+}
+
+h5.ce-header {
+  @apply text-base font-semibold;
+}
+
+.ce-block--selected .ce-block__content,
+.ce-inline-toolbar,
+.codex-editor--narrow .ce-toolbox,
+.ce-conversion-toolbar,
+.ce-settings,
+.ce-settings__button,
+.ce-toolbar__settings-btn,
+.cdx-button,
+.ce-popover,
+.ce-toolbar__plus:hover {
+  background: #cdcdcd;
+  color: inherit;
+}
+
+.ce-inline-tool,
+.ce-conversion-toolbar__label,
+.ce-toolbox__button,
+.cdx-settings-button,
+.ce-toolbar__plus {
+  color: inherit;
+}
+
+::selection {
+  background: #000;
+}
+
+.cdx-settings-button:hover,
+.ce-settings__button:hover,
+.ce-toolbox__button--active,
+.ce-toolbox__button:hover,
+.cdx-button:hover,
+.ce-inline-toolbar__dropdown:hover,
+.ce-inline-tool:hover,
+.ce-popover__item:hover,
+.ce-toolbar__settings-btn:hover {
+  background-color: #aaaaaa;
+  color: inherit;
+}
+
+.cdx-quote__text,
+.cdx-list__item,
+.ce-paragraph {
+  background: transparent;
+  padding: 0px 12px;
+  border-radius: 4px;
+  border-bottom: 1px solid #2c2c2c;
+  padding: 3px;
+  @apply text-lg;
+}
+.ce-header {
+  @apply bg-background;
+  padding: 0 10px;
+}
+.ce-header::selection,
+.ce-paragraph::selection,
+.ce-list__item::selection {
+  @apply bg-secondary;
+  @apply text-primary;
+}
+
+.cdx-notify--error {
+  background: #fb5d5d !important;
+}
+
+.cdx-notify__cross::after,
+.cdx-notify__cross::before {
+  background: white;
+}
+
+/* General hiding of scroll bars for specific elements */
+.hide-scrollbars-element {
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+  scrollbar-width: 10px; /* Firefox */
+}
+
+.hide-scrollbars-element::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+
 @layer base {
   :root {
     --small: 16px;
