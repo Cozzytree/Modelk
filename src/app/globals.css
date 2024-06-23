@@ -56,6 +56,13 @@
   }
 }
 
+.shape {
+  position: absolute;
+  border: 1px solid white;
+  border-radius: 2px;
+  z-index: 999;
+}
+
 .background {
   background: radial-gradient(rgba(6, 243, 109, 0.5) 3px, transparent 4px),
     radial-gradient(rgba(2, 92, 2, 0.5) 3px, transparent 4px),

@@ -30,12 +30,16 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useCreateProject } from "@/requests/project";
+import { useLogout } from "@/requests/authRequests";
+import { ReloadIcon } from "@radix-ui/react-icons";
 
 const kalam = Kalam({ subsets: ["latin"], weight: "400" });
 
 const Sidebar = ({ userTeams, activeTeam, setActiveTeam }: any) => {
   const { mutate: createProject, isPending: creatingProject } =
     useCreateProject();
+
+  const { mutate, isPending } = useLogout();
 
   const handleCreateProject = (id: String, data: Object) => {
     createProject({ teamId: id, projectdata: data });
@@ -114,14 +118,18 @@ const Sidebar = ({ userTeams, activeTeam, setActiveTeam }: any) => {
                   >
                     Cancel
                   </AlertDialogCancel>
-                  <AlertDialogAction
-                    className={`${buttonVariants({
-                      variant: "destructive",
-                      size: "sm",
-                    })}`}
+                  <Button
+                    disabled={isPending}
+                    variant="destructive"
+                    onClick={() => mutate()}
+                    size="sm"
                   >
-                    Logout
-                  </AlertDialogAction>
+                    {isPending ? (
+                      <ReloadIcon className=" animate-spin" />
+                    ) : (
+                      "Logout"
+                    )}
+                  </Button>
                 </div>
               </AlertDialogContent>
             </AlertDialog>
@@ -142,8 +150,8 @@ const Sidebar = ({ userTeams, activeTeam, setActiveTeam }: any) => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>New File</DialogTitle>
-              <DialogDescription>
-                <h1 className="text-xl">A Name for the File</h1>
+              <DialogDescription className="text-xl">
+                A Name for the File
               </DialogDescription>
 
               <Input

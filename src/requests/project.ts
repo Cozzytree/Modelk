@@ -47,10 +47,9 @@ export const useCreateProject = () => {
   return { mutate, isPending };
 };
 
-export const useTeamFiles = (teamId : String) => {
+export const useTeamFiles = (teamId: String) => {
   const { data, isLoading, error, refetch } = useQuery({
     queryFn: async () => {
-  
       try {
         const res = await fetch(
           `http://localhost:8000/api/v1/project/get_projects/${teamId}`,
@@ -62,6 +61,7 @@ export const useTeamFiles = (teamId : String) => {
         );
         const data = await res.json();
         if (!data?.success) throw new Error(data?.message);
+
         return data;
       } catch (error: any) {
         if (error?.type === "AbortSignal") {
