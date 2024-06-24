@@ -11,7 +11,7 @@ import {
   CircleIcon,
   CursorArrowIcon,
 } from "@radix-ui/react-icons";
-import { Rect, Circle, Line } from "../_component/stylesClass.js";
+import { Rect, Circle, Line, Text } from "../_component/stylesClass.js";
 
 const buttons = [
   { icon: <CursorArrowIcon />, label: "free" },
@@ -23,6 +23,7 @@ const buttons = [
 
 const width = 2000;
 const height = 1800;
+
 function drawCurve(line, tempPoint, canvas, context) {
   context.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas before re-drawing
   context.beginPath();
@@ -63,6 +64,7 @@ export default function Canvas() {
   const [rectMap, setRectMap] = useState(new Map());
   const [circleMap, setCircleMap] = useState(new Map());
   const [textMap, setTextMap] = useState(new Map());
+  //   const lineMap = new Map();
   const [lineMap, setLineMap] = useState(new Map());
   const [breakPoints, setBreakPoints] = useState(new Map());
   const [mode, setMode] = useState("free");
@@ -71,6 +73,42 @@ export default function Canvas() {
   const canvasRef = useRef(null);
   const breakPointsRef = useRef(null);
   const shapeClassRef = useRef(null);
+
+  function newText(event, canvas) {
+    if (event.target.tagName === "TEXTAREA") return;
+
+    if (config.mode === "free" || config.mode === "text") {
+      const html = `<textarea class="w-[10ch] absolute px-[3px] text-[14px] outline-none bg-transparent focus:border-[1px] border-zinc-400/50 z-[999] h-fit shadow-sm" id="input"></textarea>`;
+      document.body.insertAdjacentHTML("afterbegin", html);
+      const input = document.getElementById("input");
+      input.style.left = event.clientX + "px";
+      input.style.top = event.clientY + "px";
+      input.style.fontSize = "18px";
+      input.focus();
+
+      input.addEventListener("change", (e) => {
+        const mouseX = event.clientX - canvas.getBoundingClientRect().left;
+        // const mouseY =
+        //   event.clientY -
+        //   canvas.getBoundingClientRect().top +
+        //   scrollBar.scrollPositionY;
+        const mouseY = event.clientY - canvas.getBoundingClientRect().top;
+
+        const content = e.target.value.split("\n");
+        const newText = new Text(mouseX, mouseY, 15, content, "Monoscope");
+        const key = Math.random() * 100;
+        const newTextMap = new Map(textMap);
+        newTextMap.set(key, newText);
+        setTextMap(newTextMap);
+        // if (shapeClassRef.current) shapeClassRef.current.draw();
+        input.remove();
+      });
+
+      input.addEventListener("blur", (e) => {
+        input.remove();
+      });
+    }
+  }
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -103,40 +141,27 @@ export default function Canvas() {
       const { x: mouseX, y: mouseY } = shape.getTransformedMouseCoords(e);
       if (mode === "rect") {
         const newRect = new Rect(mouseX, mouseY, 100, 100);
-        const newMap = new Map(rectMap);
-        const key = Date.now();
-        newMap.set(key, newRect); // Use Date.now() or a unique key
-        setRectMap(newMap);
+        rectMap.set(newRect.id, newRect);
         setMode("free");
-
-        const newBreakPoint = new Map(breakPoints);
-        newBreakPoint.set(key, {
+        breakPoints.set(newRect.id, {
           minX: newRect.x,
           minY: newRect.y,
           maxX: newRect.x + newRect.width,
           maxY: newRect.y + newRect.height,
         });
-        setBreakPoints(newBreakPoint);
       } else if (mode === "sphere") {
         const newSphere = new Circle(mouseX, mouseY, 50, 50);
-        const newMap = new Map(circleMap);
-        const key = Date.now();
-        newMap.set(key, newSphere);
-        setCircleMap(newMap);
+        circleMap.set(newSphere.id, newSphere);
 
         setMode("free");
-        const newBreakPoint = new Map(breakPoints);
-        newBreakPoint.set(key, {
+        breakPoints.set(newSphere.id, {
           minX: newSphere.x - newSphere.xRadius,
           minY: newSphere.y - newSphere.yRadius,
           maxX: newSphere.x + newSphere.xRadius,
           maxY: newSphere.y + newSphere.yRadius,
           mid: newSphere.x,
         });
-        setBreakPoints(newBreakPoint);
       }
-
-      shape.draw(); // Trigger draw after adding new shape
     };
 
     const canvasZoomInOut = (e) => {
@@ -170,11 +195,15 @@ export default function Canvas() {
     shape.initialize();
     canvas.addEventListener("click", canvasClick);
     window.addEventListener("wheel", canvasZoomInOut, { passive: false });
+    canvas.addEventListener("dblclick", (e) => {
+      newText(e, canvas);
+    });
     shape.draw();
 
     return () => {
       shape.cleanup();
       canvas.removeEventListener("click", canvasClick);
+      canvas.removeEventListener("dblclick", newText);
       window.removeEventListener("wheel", canvasZoomInOut, { passive: false });
     };
   }, [rectMap, textMap, lineMap, circleMap, mode, breakPoints, currentActive]);
@@ -275,6 +304,8 @@ export default function Canvas() {
           shapeClassRef={shapeClassRef.current}
           currentActive={currentActive}
           setCurrent={setCurrentActive}
+          canvasRef={canvasRef}
+          textMap={textMap}
         />
       )}
     </>

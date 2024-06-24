@@ -163,6 +163,7 @@ h5.ce-header {
   border: 1px solid white;
   border-radius: 2px;
   z-index: 999;
+  @apply text-zinc-300;
 }
 
 .background {

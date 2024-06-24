@@ -14,17 +14,10 @@ export default class Shapes {
   ) {
     this.canvas = canvas;
     this.canvasBreakpoints = canvasBreakpoints;
-    this.fillStyle = "rgba(0,0,0,0)";
-    this.borderColor = "white";
+    this.activeColor = "#2165ee";
     this.tolerance = 6;
-    this.lineWidth = 1.7;
-    this.isActive = false;
-    this.isDraggingOrResizing = false;
     this.resizeElement = null;
     this.dragElement = null;
-    this.angle = 0;
-    this.containerId = null;
-    this.radius = 10;
     this.context = this.canvas.getContext("2d");
     this.breakPointsCtx = this.canvasBreakpoints.getContext("2d");
     this.rectMap = rectMap;
@@ -250,16 +243,23 @@ export default class Shapes {
     // );
     this.context.scale(Scale.scale, Scale.scale);
     this.context.lineWidth = this.lineWidth;
-    this.context.fillStyle = "white";
+    this.context.strokeStyle = "rgb(2, 211, 134)";
 
     this.rectMap.forEach((rect) => {
-      const { x, y, width, height, radius, lineWidth, borderColor, fillStyle } =
-        rect;
+      const {
+        x,
+        y,
+        width,
+        height,
+        radius,
+        lineWidth,
+        borderColor,
+        fillStyle,
+        text,
+        textSize,
+      } = rect;
 
       if (rect.isActive) {
-        this.context.strokeStyle = "rgb(2, 211, 134)";
-        this.context.fillStyle = "rgb(2, 211, 134)"; // Color for active dots
-
         //dots
         this.dots(
           { x: rect.x - this.tolerance, y: rect.y - this.tolerance },
@@ -287,6 +287,8 @@ export default class Shapes {
 
         // Draw the rectangle using this.canvas rect method
         this.context.beginPath();
+        this.context.strokeStyle = this.activeColor;
+        // this.context.fillStyle = "rgb(2, 211, 134)";
         this.context.rect(
           x - this.tolerance,
           y - this.tolerance,
@@ -295,7 +297,6 @@ export default class Shapes {
         );
         this.context.stroke();
       }
-
       this.context.beginPath();
       this.context.lineWidth = lineWidth;
       this.context.strokeStyle = borderColor;
@@ -308,6 +309,19 @@ export default class Shapes {
       this.context.stroke();
       this.context.fill();
       this.context.closePath();
+
+      // render text
+      let maxWidth = 0;
+      let cumulativeHeight = y - y + height * 0.5;
+      this.context.fillStyle = "white";
+      this.context.font = `${textSize}px Arial`;
+      for (let i = 0; i < text.length; i++) {
+        const mertrics = this.context.measureText(text[i]);
+        maxWidth = Math.max(maxWidth, mertrics.width);
+        const midPoint = x + width * 0.5 - maxWidth * 0.5;
+        this.context.fillText(text[i], midPoint, y + cumulativeHeight);
+        cumulativeHeight += textSize;
+      }
     });
 
     this.circleMap.forEach((sphere) => {
@@ -316,11 +330,6 @@ export default class Shapes {
       const width = sphere.x + sphere.xRadius;
       const height = sphere.y + sphere.yRadius;
       if (sphere.isActive) {
-        this.context.save(); // Save the current drawing state
-
-        this.context.strokeStyle = "rgb(2, 211, 134)";
-        this.context.fillStyle = "rgb(2, 211, 134)"; // Color for active dots
-
         //dots
         this.dots(
           { x: x - this.tolerance, y: y - this.tolerance },
@@ -331,6 +340,8 @@ export default class Shapes {
 
         // Draw the rectangle using this.canvas rect method
         this.context.beginPath();
+        this.context.strokeStyle = this.activeColor;
+        // this.context.fillStyle = "rgb(2, 211, 134)";
         this.context.rect(
           x - this.tolerance,
           y - this.tolerance,
@@ -338,8 +349,6 @@ export default class Shapes {
           2 * sphere.yRadius + 2 * this.tolerance
         );
         this.context.stroke();
-
-        this.context.restore(); // Restore the previous drawing state
       }
       this.context.beginPath();
       this.context.lineWidth = sphere.lineWidth;
@@ -387,10 +396,6 @@ export default class Shapes {
 
     this.textMap.forEach((t) => {
       if (t.isActive) {
-        this.context.save();
-        this.context.strokeStyle = "rgb(2, 211, 134)";
-        this.context.fillStyle = "rgb(2, 211, 134)"; // Color for active dots
-
         //dots
         this.dots(
           { x: t.x - this.tolerance, y: t.y - this.tolerance },
@@ -409,19 +414,18 @@ export default class Shapes {
         );
 
         this.context.beginPath();
+        this.context.strokeStyle = this.activeColor;
         this.context.rect(
-          t.x - t.tolerance,
-          t.y - t.tolerance,
+          t.x - this.tolerance,
+          t.y - this.tolerance,
           2 * this.tolerance + t.width,
           2 * this.tolerance + t.height
         );
         this.context.stroke();
-
-        this.context.restore();
       }
       // Set the font size before measuring the text
       this.context.fillStyle = t.fillStyle;
-      this.context.font = `${t.size}px ${t.font || "Arial"}`;
+      this.context.font = `${t.textSize}px ${t.font || "Arial"}`;
       let maxWidth = 0;
       let cumulativeHeight = 0;
 
@@ -444,29 +448,24 @@ export default class Shapes {
 
       t.content.forEach((c) => {
         const textMetrics = this.context.measureText(c);
-        this.context.fillText(
-          c,
-          t.x,
-          currentY + textMetrics.actualBoundingBoxAscent
-        );
-        currentY +=
-          textMetrics.actualBoundingBoxAscent +
-          textMetrics.actualBoundingBoxDescent +
-          this.tolerance;
+        this.context.fillText(c, t.x, currentY + t.textSize);
+        // currentY +=
+        //   textMetrics.actualBoundingBoxAscent +
+        //   textMetrics.actualBoundingBoxDescent;
+        currentY += t.textSize + 2;
       });
     });
 
     this.lineMap.forEach((line) => {
       if (line.isActive) {
         this.context.lineWidth = 3;
-        this.context.fillStyle = "rgb(2, 211, 134)";
-        this.context.strokeStyle = "rgb(2, 211, 134)";
+        // this.context.fillStyle = "rgb(2, 211, 134)";
+        this.context.strokeStyle = this.activeColor;
 
         this.dots(...line.curvePoints);
 
         if (!line.lineType || line.lineType === "straight") {
           this.context.beginPath();
-          this.context.lineWidth = 1;
           this.context.moveTo(line.curvePoints[0].x, line.curvePoints[0].y);
           for (let i = 1; i < line.curvePoints.length; i++) {
             this.context.lineTo(line.curvePoints[i].x, line.curvePoints[i].y);
@@ -487,43 +486,16 @@ export default class Shapes {
           this.context.lineTo(line.curvePoints[i].x, line.curvePoints[i].y);
         }
       } else if (line.lineType === "elbow") {
-        const headlen = 8;
+        const headlen = 15;
 
         this.context.lineWidth = line.lineWidth;
-
-        // if (
-        //    Math.abs(line.curvePoints[0].x - line.curvePoints[1].x) >= 100
-        // ) {
-        //    // Calculate the perpendicular point
-        //    let midpointX =
-        //       (line.curvePoints[1].x - line.curvePoints[0].x) * 0.8;
-
-        //    this.context.arcTo(
-        //       line.curvePoints[0].x + midpointX,
-        //       line.curvePoints[0].y,
-        //       line.curvePoints[1].x,
-        //       line.curvePoints[1].y,
-        //       radius
-        //    );
-        //    // this.context.lineTo(arrow.x + midpointX, arrow.y);
-        //    this.context.arcTo(
-        //       line.curvePoints[0].x + midpointX,
-        //       line.curvePoints[1].y,
-        //       line.curvePoints[1].x,
-        //       line.curvePoints[1].y,
-        //       radius
-        //    );
-
-        //    // Draw line from the midpoint to the endpoint
-        // } else {
-        //    // If x is equal to tox, draw a straight line to the endpoint
 
         this.context.arcTo(
           line.curvePoints[1].x,
           line.curvePoints[0].y,
           line.curvePoints[1].x,
           line.curvePoints[1].y,
-          5
+          line.radius
         );
         // Draw a line from the end of the arc to (arrow.tox, arrow.toy)
         // }
@@ -563,25 +535,37 @@ export default class Shapes {
         } else if (firstPoint.y < lastPoint.y) {
           // Draw the first side of the arrowhead
           this.context.moveTo(lastPoint.x, lastPoint.y);
-          this.context.lineTo(lastPoint.x + headlen, lastPoint.y - 5);
+          this.context.lineTo(
+            lastPoint.x + headlen * 0.5,
+            lastPoint.y - headlen
+          );
           this.context.stroke();
           this.context.closePath();
 
           // Draw the second side of the arrowhead
           this.context.beginPath();
           this.context.moveTo(lastPoint.x, lastPoint.y);
-          this.context.lineTo(lastPoint.x - headlen, lastPoint.y - 5);
+          this.context.lineTo(
+            lastPoint.x - headlen * 0.5,
+            lastPoint.y - headlen
+          );
         } else if (firstPoint.y > lastPoint.y) {
           // Draw the first side of the arrowhead
           this.context.moveTo(lastPoint.x, lastPoint.y);
-          this.context.lineTo(lastPoint.x + 5, lastPoint.y + 5);
+          this.context.lineTo(
+            lastPoint.x + headlen * 0.5,
+            lastPoint.y + headlen
+          );
           this.context.stroke();
           this.context.closePath();
 
           // Draw the second side of the arrowhead
           this.context.beginPath();
           this.context.moveTo(lastPoint.x, lastPoint.y);
-          this.context.lineTo(lastPoint.x - headlen, lastPoint.y + 5);
+          this.context.lineTo(
+            lastPoint.x - headlen * 0.5,
+            lastPoint.y + headlen
+          );
         }
 
         // arrow front
@@ -620,7 +604,7 @@ export default class Shapes {
     this.context.lineWidth = 1.7;
     for (let i = 0; i < sides.length; i++) {
       this.context.beginPath();
-      this.context.fillStyle = "green";
+      this.context.fillStyle = this.activeColor;
       this.context.arc(sides[i].x, sides[i].y, 6, 0, 2 * Math.PI, false);
       this.context.fill();
       this.context.closePath();
@@ -862,9 +846,9 @@ export default class Shapes {
 
     this.textMap.forEach((text, key) => {
       if (
-        mouseX > text.x + text.width &&
+        mouseX > text.x + text.width - this.tolerance &&
         mouseX <= text.x + text.width + this.tolerance &&
-        mouseY > text.y + text.height &&
+        mouseY > text.y + text.height - this.tolerance &&
         mouseY <= text.y + text.height + this.tolerance
       ) {
         isResizing = true;
@@ -1112,7 +1096,10 @@ export default class Shapes {
       }
       this.draw();
     } else if (textResize) {
-      textResize.size = Math.max(10, mouseY - textResize.y); // Ensure minimum size
+      textResize.size = Math.max(
+        mouseX - textResize.x * 1.1,
+        mouseY - textResize.y * 1.1
+      ); // Ensure minimum size
       this.draw();
     } else if (lineResize) {
       if (this.resizeElement.direction === null) {
@@ -1650,6 +1637,7 @@ export default class Shapes {
           }
         });
       }
+      line.isActive = true;
       this.updateLineMinMax(this.resizeElement.key);
     } else if (sphere) {
       sphere.isActive = true;

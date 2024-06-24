@@ -7,6 +7,9 @@ class DefaultStyles {
     this.containerId = null;
     this.borderColor = "white";
     this.fillStyle = "transparent";
+    this.id = Date.now();
+    this.textSize = 20;
+    this.text = [];
   }
 }
 
@@ -46,5 +49,18 @@ export class Line extends DefaultStyles {
     this.maxX = null;
     this.minY = null;
     this.maxY = null;
+  }
+}
+
+export class Text extends DefaultStyles {
+  constructor(x, y, size, content = [], font) {
+    super();
+    this.content = content;
+    this.pointTo = [];
+    this.fillStyle = "white";
+    this.type = "text";
+    this.x = x;
+    this.y = y;
+    this.font = font;
   }
 }
