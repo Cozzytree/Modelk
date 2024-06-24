@@ -17,14 +17,12 @@ import {
   fontsizes,
 } from "@/lib/utils.ts";
 import { ClockIcon, PlusIcon, SquareIcon } from "@radix-ui/react-icons";
-import { Text } from "./stylesClass";
 
 export default function CanvasShapeOptions({
   currentActive,
   setCurrent,
   shapeClassRef,
   canvasRef,
-  textMap,
 }) {
   const handleRadius = (val) => {
     if (config.currentActive) {
@@ -57,10 +55,6 @@ export default function CanvasShapeOptions({
     text.addEventListener("blur", (e) => {
       const content = e.target.value.split("\n");
       currentActive.text = content;
-      //   const newText = new Text(x, y, 28, content, "Arial");
-      //   newText.containerId = currentActive.id;
-      //   textMap.set(key, newText);
-      //   console.log(newText);
       shape.draw();
       text.remove();
     });
@@ -174,11 +168,9 @@ export default function CanvasShapeOptions({
                 <div
                   onClick={() => changeFontSizes(font.q)}
                   key={font.size}
-                  className="grid grid-cols-[0.5fr_1fr] items-center"
+                  className="text-center text-sm cursor-pointer hover:bg-secondary transition-all duration-150 p-1 rounded-sm"
                 >
-                  <h2 className="text-[16px] flex justify-center items-center">
-                    {font.size}
-                  </h2>
+                  {font.size}
                 </div>
               ))}
             </MenubarContent>

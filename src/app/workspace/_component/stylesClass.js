@@ -14,7 +14,7 @@ class DefaultStyles {
 }
 
 export class Rect extends DefaultStyles {
-  constructor(x, y, width, height) {
+  constructor(x, y, width, height, text = [], textSize = 20) {
     super();
     this.pointTo = [];
     this.x = x;
@@ -22,11 +22,13 @@ export class Rect extends DefaultStyles {
     this.width = width;
     this.height = height;
     this.type = "rect";
+    this.text = text;
+    this.textSize = textSize;
   }
 }
 
 export class Circle extends DefaultStyles {
-  constructor(x, y, xRadius, yRadius) {
+  constructor(x, y, xRadius, yRadius, text = [], textSize = 20) {
     super();
     this.x = x;
     this.y = y;
@@ -34,11 +36,13 @@ export class Circle extends DefaultStyles {
     this.yRadius = yRadius;
     this.pointTo = [];
     this.type = "sphere";
+    this.text = text;
+    this.textSize = textSize;
   }
 }
 
 export class Line extends DefaultStyles {
-  constructor(lineType) {
+  constructor(lineType, minX = null, minY = null, maxX = null, maxY = null) {
     super();
     this.startTo = null;
     this.endTo = null;

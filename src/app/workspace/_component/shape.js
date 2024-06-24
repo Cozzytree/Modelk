@@ -9,7 +9,6 @@ export default class Shapes {
     textMap,
     lineMap,
     breakpoints,
-    mode,
     currentActive
   ) {
     this.canvas = canvas;
@@ -25,12 +24,15 @@ export default class Shapes {
     this.textMap = textMap;
     this.lineMap = lineMap;
     this.breakpoints = breakpoints;
-    this.mode = mode;
     this.currentActive = currentActive;
 
-    this.canvas.addEventListener("click", this.canvasClick.bind(this));
+    // this.canvas.addEventListener("click", (e) => {
+    //   if (e.altKey || config.mode === "handsFree") return;
+    //   this.canvasClick.bind(this);
+    // });
 
     document.addEventListener("keydown", (e) => {
+      // select all
       if (e.ctrlKey && e.key === "a") {
         e.preventDefault();
         this.rectMap.forEach((rect) => {
@@ -103,24 +105,26 @@ export default class Shapes {
       }
     });
 
-    this.canvas.addEventListener(
-      "mousedown",
-      this.mouseDownDragAndResize.bind(this)
-    );
-    this.canvas.addEventListener("mousemove", this.mouseMove.bind(this));
-    this.canvas.addEventListener("mouseup", this.mouseUp.bind(this));
+    // this.canvas.addEventListener(
+    //   "mousedown",
+    //   this.mouseDownDragAndResize.bind(this)
+    // );
+    // this.canvas.addEventListener("mousemove", this.mouseMove.bind(this));
+    // this.canvas.addEventListener("mouseup", this.mouseUp.bind(this));
   }
 
   canvasClick(e) {
     if (
-      this.mode === "pencil" ||
-      this.mode === "line" ||
-      this.mode === "arrowLine" ||
-      this.mode === "text" ||
-      this.mode === "circle" ||
-      this.mode === "rect"
-    )
+      config.mode === "handsFree" ||
+      config.mode === "pencil" ||
+      config.mode === "line" ||
+      config.mode === "arrowLine" ||
+      config.mode === "text" ||
+      config.mode === "circle" ||
+      config.mode === "rect"
+    ) {
       return;
+    }
     // to get the current active shape so to show the shape options
     config.currentActive = null;
 
@@ -227,20 +231,21 @@ export default class Shapes {
       minLine &&
       (!square || minLine.maxX - minLine.minX < square.width)
     ) {
-      config.currentActive = minLine;
       minLine.isActive = true;
+      config.currentActive = minLine;
     }
     this.draw();
+    return config.currentActive;
   }
 
   draw() {
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height); // Clear the this.canvas
 
     this.context.save();
-    // this.context.translate(
-    //   -scrollBar.scrollPositionX,
-    //   -scrollBar.scrollPositionY
-    // );
+    this.context.translate(
+      -scrollBar.scrollPositionX,
+      -scrollBar.scrollPositionY
+    );
     this.context.scale(Scale.scale, Scale.scale);
     this.context.lineWidth = this.lineWidth;
     this.context.strokeStyle = "rgb(2, 211, 134)";
@@ -311,17 +316,7 @@ export default class Shapes {
       this.context.closePath();
 
       // render text
-      let maxWidth = 0;
-      let cumulativeHeight = y - y + height * 0.5;
-      this.context.fillStyle = "white";
-      this.context.font = `${textSize}px Arial`;
-      for (let i = 0; i < text.length; i++) {
-        const mertrics = this.context.measureText(text[i]);
-        maxWidth = Math.max(maxWidth, mertrics.width);
-        const midPoint = x + width * 0.5 - maxWidth * 0.5;
-        this.context.fillText(text[i], midPoint, y + cumulativeHeight);
-        cumulativeHeight += textSize;
-      }
+      this.renderText(text, x, y, textSize, height, width);
     });
 
     this.circleMap.forEach((sphere) => {
@@ -366,6 +361,16 @@ export default class Shapes {
       this.context.fill();
       this.context.closePath();
       this.context.stroke();
+
+      //   render text
+      this.renderText(
+        sphere.text,
+        x,
+        y,
+        sphere.textSize,
+        2 * sphere.yRadius,
+        2 * sphere.xRadius
+      );
     });
 
     // this.context.save();
@@ -427,20 +432,16 @@ export default class Shapes {
       this.context.fillStyle = t.fillStyle;
       this.context.font = `${t.textSize}px ${t.font || "Arial"}`;
       let maxWidth = 0;
-      let cumulativeHeight = 0;
 
       // Measure each string in the content array
       t.content.forEach((c) => {
         const textMetrics = this.context.measureText(c);
         maxWidth = Math.max(maxWidth, textMetrics.width);
-        cumulativeHeight +=
-          textMetrics.actualBoundingBoxAscent +
-          textMetrics.actualBoundingBoxDescent;
       });
 
       // Store the measured dimensions
       t.width = maxWidth;
-      t.height = cumulativeHeight + this.tolerance;
+      t.height = t.content.length * t.textSize;
 
       let currentY = t.y;
 
@@ -448,11 +449,15 @@ export default class Shapes {
 
       t.content.forEach((c) => {
         const textMetrics = this.context.measureText(c);
-        this.context.fillText(c, t.x, currentY + t.textSize);
-        // currentY +=
-        //   textMetrics.actualBoundingBoxAscent +
-        //   textMetrics.actualBoundingBoxDescent;
-        currentY += t.textSize + 2;
+        this.context.fillText(
+          c,
+          t.x,
+          currentY + textMetrics.actualBoundingBoxAscent
+        );
+        currentY +=
+          textMetrics.actualBoundingBoxAscent +
+          textMetrics.actualBoundingBoxDescent +
+          this.tolerance;
       });
     });
 
@@ -604,26 +609,27 @@ export default class Shapes {
     this.context.lineWidth = 1.7;
     for (let i = 0; i < sides.length; i++) {
       this.context.beginPath();
-      this.context.fillStyle = this.activeColor;
+      this.context.fillStyle = "transparent";
+      this.context.strokeStyle = this.activeColor;
       this.context.arc(sides[i].x, sides[i].y, 6, 0, 2 * Math.PI, false);
       this.context.fill();
+      this.context.stroke();
       this.context.closePath();
     }
   }
 
   getTransformedMouseCoords(event) {
     const rect = this.canvas.getBoundingClientRect();
-    // const mouseX =
-    //   (event.clientX - rect.left + scrollBar.scrollPositionX) / this.scale;
-    // const mouseY =
-    //   (event.clientY - rect.top + scrollBar.scrollPositionY) / this.scale;
-    const mouseX = (event.clientX - rect.left) / Scale.scale;
-    const mouseY = (event.clientY - rect.top) / Scale.scale;
+    const mouseX =
+      (event.clientX - rect.left + scrollBar.scrollPositionX) / Scale.scale;
+    const mouseY =
+      (event.clientY - rect.top + scrollBar.scrollPositionY) / Scale.scale;
     return { x: mouseX, y: mouseY };
   }
 
   mouseDownDragAndResize(e) {
-    if (this.mode === "pencil") return;
+    if (config.mode === "pencil" || config.mode === "handsFree") return;
+    if (e.altKey) return;
     let isResizing = false;
 
     const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
@@ -971,7 +977,7 @@ export default class Shapes {
   }
 
   mouseMove(e) {
-    if (this.mode === "pencil") return;
+    if (config.mode === "pencil") return;
 
     if (!this.resizeElement && !this.dragElement) return;
     const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
@@ -1096,9 +1102,9 @@ export default class Shapes {
       }
       this.draw();
     } else if (textResize) {
-      textResize.size = Math.max(
-        mouseX - textResize.x * 1.1,
-        mouseY - textResize.y * 1.1
+      textResize.textSize = Math.max(
+        mouseX - textResize.x * 1.5,
+        mouseY - textResize.y * 1
       ); // Ensure minimum size
       this.draw();
     } else if (lineResize) {
@@ -1425,7 +1431,7 @@ export default class Shapes {
   }
 
   mouseUp(e) {
-    if (this.mode === "pencil") return;
+    if (config.mode === "pencil" || config.mode === "handsFree") return;
 
     this.canvas.removeEventListener("mousemove", this.mouseMove.bind(this));
     const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
@@ -1719,7 +1725,7 @@ export default class Shapes {
       -scrollBar.scrollPositionY
     );
     this.breakPointsCtx.scale(Scale.scale, Scale.scale);
-    this.breakPointsCtx.lineWidth = 1.2;
+    this.breakPointsCtx.lineWidth = 1;
     this.breakPointsCtx.strokeStyle = "red";
 
     // Variable to track if a guide is drawn
@@ -1768,8 +1774,8 @@ export default class Shapes {
   }
 
   updateGuides(key, x, y, width, height) {
-    if (!this?.breakpoints) return;
     const adjust = this.breakpoints.get(key);
+    if (!adjust) return;
     adjust.minX = x;
     adjust.minY = y;
     adjust.maxX = width;
@@ -2028,5 +2034,32 @@ export default class Shapes {
       this.mouseDownDragAndResize.bind(this)
     );
     this.canvas.removeEventListener("click", this.canvasClick.bind(this));
+  }
+
+  renderText(textArray, x, y, textSize, height, width) {
+    // Calculate the total height of the text block
+    let totalTextHeight = textArray.length * textSize;
+
+    // Calculate the starting y-coordinate to center the text block vertically
+    let startY = y + (height - totalTextHeight) * 0.5;
+
+    // Set the text properties
+    this.context.fillStyle = "white";
+    this.context.font = `${textSize}px Arial`;
+
+    // Iterate through the text array and render each line
+    for (let i = 0; i < textArray.length; i++) {
+      // Measure the width of the current line of text
+      const metrics = this.context.measureText(textArray[i]);
+
+      // Calculate the x-coordinate to center the text horizontally
+      const midPoint = x + (width - metrics.width) * 0.5;
+
+      // Render the text
+      this.context.fillText(textArray[i], midPoint, startY);
+
+      // Move to the next line
+      startY += textSize;
+    }
   }
 }
