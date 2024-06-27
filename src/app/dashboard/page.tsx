@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,8 +28,7 @@ import Share from "./_component/share";
 import Copy from "./_component/copy";
 import Delete from "./_component/delete";
 import Sidebar from "../(component)/sidebar";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useGetCurrentUser } from "@/requests/authRequests";
+import { useGetCurrentUser, useSignUp } from "@/requests/authRequests";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useGetUserTeams } from "@/requests/teams";
@@ -37,14 +37,15 @@ import { useTeamFiles } from "@/requests/project";
 const arr = Array.from({ length: 10 }, () => {});
 
 export default function Home() {
-  const { isLoading, currentUser } = useGetCurrentUser();
+  const [activeTeam, setActiveTeam] = useState<any>(null);
+  const { user, isLoading } = useKindeBrowserClient();
+  const { mutate, isPending } = useSignUp();
   const {
     data: userTeams,
     isLoading: loadingTeams,
     error,
-  }: { data: any; isLoading: boolean; error: any } = useGetUserTeams();
-  const router = useRouter();
-  const [activeTeam, setActiveTeam] = useState<any>(null);
+    refetch: getUserTeams,
+  } = useGetUserTeams();
   const {
     data: files,
     isLoading: loadingFiles,
@@ -52,8 +53,21 @@ export default function Home() {
   } = useTeamFiles(activeTeam?._id);
 
   useEffect(() => {
-    if (!isLoading && !currentUser?.data) router.push("/login");
-  }, [isLoading, currentUser, router]);
+    if (user && !isLoading) {
+      mutate(
+        {
+          username: user.given_name,
+          picture: user.picture || "",
+          email: user.email,
+        },
+        {
+          onSuccess: () => {
+            getUserTeams();
+          },
+        }
+      );
+    }
+  }, [user, mutate, isLoading]);
 
   useEffect(() => {
     if (userTeams) setActiveTeam(userTeams.data[0]);
@@ -64,12 +78,20 @@ export default function Home() {
   }, [activeTeam, refetch]);
 
   return (
-    <div className="w-full grid grid-cols-[auto_1fr] h-[100dvh] overflow-y-auto">
-      <Sidebar
-        userTeams={userTeams}
-        activeTeam={activeTeam}
-        setActiveTeam={setActiveTeam}
-      />
+    <div className="w-full flex h-[100dvh] overflow-y-auto">
+      {loadingTeams ? (
+        <div className="w-[200px] flex justify-center">
+          <ReloadIcon className="animate-spin" />
+        </div>
+      ) : (
+        <Sidebar
+          userTeams={userTeams}
+          activeTeam={activeTeam}
+          setActiveTeam={setActiveTeam}
+          user={user}
+        />
+      )}
+
       <div className="w-full flex flex-col items-center">
         <nav className="w-full py-5 px-6">
           <menu className="flex gap-5">
@@ -126,7 +148,7 @@ export default function Home() {
                         <TableRow key={index} className="w-full">
                           <TableCell className="w-[30%]">
                             <Link
-                              href={`http://localhost:5173/${file?._id}`}
+                              href={`/workspace/${file?._id}`}
                               className="block w-full h-full"
                             >
                               {file?.name}
@@ -134,13 +156,13 @@ export default function Home() {
                           </TableCell>
                           <TableCell className="w-[20%]">
                             <Link
-                              href={`http://localhost:5173/${file?._id}`}
+                              href={`/workspace/${file?._id}`}
                               className="block w-full h-full"
                             ></Link>
                           </TableCell>
                           <TableCell className="">
                             <Link
-                              href={`http://localhost:5173/${file?._id}`}
+                              href={`/workspace/${file?._id}`}
                               className="block w-full h-full"
                             >
                               {new Intl.DateTimeFormat("en-GB", {
@@ -150,7 +172,7 @@ export default function Home() {
                           </TableCell>
                           <TableCell className="">
                             <Link
-                              href={`http://localhost:5173/${file?._id}`}
+                              href={`/workspace/${file?._id}`}
                               className="block w-full h-full "
                             >
                               0
@@ -158,13 +180,13 @@ export default function Home() {
                           </TableCell>
                           <TableCell className="">
                             <Link
-                              href={`http://localhost:5173/${file?._id}`}
+                              href={`/workspace/${file?._id}`}
                               className="block w-full h-full"
                             ></Link>
                           </TableCell>
                           <TableCell className="">
                             <Link
-                              href={`http://localhost:5173/${file?._id}`}
+                              href={`/workspace/${file?._id}`}
                               className="block w-full h-full"
                             >
                               {file?.author}

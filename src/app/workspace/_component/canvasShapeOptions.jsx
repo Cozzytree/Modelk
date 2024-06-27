@@ -8,15 +8,9 @@ import {
   MenubarSubTrigger,
   MenubarTrigger,
 } from "@/components/ui/menubar";
-import {
-  config,
-  colors,
-  thickness,
-  radius,
-  lineType,
-  fontsizes,
-} from "@/lib/utils.ts";
-import { ClockIcon, PlusIcon, SquareIcon } from "@radix-ui/react-icons";
+import { config, colors, thickness, lineType, fontsizes } from "@/lib/utils.ts";
+import { PlusIcon, SquareIcon } from "@radix-ui/react-icons";
+import ColorOptions from "./colorOptions.tsx";
 
 export default function CanvasShapeOptions({
   currentActive,
@@ -85,14 +79,15 @@ export default function CanvasShapeOptions({
             <MenubarTrigger
               style={{
                 background:
-                  config?.currentActive.fillStyle ||
-                  config?.currentActive.borderColor,
+                  currentActive.fillStyle || currentActive.borderColor,
               }}
               className="w-[30px] h-[30px]"
             ></MenubarTrigger>
             <MenubarContent className="grid grid-cols-4 w-fit gap-[3px]">
               {colors.map((color) => (
-                <div
+                <ColorOptions
+                  color={color}
+                  key={color}
                   onClick={() => {
                     if (config.currentActive) {
                       if (config.currentActive.type === "line") {
@@ -102,10 +97,7 @@ export default function CanvasShapeOptions({
                       if (shapeClassRef) shapeClassRef.draw();
                     }
                   }}
-                  key={color}
-                  style={{ background: color }}
-                  className="w-[30px] h-[30px] rounded-sm border border-zinc-300 shadow-sm shadow-zinc-700 cursor-pointer"
-                ></div>
+                />
               ))}
             </MenubarContent>
           </MenubarMenu>
@@ -122,7 +114,9 @@ export default function CanvasShapeOptions({
                     ></MenubarSubTrigger>
                     <MenubarSubContent className="grid grid-cols-4 w-fit gap-[3px]">
                       {colors.map((color) => (
-                        <div
+                        <ColorOptions
+                          color={color}
+                          key={color}
                           onClick={() => {
                             if (config.currentActive) {
                               config.currentActive.borderColor = color;
@@ -130,10 +124,7 @@ export default function CanvasShapeOptions({
                               if (shapeClassRef) shapeClassRef.draw();
                             }
                           }}
-                          key={color}
-                          style={{ background: color }}
-                          className="w-[30px] h-[30px] rounded-sm border border-zinc-300 shadow-sm shadow-zinc-700 cursor-pointer"
-                        ></div>
+                        />
                       ))}
                     </MenubarSubContent>
                   </MenubarSub>
@@ -175,6 +166,7 @@ export default function CanvasShapeOptions({
               ))}
             </MenubarContent>
           </MenubarMenu>
+
           {currentActive.type === "line" && (
             <MenubarMenu>
               <MenubarTrigger className="">\</MenubarTrigger>
@@ -223,6 +215,7 @@ export default function CanvasShapeOptions({
               </MenubarContent>
             </MenubarMenu>
           )}
+
           {currentActive.type === "rect" && (
             <MenubarMenu>
               <MenubarTrigger>

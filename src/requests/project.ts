@@ -1,7 +1,9 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, QueryClient } from "@tanstack/react-query";
+import { useParams } from "next/navigation";
 import { toast } from "sonner";
 
 export const useCreateProject = () => {
+  const queryClient = new QueryClient();
   const { mutate, isPending } = useMutation({
     mutationFn: async ({
       teamId,
@@ -39,6 +41,7 @@ export const useCreateProject = () => {
       toast.success("File Successfully created", {
         position: "bottom-left",
       });
+      queryClient.invalidateQueries("teamProjects");
     },
     onError: (err) => {
       if (err) toast.error(err?.message, { position: "bottom-left" });
@@ -75,4 +78,32 @@ export const useTeamFiles = (teamId: String) => {
     enabled: false,
   });
   return { data, isLoading, refetch };
+};
+
+export const useGetProjectAssets = () => {
+  const params = useParams();
+  const {
+    data: projectData,
+    isLoading,
+    error,
+  } = useQuery({
+    queryFn: async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_APIURL}/project/getProjectAssets/${params?.workspaceId}`,
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
+        const data = await res.json();
+
+        return data;
+      } catch (error: any) {
+        if (error) throw new Error(error?.message);
+      }
+    },
+    queryKey: ["projectAssets"],
+  });
+  return { projectData, isLoading, error };
 };

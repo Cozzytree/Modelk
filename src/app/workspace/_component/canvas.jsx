@@ -1,18 +1,30 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { config, Scale, scrollBar } from "@/lib/utils.ts";
 import Shape from "./shape.js";
-import { Button } from "@/components/ui/button.tsx";
 import CanvasShapeOptions from "../_component/canvasShapeOptions.jsx";
 import {
   ArrowBottomRightIcon,
   BoxIcon,
+  BoxModelIcon,
   CircleIcon,
   CursorArrowIcon,
   HandIcon,
+  Pencil1Icon,
+  TextIcon,
 } from "@radix-ui/react-icons";
+import ZoomLabel from "./ZoomLabel.tsx";
+import { useEffect, useRef, useState } from "react";
+import { config, Scale, scrollBar } from "@/lib/utils.ts";
+import { Button } from "@/components/ui/button.tsx";
 import { Rect, Circle, Line, Text } from "../_component/stylesClass.js";
+import { useNewRect, useNewSphere } from "@/requests/shapeRequests.ts";
+import { useParams } from "next/navigation.js";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip.tsx";
 
 const buttons = [
   { icon: <HandIcon />, label: "handsFree" },
@@ -20,6 +32,8 @@ const buttons = [
   { icon: <BoxIcon />, label: "rect" },
   { icon: <CircleIcon />, label: "sphere" },
   { icon: <ArrowBottomRightIcon />, label: "arrowLine" },
+  { icon: <TextIcon />, label: "text" },
+  { icon: <Pencil1Icon />, label: "pencil" },
 ];
 
 const width = 2000;
@@ -61,12 +75,20 @@ function drawCurve(line, tempPoint, canvas, context) {
   context.closePath();
 }
 
-export default function Canvas() {
+export default function Canvas({}) {
+  // shapes
+  //   const { mutate: createNewRect, isPending } = useNewRect();
+  //   const { newSphere: createNewSphere } = useNewSphere();
+  const params = useParams();
+
+  // maps
   const [rectMap, setRectMap] = useState(new Map());
   const [circleMap, setCircleMap] = useState(new Map());
   const [textMap, setTextMap] = useState(new Map());
   const [lineMap, setLineMap] = useState(new Map());
   const [breakPoints, setBreakPoints] = useState(new Map());
+  const [pencil, setPencil] = useState(new Map());
+
   const [mode, setMode] = useState("free");
   const [currentActive, setCurrentActive] = useState(null);
   const [scale, setScale] = useState(Scale.scale);
@@ -88,19 +110,11 @@ export default function Canvas() {
       input.focus();
       const changeEvent = (e) => {
         const mouseX = event.clientX - canvas.getBoundingClientRect().left;
-        // const mouseY =
-        //   event.clientY -
-        //   canvas.getBoundingClientRect().top +
-        //   scrollBar.scrollPositionY;
         const mouseY = event.clientY - canvas.getBoundingClientRect().top;
 
         const content = e.target.value.split("\n");
         const newText = new Text(mouseX, mouseY, 15, content, "Monoscope");
-        const key = Math.random() * 100;
-        const newTextMap = new Map(textMap);
-        newTextMap.set(key, newText);
-        setTextMap(newTextMap);
-        // if (shapeClassRef.current) shapeClassRef.current.draw();
+        textMap.set(newText.id, newText);
         input.remove();
       };
 
@@ -143,27 +157,46 @@ export default function Canvas() {
       const { x: mouseX, y: mouseY } = shape.getTransformedMouseCoords(e);
       if (config.mode === "rect") {
         const newRect = new Rect(mouseX, mouseY, 100, 100);
+        // createNewRect({
+        //   projectId: params.workspaceId,
+        //   type: newRect.type,
+        //   params: newRect,
+        // });
         rectMap.set(newRect.id, newRect);
+
+        // change modes
         setMode("free");
         config.mode = "free";
+
+        // add breakpoint
         breakPoints.set(newRect.id, {
           minX: newRect.x,
           minY: newRect.y,
           maxX: newRect.x + newRect.width,
           maxY: newRect.y + newRect.height,
+          midX: newRect.x + newRect.width / 2,
+          midY: newRect.y + newRect.height / 2,
         });
       } else if (mode === "sphere") {
         const newSphere = new Circle(mouseX, mouseY, 50, 50);
+        // createNewSphere({
+        //   projectId: params.workspaceId,
+        //   sphereData: { shapeType: newSphere.type, params: newSphere },
+        // });
         circleMap.set(newSphere.id, newSphere);
 
+        // change modes
         setMode("free");
         config.mode = "free";
+
+        // add breakpoint
         breakPoints.set(newSphere.id, {
           minX: newSphere.x - newSphere.xRadius,
           minY: newSphere.y - newSphere.yRadius,
           maxX: newSphere.x + newSphere.xRadius,
           maxY: newSphere.y + newSphere.yRadius,
-          mid: newSphere.x,
+          midX: newSphere.x,
+          midY: newSphere.y,
         });
       }
     };
@@ -411,99 +444,126 @@ export default function Canvas() {
     };
   }, [rectMap]);
 
+  //   useEffect(() => {
+  //     if (shapes.length > 0)
+  //       shapes.forEach((s) => {
+  //         if (s.shapeType === "rect") {
+  //           rectMap.set(s.params.id, s.params);
+  //         } else if (s.shapeType === "sphere") {
+  //           circleMap.set(s.params.id, s.params);
+  //         }
+  //       });
+  //     if (shapeClassRef.current) shapeClassRef.current.draw();
+  //   }, []);
+
   return (
     <>
       <canvas ref={breakPointsRef} className="absolute top-0 left-0"></canvas>
       <canvas ref={canvasRef} className="absolute top-0 left-0"></canvas>
-      <div className="absolute top-10 left-2 border border-zinc-800 p-[4px] flex flex-col items-center">
-        {buttons.map((button, i) => (
+      <TooltipProvider>
+        <div className="absolute top-[8%] left-2 border border-zinc-800 p-[4px] flex flex-col items-center">
+          {buttons.map((button, i) => (
+            <Tooltip key={i}>
+              <TooltipTrigger>
+                <Button
+                  onClick={() => {
+                    config.mode = button.label;
+                    setMode(button.label);
+                  }}
+                  variant="ghost"
+                  size="icon"
+                  className={`${
+                    button.label === mode ? "bg-accent" : ""
+                  } text-xs p-2 w-fit h-fit`}
+                >
+                  {button.icon}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{button.label}</TooltipContent>
+            </Tooltip>
+          ))}
           <Button
             onClick={() => {
-              config.mode = button.label;
-              setMode(button.label);
+              let line = null;
+              let isDrawing = false;
+              let tempPoint = null;
+              let minX = Infinity;
+              let maxX = -Infinity;
+              let minY = Infinity;
+              let maxY = -Infinity;
+              const shape = shapeClassRef.current;
+              const canvas = canvasRef.current;
+              const context = canvas.getContext("2d");
+
+              const onMouseMove = (e) => {
+                if (line && isDrawing && shape) {
+                  const { x, y } = shape.getTransformedMouseCoords(e);
+                  tempPoint = { x: x, y: y };
+                  drawCurve(line, tempPoint, canvas, context);
+                }
+              };
+
+              const onCanvasClick = (e) => {
+                const { x, y } = shape.getTransformedMouseCoords(e);
+                if (x < minX) {
+                  minX = x;
+                }
+                if (x > maxX) {
+                  maxX = x;
+                }
+                if (y < minY) {
+                  minY = y;
+                }
+                if (y > maxY) {
+                  maxY = y;
+                }
+
+                if (!line && !isDrawing) {
+                  line = new Line();
+                  line.curvePoints.push({ x: x, y: y });
+                  isDrawing = true;
+                  canvas.addEventListener("mousemove", onMouseMove);
+                } else {
+                  line.curvePoints.push({ x: x, y: y });
+                }
+                tempPoint = null; // Reset the temp point after adding the click point to the array
+              };
+
+              const onCanvasDblClick = (e) => {
+                isDrawing = false;
+                canvas.removeEventListener("mousemove", onMouseMove);
+                canvas.removeEventListener("click", onCanvasClick);
+                canvas.removeEventListener("dblclick", onCanvasDblClick);
+                line.curvePoints.pop();
+                line.minX = minX;
+                line.maxX = maxX;
+                line.minY = minY;
+                line.maxY = maxY;
+                //   line.isStraight = true;
+                lineMap.set(Math.random() * 10, line);
+                setMode("free");
+                shape.draw();
+              };
+
+              canvas.addEventListener("click", onCanvasClick);
+              canvas.addEventListener("dblclick", onCanvasDblClick);
             }}
             variant="ghost"
             size="icon"
-            className={`${
-              button.label === mode ? "bg-secondary" : ""
-            } text-xs p-2 w-fit h-fit`}
-            key={i}
+            className={`text-xs p-2 w-full h-fit`}
           >
-            {button.icon}
+            <div className="w-[2px] h-[20px] bg-white rotate-[142deg]"></div>
           </Button>
-        ))}
-        <Button
-          onClick={() => {
-            let line = null;
-            let isDrawing = false;
-            let tempPoint = null;
-            let minX = Infinity;
-            let maxX = -Infinity;
-            let minY = Infinity;
-            let maxY = -Infinity;
-            const shape = shapeClassRef.current;
-            const canvas = canvasRef.current;
-            const context = canvas.getContext("2d");
 
-            const onMouseMove = (e) => {
-              if (line && isDrawing && shape) {
-                const { x, y } = shape.getTransformedMouseCoords(e);
-                tempPoint = { x: x, y: y };
-                drawCurve(line, tempPoint, canvas, context);
-              }
-            };
-
-            const onCanvasClick = (e) => {
-              const { x, y } = shape.getTransformedMouseCoords(e);
-              if (x < minX) {
-                minX = x;
-              }
-              if (x > maxX) {
-                maxX = x;
-              }
-              if (y < minY) {
-                minY = y;
-              }
-              if (y > maxY) {
-                maxY = y;
-              }
-
-              if (!line && !isDrawing) {
-                line = new Line();
-                line.curvePoints.push({ x: x, y: y });
-                isDrawing = true;
-                canvas.addEventListener("mousemove", onMouseMove);
-              } else {
-                line.curvePoints.push({ x: x, y: y });
-              }
-              tempPoint = null; // Reset the temp point after adding the click point to the array
-            };
-
-            const onCanvasDblClick = (e) => {
-              isDrawing = false;
-              canvas.removeEventListener("mousemove", onMouseMove);
-              canvas.removeEventListener("click", onCanvasClick);
-              canvas.removeEventListener("dblclick", onCanvasDblClick);
-              line.curvePoints.pop();
-              line.minX = minX;
-              line.maxX = maxX;
-              line.minY = minY;
-              line.maxY = maxY;
-              //   line.isStraight = true;
-              lineMap.set(Math.random() * 10, line);
-              shape.draw();
-            };
-
-            canvas.addEventListener("click", onCanvasClick);
-            canvas.addEventListener("dblclick", onCanvasDblClick);
-          }}
-          variant="ghost"
-          size="icon"
-          className={`text-xs p-2 w-full h-fit`}
-        >
-          <div className="w-[2px] h-[20px] bg-white rotate-[142deg]"></div>
-        </Button>
-      </div>
+          <Button
+            className={`text-xs p-2 w-full h-fit`}
+            variant="ghost"
+            size="icon"
+          >
+            <BoxModelIcon />
+          </Button>
+        </div>
+      </TooltipProvider>
 
       {currentActive && (
         <CanvasShapeOptions
@@ -513,7 +573,7 @@ export default function Canvas() {
           canvasRef={canvasRef}
         />
       )}
-      <div className="absolute right-3 top-10">{scale * 100} %</div>
+      <ZoomLabel scale={scale} />
     </>
   );
 }

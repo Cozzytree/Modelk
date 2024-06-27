@@ -75,7 +75,39 @@ export const useGetCurrentUser = () => {
   return { currentUser, isLoading, error };
 };
 
-export const signUp = () => {};
+export const useSignUp = () => {
+  const { mutate, isPending } = useMutation({
+    mutationFn: async (userData: any) => {
+      try {
+        const response = await fetch(
+          "http://localhost:8000/api/v1/user/sign_up",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify(userData),
+            signal: AbortSignal.timeout(30000),
+          }
+        );
+        const data = await response.json();
+        if (!data?.success) {
+          throw new Error(data?.message);
+        }
+      } catch (error: any) {
+        if (error) throw new Error(error?.message);
+      }
+    },
+    onSuccess: () => {
+      toast.success("user successfully created", { position: "bottom-left" });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message, { position: "bottom-left" });
+    },
+  });
+  return { mutate, isPending };
+};
 
 export const useLogout = () => {
   const { replace } = useRouter();
@@ -93,7 +125,7 @@ export const useLogout = () => {
 
         return data;
       } catch (error: any) {
-        if (error.type === "AbortSignla") {
+        if (error.type === "AbortSignal") {
           throw new Error("timed out");
         } else {
           throw new Error(error?.message);

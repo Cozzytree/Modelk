@@ -3,11 +3,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 export const useGetUserTeams = () => {
-  const {
-    data,
-    isLoading,
-    error,
-  }: { data: any; isLoading: boolean; error: any } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryFn: async () => {
       try {
         const res = await fetch(
@@ -28,9 +24,10 @@ export const useGetUserTeams = () => {
       }
     },
     queryKey: ["userTeams"],
+    enabled: false,
   });
 
-  return { data, isLoading, error };
+  return { data, isLoading, error, refetch };
 };
 
 export const useCreateTeam = () => {

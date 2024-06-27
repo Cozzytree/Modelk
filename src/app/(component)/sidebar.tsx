@@ -32,10 +32,18 @@ import { Input } from "@/components/ui/input";
 import { useCreateProject } from "@/requests/project";
 import { useLogout } from "@/requests/authRequests";
 import { ReloadIcon } from "@radix-ui/react-icons";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { AvatarImage } from "@radix-ui/react-avatar";
+import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs";
 
 const kalam = Kalam({ subsets: ["latin"], weight: "400" });
 
-const Sidebar = ({ userTeams, activeTeam, setActiveTeam }: any) => {
+const Sidebar = ({
+  userTeams,
+  activeTeam,
+  setActiveTeam,
+  user
+}: any) => {
   const { mutate: createProject, isPending: creatingProject } =
     useCreateProject();
 
@@ -47,103 +55,118 @@ const Sidebar = ({ userTeams, activeTeam, setActiveTeam }: any) => {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+
   return (
-    <div className="grid grid-rows-2 w-[250px] h-[100dvh] py-5 px-5 border-r">
-      <Dialog>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className={`font-extrabold w-full hover:bg-secondary text-start px-2 rounded-sm py-[2px] h-fit`}
-          >
-            {activeTeam?.name}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className={clsx(`flex flex-col items-center px-1 w-full`)}
-          >
-            {userTeams?.data &&
-              userTeams?.data?.map((team: any) => (
-                <DropdownMenuItem
-                  className={`${
-                    activeTeam?._id === team._id && "bg-primary text-secondary"
-                  } w-full`}
-                  onClick={() => setActiveTeam(team)}
-                  key={team._id}
-                >
-                  {team.name}
-                </DropdownMenuItem>
-              ))}
-
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="w-full">
-              <Link href={"/teams/create"}>Create NewTeam</Link>
-            </DropdownMenuItem>
-
-            <Dialog>
-              <DialogTrigger className="w-full flex justify-start hover:bg-secondary text-lg px-2 py-[8px]">
-                Settings
-              </DialogTrigger>
-
-              <DialogContent>
-                <DialogHeader>Settings</DialogHeader>
-                <div className="w-full grid grid-cols-[0.3fr_1fr] gap-3">
-                  <nav className="flex flex-col items-start gap-1 w-full">
-                    <p className=" capitalize font-bold text-md py-2">
-                      PERSONAL
-                    </p>
-                    <button className="text-md px-1 py-[2px] hover:bg-secondary w-full text-start rounded-sm">
-                      Account
-                    </button>
-                    <button className="text-md px-1 py-[2px] hover:bg-secondary w-full text-start rounded-sm">
-                      Apperance
-                    </button>
-                  </nav>
-
-                  <div>Username</div>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            <AlertDialog>
-              <AlertDialogTrigger className="w-full flex justify-start hover:bg-secondary text-lg px-2 py-[8px]">
-                Logout
-              </AlertDialogTrigger>
-
-              <AlertDialogContent>
-                <AlertDialogHeader>Logout !</AlertDialogHeader>
-                <div className="w-full flex gap-2 items-center justify-end">
-                  <AlertDialogCancel
-                    className={`${buttonVariants({
-                      variant: "ghost",
-                      size: "sm",
-                    })}`}
+    <div className="grid grid-rows-2 h-[100dvh] py-5 px-5 border-r">
+      <div className="flex flex-col gap-4 items-start">
+        <Dialog>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className={`font-extrabold bg-primary hover:bg-secondary text-start px-2 rounded-sm py-[2px] h-fit`}
+            >
+              {activeTeam?.name}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className={clsx(`flex flex-col items-center px-1 w-full`)}
+            >
+              {userTeams?.data &&
+                userTeams?.data?.map((team: any) => (
+                  <DropdownMenuItem
+                    className={`${
+                      activeTeam?._id === team._id && "bg-primary"
+                    } w-full`}
+                    onClick={() => setActiveTeam(team)}
+                    key={team._id}
                   >
-                    Cancel
-                  </AlertDialogCancel>
-                  <Button
-                    disabled={isPending}
-                    variant="destructive"
-                    onClick={() => mutate()}
-                    size="sm"
-                  >
-                    {isPending ? (
-                      <ReloadIcon className=" animate-spin" />
-                    ) : (
-                      "Logout"
-                    )}
-                  </Button>
-                </div>
-              </AlertDialogContent>
-            </AlertDialog>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </Dialog>
+                    {team.name}
+                  </DropdownMenuItem>
+                ))}
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem className="w-full">
+                <Link href={"/teams/create"}>Create NewTeam</Link>
+              </DropdownMenuItem>
+
+              <Dialog>
+                <DialogTrigger className="hover:bg-accent w-full text-start rounded-sm px-2 py-1.5 text-sm outline-none transition-colors">
+                  Settings
+                </DialogTrigger>
+
+                <DialogContent>
+                  <DialogHeader>Settings</DialogHeader>
+                  <div className="w-full grid grid-cols-[0.3fr_1fr] gap-3">
+                    <nav className="flex flex-col items-start gap-1 w-full">
+                      <p className=" capitalize font-bold text-md py-2">
+                        PERSONAL
+                      </p>
+                      <button className="text-md px-1 py-[2px] hover:bg-secondary w-full text-start rounded-sm">
+                        Account
+                      </button>
+                      <button className="text-md px-1 py-[2px] hover:bg-secondary w-full text-start rounded-sm">
+                        Apperance
+                      </button>
+                    </nav>
+
+                    <div>Username</div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <AlertDialog>
+                <AlertDialogTrigger className="hover:bg-accent w-full text-start rounded-sm px-2 py-1.5 text-sm outline-none transition-colors">
+                  Logout
+                </AlertDialogTrigger>
+
+                <AlertDialogContent>
+                  <AlertDialogHeader>Logout !</AlertDialogHeader>
+                  <div className="w-full flex gap-2 items-center justify-end">
+                    <AlertDialogCancel
+                      className={`${buttonVariants({
+                        variant: "ghost",
+                        size: "sm",
+                      })}`}
+                    >
+                      Cancel
+                    </AlertDialogCancel>
+                    <LogoutLink
+                      onClick={() => {
+                        mutate();
+                      }}
+                      className={`${buttonVariants({
+                        variant: "destructive",
+                        size: "sm",
+                      })}`}
+                    >
+                      {isPending ? (
+                        <ReloadIcon className=" animate-spin" />
+                      ) : (
+                        "Logout"
+                      )}
+                    </LogoutLink>
+                  </div>
+                </AlertDialogContent>
+              </AlertDialog>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </Dialog>
+
+        <div className="flex items-center gap-1">
+          <Avatar className="w-[40px] h-[40px]">
+            <AvatarImage src={user?.picture} />
+            <AvatarFallback>{user?.given_name?.slice(0, 2)}</AvatarFallback>
+          </Avatar>
+          <p className="text-sm">{user?.email}</p>
+        </div>
+      </div>
 
       <div className="w-full flex flex-col justify-end">
         <Dialog>
           <DialogTrigger
             className={` ${buttonVariants({
-              variant: "default",
+              variant: "secondary",
               size: "sm",
-            })} h-fit w-full py-1 text-start`}
+            })} w-full py-1.5 hover:bg-accent text-start`}
           >
             New file
           </DialogTrigger>

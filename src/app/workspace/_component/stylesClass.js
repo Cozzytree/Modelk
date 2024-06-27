@@ -2,7 +2,6 @@ class DefaultStyles {
   constructor() {
     this.lineWidth = 1.7;
     this.isActive = false;
-    this.angle = 0;
     this.radius = 10;
     this.containerId = null;
     this.borderColor = "white";
@@ -49,10 +48,10 @@ export class Line extends DefaultStyles {
     this.curvePoints = [];
     this.lineType = lineType;
     this.type = "line";
-    this.minX = null;
-    this.maxX = null;
-    this.minY = null;
-    this.maxY = null;
+    this.minX = minX;
+    this.maxX = minY;
+    this.minY = minY;
+    this.maxY = maxY;
   }
 }
 
@@ -66,5 +65,6 @@ export class Text extends DefaultStyles {
     this.x = x;
     this.y = y;
     this.font = font;
+    this.textSize = size;
   }
 }
