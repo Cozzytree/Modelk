@@ -1,4 +1,4 @@
-import { Roboto, Inter } from "next/font/google";
+import { Roboto } from "next/font/google";
 import { buttonVariants } from "@/components/ui/button";
 import {
   RegisterLink,

@@ -1,3 +1,4 @@
+import ColorOptions from "./colorOptions.tsx";
 import { Button } from "@/components/ui/button";
 import {
   Menubar,
@@ -10,7 +11,6 @@ import {
 } from "@/components/ui/menubar";
 import { config, colors, thickness, lineType, fontsizes } from "@/lib/utils.ts";
 import { PlusIcon, SquareIcon } from "@radix-ui/react-icons";
-import ColorOptions from "./colorOptions.tsx";
 
 export default function CanvasShapeOptions({
   currentActive,

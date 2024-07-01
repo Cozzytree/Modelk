@@ -1,4 +1,3 @@
-import { Kalam } from "next/font/google";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,8 +35,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AvatarImage } from "@radix-ui/react-avatar";
 import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs";
 
-const kalam = Kalam({ subsets: ["latin"], weight: "400" });
-
 const Sidebar = ({
   userTeams,
   activeTeam,
@@ -72,9 +69,8 @@ const Sidebar = ({
               {userTeams?.data &&
                 userTeams?.data?.map((team: any) => (
                   <DropdownMenuItem
-                    className={`${
-                      activeTeam?._id === team._id && "bg-primary"
-                    } w-full`}
+                    className={`${activeTeam?._id === team._id && "bg-primary"
+                      } w-full`}
                     onClick={() => setActiveTeam(team)}
                     key={team._id}
                   >

@@ -1,4 +1,5 @@
 import { config, Scale, scrollBar } from "../../../lib/utils.ts";
+import Doc from "./Doc.jsx";
 
 export default class Shapes {
    constructor(
@@ -9,22 +10,26 @@ export default class Shapes {
       textMap,
       lineMap,
       breakpoints,
-      currentActive
+      currentActive,
+      renderCanvas
    ) {
       this.canvas = canvas;
       this.canvasBreakpoints = canvasBreakpoints;
+      this.renderCanvas = renderCanvas;
       this.activeColor = "#2165ee";
       this.tolerance = 6;
       this.resizeElement = null;
       this.dragElement = null;
       this.context = this.canvas.getContext("2d");
       this.breakPointsCtx = this.canvasBreakpoints.getContext("2d");
+      this.renderCanvasCtx = this.renderCanvas.getContext("2d");
       this.rectMap = rectMap;
       this.circleMap = circleMap;
       this.textMap = textMap;
       this.lineMap = lineMap;
       this.breakpoints = breakpoints;
       this.currentActive = currentActive;
+      this.shapeToRender = null;
 
       document.addEventListener("keydown", (e) => {
          // select all
@@ -102,15 +107,7 @@ export default class Shapes {
    }
 
    canvasClick(e) {
-      if (
-         config.mode === "handsFree" ||
-         config.mode === "pencil" ||
-         config.mode === "line" ||
-         config.mode === "arrowLine" ||
-         config.mode === "text" ||
-         config.mode === "circle" ||
-         config.mode === "rect"
-      ) {
+      if (config.mode === "handsFree" || config.mode === "pencil") {
          return;
       }
       // to get the current active shape so to show the shape options
@@ -222,22 +219,64 @@ export default class Shapes {
          minLine.isActive = true;
          config.currentActive = minLine;
       }
-      this.draw();
       return config.currentActive;
    }
 
    draw() {
-      this.context.clearRect(0, 0, this.canvas.width, this.canvas.height); // Clear the this.canvas
+      // Clear the canvas
+      this.context.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
       this.context.save();
+
+      //   const centerX = this.canvas.width / 2;
+      //   const centerY = this.canvas.height / 2;
+
+      //   // Translate to the center, apply scaling, and then translate back
+      //   this.context.translate(centerX, centerY);
+      this.context.scale(Scale.scale, Scale.scale);
+      //   this.context.translate(-centerX, -centerY);
+
       this.context.translate(
          -scrollBar.scrollPositionX,
          -scrollBar.scrollPositionY
       );
-      this.context.scale(Scale.scale, Scale.scale);
       this.context.lineWidth = this.lineWidth;
       this.context.strokeStyle = "rgb(2, 211, 134)";
 
+      const drawDotsAndRect = (
+         x,
+         y,
+         width,
+         height,
+         tolerance,
+         isActive,
+         activeColor
+      ) => {
+         if (isActive) {
+            // Draw dots
+            this.dots(
+               { x: x - tolerance, y: y - tolerance },
+               { x: x + width + tolerance, y: y - tolerance },
+               { x: x + width + tolerance, y: y + height + tolerance },
+               { x: x - tolerance, y: y + height + tolerance },
+               { context: this.context }
+            );
+
+            // Draw active rectangle
+            this.context.beginPath();
+            this.context.strokeStyle = activeColor;
+            this.context.rect(
+               x - tolerance,
+               y - tolerance,
+               width + 2 * tolerance,
+               height + 2 * tolerance
+            );
+            this.context.stroke();
+            this.context.closePath();
+         }
+      };
+
+      // Draw rectangles
       this.rectMap.forEach((rect) => {
          const {
             x,
@@ -250,47 +289,20 @@ export default class Shapes {
             fillStyle,
             text,
             textSize,
+            isActive,
          } = rect;
 
-         if (rect.isActive) {
-            //dots
-            this.dots(
-               { x: rect.x - this.tolerance, y: rect.y - this.tolerance },
-               {
-                  x: rect.x + rect.width + this.tolerance,
-                  y: rect.y - this.tolerance,
-               },
-               {
-                  x: rect.x + rect.width + this.tolerance,
-                  y: rect.y + rect.height + this.tolerance,
-               },
-               {
-                  x: rect.x - this.tolerance,
-                  y: rect.y + rect.height + this.tolerance,
-               }
-            );
+         drawDotsAndRect(
+            x,
+            y,
+            width,
+            height,
+            this.tolerance,
+            isActive,
+            this.activeColor
+         );
 
-            this.context.beginPath();
-            this.context.moveTo(x + width * 0.5, y - this.tolerance);
-            this.context.lineTo(x + width * 0.5, y - 20);
-            this.context.stroke();
-            this.context.closePath();
-
-            this.dots({ x: x + width * 0.5, y: y - 20 });
-
-            // Draw the rectangle using this.canvas rect method
-            this.context.beginPath();
-            this.context.strokeStyle = this.activeColor;
-            // this.context.fillStyle = "rgb(2, 211, 134)";
-            this.context.rect(
-               x - this.tolerance,
-               y - this.tolerance,
-               width + 2 * this.tolerance,
-               height + 2 * this.tolerance
-            );
-            this.context.stroke();
-         }
-
+         // Draw rounded rectangle
          this.context.beginPath();
          this.context.lineWidth = lineWidth;
          this.context.strokeStyle = borderColor;
@@ -304,36 +316,28 @@ export default class Shapes {
          this.context.fill();
          this.context.closePath();
 
-         // render text
+         // Render text
          this.renderText(text, x, y, textSize, height, width);
       });
 
+      // Draw circles
       this.circleMap.forEach((sphere) => {
          const x = sphere.x - sphere.xRadius;
          const y = sphere.y - sphere.yRadius;
-         const width = sphere.x + sphere.xRadius;
-         const height = sphere.y + sphere.yRadius;
-         if (sphere.isActive) {
-            //dots
-            this.dots(
-               { x: x - this.tolerance, y: y - this.tolerance },
-               { x: width + this.tolerance, y: y - this.tolerance },
-               { x: width + this.tolerance, y: height + this.tolerance },
-               { x: x - this.tolerance, y: height + this.tolerance }
-            );
+         const width = 2 * sphere.xRadius;
+         const height = 2 * sphere.yRadius;
 
-            // Draw the rectangle using this.canvas rect method
-            this.context.beginPath();
-            this.context.strokeStyle = this.activeColor;
-            // this.context.fillStyle = "rgb(2, 211, 134)";
-            this.context.rect(
-               x - this.tolerance,
-               y - this.tolerance,
-               2 * sphere.xRadius + 2 * this.tolerance,
-               2 * sphere.yRadius + 2 * this.tolerance
-            );
-            this.context.stroke();
-         }
+         drawDotsAndRect(
+            x,
+            y,
+            width,
+            height,
+            this.tolerance,
+            sphere.isActive,
+            this.activeColor
+         );
+
+         // Draw circle
          this.context.beginPath();
          this.context.lineWidth = sphere.lineWidth;
          this.context.fillStyle = sphere.fillStyle;
@@ -348,99 +352,57 @@ export default class Shapes {
             2 * Math.PI
          );
          this.context.fill();
-         this.context.closePath();
          this.context.stroke();
+         this.context.closePath();
 
-         //   render text
-         this.renderText(
-            sphere.text,
-            x,
-            y,
-            sphere.textSize,
-            2 * sphere.yRadius,
-            2 * sphere.xRadius
-         );
+         // Render text
+         this.renderText(sphere.text, x, y, sphere.textSize, height, width);
       });
 
-      // this.context.save();
-      // pencilMap.forEach((pencil) => {
-      //   this.context.beginPath();
-      //   pencil.forEach((coor, index) => {
-      //     if (index === 0) {
-      //       this.context.moveTo(coor.x, coor.y); // Move to the first point
-      //     } else {
-      //       // Use quadraticCurveTo for drawing curved lines
-      //       const prevCoor = pencil[index - 1];
-      //       const cx = (coor.x + prevCoor.x) / 2; // Control point x-coordinate
-      //       const cy = (coor.y + prevCoor.y) / 2; // Control point y-coordinate
-      //       this.context.quadraticCurveTo(prevCoor.x, prevCoor.y, cx, cy); // Draw a quadratic curve
-      //     }
-      //   });
-
-      //   // Set line properties
-      //   this.context.lineCap = "round";
-      //   this.context.lineJoin = "round";
-      //   this.context.lineWidth = 1.6;
-      //   this.context.strokeStyle = "#dcdcdc";
-      //   this.context.stroke();
-      //   this.context.closePath();
-      // });
-      // this.context.restore();
-      // this.context.clearRect(0, 0, this.canvas.width, this.canvas.height); // Clear the this.canvas
-
+      // Draw text blocks
       this.textMap.forEach((t) => {
-         if (t.isActive) {
-            //dots
-            this.dots(
-               { x: t.x - this.tolerance, y: t.y - this.tolerance },
-               {
-                  x: t.x + t.width + this.tolerance,
-                  y: t.y - this.tolerance,
-               },
-               {
-                  x: t.x + t.width + this.tolerance,
-                  y: t.y + t.height + this.tolerance,
-               },
-               {
-                  x: t.x - this.tolerance,
-                  y: t.y + t.height + this.tolerance,
-               }
-            );
+         const {
+            x,
+            y,
+            width,
+            height,
+            textSize,
+            font,
+            fillStyle,
+            content,
+            isActive,
+         } = t;
 
-            this.context.beginPath();
-            this.context.strokeStyle = this.activeColor;
-            this.context.rect(
-               t.x - this.tolerance,
-               t.y - this.tolerance,
-               2 * this.tolerance + t.width,
-               2 * this.tolerance + t.height
-            );
-            this.context.stroke();
-         }
-         // Set the font size before measuring the text
-         this.context.fillStyle = t.fillStyle;
-         this.context.font = `${t.textSize}px ${t.font || "Arial"}`;
+         drawDotsAndRect(
+            x,
+            y,
+            width,
+            height,
+            this.tolerance,
+            isActive,
+            this.activeColor
+         );
+
+         // Set the font size and style before measuring the text
+         this.context.fillStyle = fillStyle;
+         this.context.font = `${textSize}px ${font || "Arial"}`;
+
          let maxWidth = 0;
-
-         // Measure each string in the content array
-         t.content.forEach((c) => {
+         content.forEach((c) => {
             const textMetrics = this.context.measureText(c);
             maxWidth = Math.max(maxWidth, textMetrics.width);
          });
 
          // Store the measured dimensions
          t.width = maxWidth;
-         t.height = t.content.length * t.textSize;
+         t.height = content.length * textSize;
 
-         let currentY = t.y;
-
-         // Draw each string, adjusting the y coordinate
-
-         t.content.forEach((c) => {
+         let currentY = y;
+         content.forEach((c) => {
             const textMetrics = this.context.measureText(c);
             this.context.fillText(
                c,
-               t.x,
+               x,
                currentY + textMetrics.actualBoundingBoxAscent
             );
             currentY +=
@@ -450,160 +412,109 @@ export default class Shapes {
          });
       });
 
+      // Draw lines
       this.lineMap.forEach((line) => {
-         if (line.isActive) {
-            this.context.lineWidth = 3;
-            // this.context.fillStyle = "rgb(2, 211, 134)";
-            this.context.strokeStyle = this.activeColor;
-
-            this.dots(...line.curvePoints);
-
-            if (!line.lineType || line.lineType === "straight") {
-               this.context.beginPath();
-               this.context.moveTo(
-                  line.curvePoints[0].x,
-                  line.curvePoints[0].y
-               );
-               for (let i = 1; i < line.curvePoints.length; i++) {
-                  this.context.lineTo(
-                     line.curvePoints[i].x,
-                     line.curvePoints[i].y
-                  );
-               }
-               this.context.stroke();
-               this.context.closePath();
-            }
-         } else {
-            this.context.strokeStyle = line.borderColor;
-         }
+         const {
+            curvePoints,
+            lineWidth,
+            lineType,
+            borderColor,
+            radius,
+            isActive,
+         } = line;
 
          this.context.beginPath();
-         this.context.lineWidth = line.lineWidth;
-         this.context.moveTo(line.curvePoints[0].x, line.curvePoints[0].y);
+         this.context.lineWidth = lineWidth;
 
-         if (line.lineType === "straight") {
-            for (let i = 0; i < line.curvePoints.length; i++) {
-               this.context.lineTo(
-                  line.curvePoints[i].x,
-                  line.curvePoints[i].y
-               );
+         if (isActive) {
+            this.context.strokeStyle = this.activeColor;
+            this.dots(...curvePoints, { context: this.context });
+         } else {
+            this.context.strokeStyle = borderColor;
+         }
+
+         this.context.moveTo(curvePoints[0].x, curvePoints[0].y);
+
+         if (lineType === "straight") {
+            for (let i = 1; i < curvePoints.length; i++) {
+               this.context.lineTo(curvePoints[i].x, curvePoints[i].y);
             }
-         } else if (line.lineType === "elbow") {
+         } else if (lineType === "elbow") {
             const headlen = 15;
 
-            this.context.lineWidth = line.lineWidth;
+            // Draw the line
+            this.context.lineTo(curvePoints[1].x, curvePoints[1].y);
 
-            this.context.arcTo(
-               line.curvePoints[1].x,
-               line.curvePoints[0].y,
-               line.curvePoints[1].x,
-               line.curvePoints[1].y,
-               line.radius
-            );
-            // Draw a line from the end of the arc to (arrow.tox, arrow.toy)
-            // }
-            this.context.lineTo(line.curvePoints[1].x, line.curvePoints[1].y);
-
-            this.context.stroke();
-
-            // Draw the arrowhead
+            // Draw the back arrowhead
             const lastPoint = line.curvePoints[line.curvePoints.length - 1];
             const firstPoint = line.curvePoints[0];
 
-            // arrow back side
+            // Calculate the angle of the arrow
+            let angle = Math.atan2(
+               lastPoint.y - firstPoint.y,
+               lastPoint.x - firstPoint.x
+            );
+
+            // Draw the first side of the back arrowhead
+            this.context.moveTo(lastPoint.x, lastPoint.y);
+            this.context.lineTo(
+               lastPoint.x - headlen * Math.cos(angle - Math.PI / 6),
+               lastPoint.y - headlen * Math.sin(angle - Math.PI / 6)
+            );
+            this.context.stroke();
+            this.context.closePath();
+
+            // Draw the second side of the back arrowhead
             this.context.beginPath();
-            if (firstPoint.y === lastPoint.y) {
-               if (firstPoint.x < lastPoint.x) {
-                  // Draw the first side of the arrowhead
-                  this.context.moveTo(lastPoint.x, lastPoint.y);
-                  this.context.lineTo(lastPoint.x - headlen, lastPoint.y - 5);
-                  this.context.stroke();
-                  this.context.closePath();
+            this.context.moveTo(lastPoint.x, lastPoint.y);
+            this.context.lineTo(
+               lastPoint.x - headlen * Math.cos(angle + Math.PI / 6),
+               lastPoint.y - headlen * Math.sin(angle + Math.PI / 6)
+            );
+            this.context.stroke();
+            this.context.closePath();
 
-                  // Draw the second side of the arrowhead
-                  this.context.beginPath();
-                  this.context.moveTo(lastPoint.x, lastPoint.y);
-                  this.context.lineTo(lastPoint.x - headlen, lastPoint.y + 5);
-               } else {
-                  // Draw the first side of the arrowhead
-                  this.context.moveTo(lastPoint.x, lastPoint.y);
-                  this.context.lineTo(lastPoint.x + headlen, lastPoint.y - 5);
-                  this.context.stroke();
-                  this.context.closePath();
+            // Draw the front arrowhead
+            angle = Math.atan2(
+               firstPoint.y - lastPoint.y,
+               firstPoint.x - lastPoint.x
+            );
 
-                  // Draw the second side of the arrowhead
-                  this.context.beginPath();
-                  this.context.moveTo(lastPoint.x, lastPoint.y);
-                  this.context.lineTo(lastPoint.x + headlen, lastPoint.y + 5);
-               }
-            } else if (firstPoint.y < lastPoint.y) {
-               // Draw the first side of the arrowhead
-               this.context.moveTo(lastPoint.x, lastPoint.y);
-               this.context.lineTo(
-                  lastPoint.x + headlen * 0.5,
-                  lastPoint.y - headlen
-               );
-               this.context.stroke();
-               this.context.closePath();
+            // Draw the first side of the front arrowhead
+            this.context.beginPath();
+            this.context.moveTo(firstPoint.x, firstPoint.y);
+            this.context.lineTo(
+               firstPoint.x - headlen * Math.cos(angle - Math.PI / 6),
+               firstPoint.y - headlen * Math.sin(angle - Math.PI / 6)
+            );
+            this.context.stroke();
+            this.context.closePath();
 
-               // Draw the second side of the arrowhead
-               this.context.beginPath();
-               this.context.moveTo(lastPoint.x, lastPoint.y);
-               this.context.lineTo(
-                  lastPoint.x - headlen * 0.5,
-                  lastPoint.y - headlen
-               );
-            } else if (firstPoint.y > lastPoint.y) {
-               // Draw the first side of the arrowhead
-               this.context.moveTo(lastPoint.x, lastPoint.y);
-               this.context.lineTo(
-                  lastPoint.x + headlen * 0.5,
-                  lastPoint.y + headlen
-               );
-               this.context.stroke();
-               this.context.closePath();
-
-               // Draw the second side of the arrowhead
-               this.context.beginPath();
-               this.context.moveTo(lastPoint.x, lastPoint.y);
-               this.context.lineTo(
-                  lastPoint.x - headlen * 0.5,
-                  lastPoint.y + headlen
-               );
-            }
-
-            // arrow front
+            // Draw the second side of the front arrowhead
+            this.context.beginPath();
+            this.context.moveTo(firstPoint.x, firstPoint.y);
+            this.context.lineTo(
+               firstPoint.x - headlen * Math.cos(angle + Math.PI / 6),
+               firstPoint.y - headlen * Math.sin(angle + Math.PI / 6)
+            );
             this.context.stroke();
             this.context.closePath();
          } else {
-            // Start the path at the first point
-            if (line.curvePoints.length <= 2) {
-               this.context.lineTo(
-                  line.curvePoints[1].x,
-                  line.curvePoints[1].y
+            for (let i = 1; i < curvePoints.length - 1; i++) {
+               const cp1 = curvePoints[i];
+               const cp2 = curvePoints[i + 1];
+               const t = 0.8; // Weighting factor, 0.5 for halfway, closer to 1 for closer to cp2
+               const midPointX = (1 - t) * cp1.x + t * cp2.x;
+               const midPointY = (1 - t) * cp1.y + t * cp2.y;
+               this.context.quadraticCurveTo(
+                  cp1.x,
+                  cp1.y,
+                  midPointX,
+                  midPointY
                );
-            } else {
-               for (let i = 1; i < line.curvePoints.length - 1; i++) {
-                  const cp1 = line.curvePoints[i];
-                  const cp2 = line.curvePoints[i + 1];
-
-                  // Calculate the weighted midpoint (e.g., 80% closer to cp2)
-                  const t = 0.8; // Weighting factor, 0.5 for halfway, closer to 1 for closer to cp2
-                  const midPointX = (1 - t) * cp1.x + t * cp2.x;
-                  const midPointY = (1 - t) * cp1.y + t * cp2.y;
-
-                  // Use cp1 as the control point and the adjusted midpoint as the end point
-                  this.context.quadraticCurveTo(
-                     cp1.x,
-                     cp1.y,
-                     midPointX,
-                     midPointY
-                  );
-               }
-               // Drawing the last segment to the last point
-               let lastPoint = line.curvePoints[line.curvePoints.length - 1];
-               this.context.lineTo(lastPoint.x, lastPoint.y);
             }
+            const lastPoint = curvePoints[curvePoints.length - 1];
+            this.context.lineTo(lastPoint.x, lastPoint.y);
          }
          this.context.stroke();
          this.context.closePath();
@@ -614,14 +525,21 @@ export default class Shapes {
 
    dots(...sides) {
       this.context.lineWidth = 1.7;
-      for (let i = 0; i < sides.length; i++) {
-         this.context.beginPath();
-         this.context.fillStyle = "transparent";
-         this.context.strokeStyle = this.activeColor;
-         this.context.arc(sides[i].x, sides[i].y, 6, 0, 2 * Math.PI, false);
-         this.context.fill();
-         this.context.stroke();
-         this.context.closePath();
+      for (let i = 0; i < sides.length - 1; i++) {
+         sides[sides.length - 1].context.beginPath();
+         sides[sides.length - 1].context.fillStyle = "transparent";
+         sides[sides.length - 1].context.strokeStyle = this.activeColor;
+         sides[sides.length - 1].context.arc(
+            sides[i].x,
+            sides[i].y,
+            6,
+            0,
+            2 * Math.PI,
+            false
+         );
+         sides[sides.length - 1].context.fill();
+         sides[sides.length - 1].context.stroke();
+         sides[sides.length - 1].context.closePath();
       }
    }
 
@@ -632,14 +550,69 @@ export default class Shapes {
       const mouseY =
          (event.clientY - rect.top + scrollBar.scrollPositionY) / Scale.scale;
       return { x: mouseX, y: mouseY };
+
+      // Calculate the center of the current view
+      //   const centerX = this.canvas.width / 2;
+      //   const centerY = this.canvas.height / 2;
+
+      //   // Calculate the mouse position adjusted for scaling and translation
+      //   const mouseX =
+      //      (event.clientX - rect.left - centerX + scrollBar.scrollPositionX) /
+      //         Scale.scale +
+      //      centerX;
+      //   const mouseY =
+      //      (event.clientY - rect.top - centerY + scrollBar.scrollPositionY) /
+      //         Scale.scale +
+      //      centerY;
+
+      return { x: mouseX, y: mouseY };
    }
 
    mouseDownDragAndResize(e) {
       if (config.mode === "pencil" || config.mode === "handsFree") return;
-      if (e.altKey) return;
-      let isResizing = false;
 
+      if (e.altKey) return;
+
+      config.currentActive = null;
+      let isResizing = false;
+      //   this.canvasClick(e);
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
+
+      // line resize
+      this.lineMap.forEach((line, key) => {
+         let points = line.curvePoints;
+         for (let i = 0; i < points.length; i++) {
+            if (
+               mouseX >= points[i].x - 5 &&
+               mouseX <= points[i].x + 5 &&
+               mouseY >= points[i].y - 5 &&
+               mouseY <= points[i].y + 5 &&
+               line.isActive
+            ) {
+               line.isActive = true;
+               if (i == 0) {
+                  this.resizeElement = {
+                     key,
+                     direction: "resizeStart",
+                  };
+               } else if (i == points.length - 1) {
+                  this.resizeElement = {
+                     key,
+                     direction: "resizeEnd",
+                  };
+               } else {
+                  this.resizeElement = {
+                     key,
+                     direction: null,
+                     index: i,
+                  };
+               }
+
+               isResizing = true;
+            }
+         }
+      });
+      if (isResizing) return;
 
       // rect resize
       this.rectMap.forEach((rect, key) => {
@@ -824,41 +797,7 @@ export default class Shapes {
 
       if (isResizing) return;
 
-      this.lineMap.forEach((line, key) => {
-         let points = line.curvePoints;
-         for (let i = 0; i < points.length; i++) {
-            if (
-               mouseX >= points[i].x - 5 &&
-               mouseX <= points[i].x + 5 &&
-               mouseY >= points[i].y - 5 &&
-               mouseY <= points[i].y + 5 &&
-               line.isActive
-            ) {
-               line.isActive = true;
-               if (i == 0) {
-                  this.resizeElement = {
-                     key,
-                     direction: "resizeStart",
-                  };
-               } else if (i == points.length - 1) {
-                  this.resizeElement = {
-                     key,
-                     direction: "resizeEnd",
-                  };
-               } else {
-                  this.resizeElement = {
-                     key,
-                     direction: null,
-                     index: i,
-                  };
-               }
-
-               isResizing = true;
-            }
-         }
-      });
-      if (isResizing) return;
-
+      //text resize
       this.textMap.forEach((text, key) => {
          if (
             mouseX > text.x + text.width - this.tolerance &&
@@ -880,16 +819,18 @@ export default class Shapes {
       let line = null;
 
       const checkRect = (rect, key) => {
+         if (rect.isActive) rect.isActive = false;
          if (
             mouseX >= rect.x &&
             mouseX <= rect.x + rect.width &&
             mouseY >= rect.y &&
             mouseY <= rect.y + rect.height
          ) {
-            if (smallestRect === null || rect.width < smallestRect.width) {
+            if (smallestRect === null || rect.width < smallestRect.rect.width) {
                smallestRect = { rect: rect, key };
             }
          }
+         if (rect.isActive) rect.isActive = false;
       };
 
       const checkCircle = (sphere, key) => {
@@ -901,7 +842,7 @@ export default class Shapes {
          if (distance < sphere.xRadius && distance < sphere.yRadius) {
             if (
                smallestCircle === null ||
-               sphere.xRadius < smallestCircle.xRadius
+               sphere.xRadius < smallestCircle.circle.xRadius
             ) {
                smallestCircle = { circle: sphere, key };
             }
@@ -915,10 +856,11 @@ export default class Shapes {
             mouseY >= text.y &&
             mouseY <= text.y + text.height
          ) {
-            if (smallestText === null || text.width < smallestText.width) {
+            if (smallestText === null || text.width < smallestText.text.width) {
                smallestText = { text, key };
             }
          }
+         if (text.isActive) text.isActive = false;
       };
 
       const simpleLine = (l, key) => {
@@ -927,13 +869,14 @@ export default class Shapes {
          let verticalParams =
             l.maxY - l.minY < 5 ? -this.tolerance : +this.tolerance;
 
+         if (l.isActive) l.isActive = false;
          if (
             mouseX >= l.minX + horizontelParams &&
             mouseX <= l.maxX - horizontelParams &&
             mouseY >= l.minY + verticalParams &&
             mouseY <= l.maxY - verticalParams
          ) {
-            if (line === null || line.maxX - line.minX > width) {
+            if (line === null || line.l.maxX - line.l.minX > width) {
                line = { l, key };
             }
          }
@@ -959,6 +902,7 @@ export default class Shapes {
       ) {
          setDragging(smallestCircle.circle);
          this.dragElement = smallestCircle.key;
+         config.currentActive = smallestCircle.circle;
       } else if (
          smallestRect &&
          (!smallestCircle ||
@@ -969,22 +913,31 @@ export default class Shapes {
       ) {
          setDragging(smallestRect.rect);
          this.dragElement = smallestRect.key;
+         config.currentActive = smallestRect.rect;
       } else if (
          line &&
          (!smallestRect || line.l.maxX - line.l.minX < smallestRect?.rect.width)
       ) {
-         if (line.l.pointTo || line.l.endTo) return;
+         if (line.l.pointTo && line.l.endTo) return;
          line.l.curvePoints.forEach((e) => {
             e.offsetX = mouseX - e.x;
             e.offsetY = mouseY - e.y;
          });
          line.l.isActive = true;
          this.dragElement = line.key;
+         config.currentActive = line.l;
       } else if (smallestText) {
          setDragging(smallestText.text);
          this.dragElement = smallestText.key;
+         config.currentActive = smallestText.text;
       }
+      this.draw();
    }
+
+   updateCurvePoint = (object, x, y, index) => {
+      object.curvePoints[index].x = x;
+      object.curvePoints[index].y = y;
+   };
 
    mouseMove(e) {
       if (config.mode === "pencil") return;
@@ -1098,7 +1051,6 @@ export default class Shapes {
                   break;
             }
          }
-         this.draw();
       } else if (circleResize) {
          if (this.resizeElement.direction === "horizontel") {
             circleResize.isActive = true;
@@ -1111,20 +1063,16 @@ export default class Shapes {
             circleResize.xRadius = Math.abs(mouseX - circleResize.x);
             circleResize.yRadius = Math.abs(mouseY - circleResize.y);
          }
-         this.draw();
       } else if (textResize) {
          textResize.textSize = Math.max(
             mouseX - textResize.x * 1.5,
             mouseY - textResize.y * 1
          ); // Ensure minimum size
-         this.draw();
       } else if (lineResize) {
          if (this.resizeElement.direction === null) {
             lineResize.curvePoints[this.resizeElement.index].x = mouseX;
             lineResize.curvePoints[this.resizeElement.index].y = mouseY;
             this.updateLineMinMax(this.resizeElement?.key);
-
-            this.draw();
          } else if (this.resizeElement.direction === "resizeStart") {
             lineResize.curvePoints[0].x = mouseX;
             lineResize.curvePoints[0].y = mouseY;
@@ -1141,7 +1089,6 @@ export default class Shapes {
                lineResize.minY = mouseY;
             }
             this.lineConnectParams(mouseX, mouseY);
-            this.draw();
          } else if (this.resizeElement.direction === "resizeEnd") {
             lineResize.curvePoints[lineResize.curvePoints.length - 1].x =
                mouseX;
@@ -1153,11 +1100,13 @@ export default class Shapes {
                   mouseY;
             this.lineConnectParams(mouseX, mouseY);
             this.updateLineMinMax(this.resizeElement?.key);
-            this.draw();
          }
       }
 
-      if (this.resizeElement?.key) return;
+      if (this.resizeElement?.key) {
+         this.draw();
+         return;
+      }
 
       let rect = this.rectMap.get(this.dragElement);
       let arc = this.circleMap.get(this.dragElement);
@@ -1169,12 +1118,25 @@ export default class Shapes {
          rect.x = mouseX - rect.offsetX;
          rect.y = mouseY - rect.offsetY;
 
-         this.showGuides(rect.x, rect.y, this.dragElement, rect);
+         this.showGuides(
+            rect.x,
+            rect.y,
+            rect.width,
+            rect.height,
+            this.dragElement,
+            rect
+         );
+         //  this.drawRenderCanvas(rect.type, rect);
 
          if (rect.pointTo?.length > 0) {
             let line = [];
             let arrowEndRect = [];
             let arrowStartRect = [];
+
+            const updateCurvePoint = (object, x, y, index) => {
+               object.curvePoints[index].x = x;
+               object.curvePoints[index].y = y;
+            };
 
             rect.pointTo.forEach((a) => {
                let l = this.lineMap.get(a);
@@ -1201,76 +1163,133 @@ export default class Shapes {
                   if (ar === rect) {
                      line.forEach((l) => {
                         if (this.rectMap.get(l.startTo) === rect) {
+                           const {
+                              rect: r,
+                              text: t,
+                              sphere: s,
+                           } = this.getShape(l.endTo);
+
                            const { curvePoints, lineType } = l;
                            const last = curvePoints.length - 1;
+                           const lastPoint = curvePoints[last];
+                           const rectMidX = rect.x + rect.width * 0.5;
+                           const rectMidY = rect.y + rect.height * 0.5;
 
                            if (lineType === "elbow") {
-                              if (curvePoints[last].y < rect.y + rect.height) {
+                              if (curvePoints[last].y < rect.y) {
+                                 updateCurvePoint(
+                                    l,
+                                    rect.x + rect.width / 2,
+                                    rect.y,
+                                    0
+                                 );
+                                 if (r) {
+                                    updateCurvePoint(
+                                       l,
+                                       r.x + r.width / 2,
+                                       r.y + r.height,
+                                       1
+                                    );
+                                 } else if (t) {
+                                    updateCurvePoint(
+                                       l,
+                                       t.x + t.width / 2,
+                                       t.y + t.height,
+                                       1
+                                    );
+                                 } else if (s) {
+                                    updateCurvePoint(
+                                       l,
+                                       s.x,
+                                       s.y + s.yRadius,
+                                       1
+                                    );
+                                 }
+                              } else if (
+                                 curvePoints[last].y > rect.y &&
+                                 curvePoints[last].y < rect.y + rect.height
+                              ) {
                                  if (
-                                    curvePoints[last].x > rect.x &&
-                                    curvePoints[last].x < rect.x + rect.width
+                                    curvePoints[last].x <
+                                    rect.x + rect.width / 2
                                  ) {
-                                    l.curvePoints[0].x = curvePoints[last].x;
-                                    l.curvePoints[0].y = rect.y;
-                                 } else if (curvePoints[last].x < rect.x) {
-                                    l.curvePoints[0].x = rect.x;
-                                    l.curvePoints[0].y =
-                                       rect.y + rect.height * 0.5;
-                                 } else if (
-                                    curvePoints[last].x >
-                                    rect.x + rect.width
-                                 ) {
-                                    l.curvePoints[0].x = rect.x + rect.width;
-                                    l.curvePoints[0].y =
-                                       rect.y + rect.height * 0.5;
+                                    curvePoints[0].x = rect.x;
+                                    if (r) {
+                                       curvePoints[last].x = r.x + r.width;
+                                    } else if (t) {
+                                       curvePoints[last].x = t.x + t.width;
+                                    } else if (s) {
+                                       curvePoints[last].x = s.x + s.xRadius;
+                                    }
+                                 } else {
+                                    curvePoints[0].x = rect.x + rect.width;
+                                    if (r) {
+                                       curvePoints[last].x = r.x;
+                                    } else if (t) {
+                                       curvePoints[last].x = t.x;
+                                    } else if (s) {
+                                       curvePoints[last].x = s.x - s.xRadius;
+                                    }
+                                 }
+                                 curvePoints[0].y = rect.y + rect.height / 2;
+                                 if (r) {
+                                    curvePoints[last].y = r.y + r.height / 2;
+                                 } else if (t) {
+                                    curvePoints[last].y = t.y + t.height / 2;
+                                 } else if (s) {
+                                    curvePoints[last].y = s.y;
                                  }
                               } else {
-                                 if (
-                                    curvePoints[last].x > rect.x &&
-                                    curvePoints[last].x < rect.x + rect.width
-                                 ) {
-                                    l.curvePoints[0].x = curvePoints[last].x;
-                                    l.curvePoints[0].y = rect.y + rect.height;
-                                 } else if (curvePoints[last].x < rect.x) {
-                                    l.curvePoints[0].x = rect.x;
-                                    l.curvePoints[0].y =
-                                       rect.y + rect.height * 0.5;
-                                 } else if (
-                                    curvePoints[last].x >
-                                    rect.x + rect.width
-                                 ) {
-                                    l.curvePoints[0].x = rect.x + rect.width;
-                                    l.curvePoints[0].y =
-                                       rect.y + rect.height * 0.5;
+                                 updateCurvePoint(
+                                    l,
+                                    rect.x + rect.width / 2,
+                                    rect.y + rect.height,
+                                    0
+                                 );
+
+                                 if (r) {
+                                    updateCurvePoint(
+                                       l,
+                                       r.x + r.width / 2,
+                                       r.y,
+                                       1
+                                    );
+                                 } else if (t) {
+                                    updateCurvePoint(
+                                       l,
+                                       t.x + t.width / 2,
+                                       t.y,
+                                       1
+                                    );
+                                 } else if (s) {
+                                    updateCurvePoint(
+                                       l,
+                                       s.x,
+                                       s.y - s.xRadius,
+                                       1
+                                    );
                                  }
                               }
                            } else {
-                              if (l.curvePoints[last].y < rect.y) {
-                                 //  if (l.lineType === "elbow") {
-                                 //     l.curvePoints[0].x = rect.x;
-                                 //     l.curvePoints[0].y =
-                                 //        rect.y + rect.height * 0.5;
-                                 //  }
-                                 l.curvePoints[0].x =
-                                    rect.x +
-                                    (rect.x + rect.width - rect.x) * 0.5;
-                                 l.curvePoints[0].y = rect.y;
+                              if (lastPoint.y < rect.y) {
+                                 updateCurvePoint(rectMidX, rect.y);
                               } else if (
-                                 l.curvePoints[last].y >= rect.y &&
-                                 l.curvePoints[last].y <= rect.y + rect.height
+                                 lastPoint.y >= rect.y &&
+                                 lastPoint.y <= rect.y + rect.height
                               ) {
-                                 if (l.curvePoints[last].x > rect.x) {
-                                    l.curvePoints[0].x = rect.x + rect.width;
-                                 } else l.curvePoints[0].x = rect.x;
-
-                                 l.curvePoints[0].y =
-                                    rect.y +
-                                    (rect.y + rect.height - rect.y) * 0.5;
+                                 if (lastPoint.x > rect.x) {
+                                    updateCurvePoint(
+                                       rect.x + rect.width,
+                                       rectMidY
+                                    );
+                                 } else {
+                                    updateCurvePoint(rect.x, rectMidY);
+                                 }
                               } else {
-                                 l.curvePoints[0].x =
-                                    rect.x +
-                                    (rect.x + rect.width - rect.x) * 0.5;
-                                 l.curvePoints[0].y = rect.y + rect.height;
+                                 updateCurvePoint(
+                                    rectMidX,
+                                    rect.y + rect.height
+                                 );
                               }
                            }
                         }
@@ -1284,36 +1303,103 @@ export default class Shapes {
                   if (ar === rect) {
                      line.forEach((l) => {
                         if (this.rectMap.get(l.endTo) === rect) {
+                           // get the shape if connect to start
+                           const {
+                              rect: r,
+                              text: t,
+                              sphere: s,
+                           } = this.getShape(l.startTo);
                            const last = l.curvePoints.length - 1;
-                           if (
-                              Math.abs(
-                                 l.curvePoints[0].y - l.curvePoints[last].y
-                              ) <= 5
-                           ) {
-                              l.curvePoints[last].y = l.curvePoints[0].y;
-                           }
-                           if (l.curvePoints[0].y < rect.y) {
-                              l.curvePoints[last].x =
-                                 rect.x + (rect.x + rect.width - rect.x) * 0.5;
-                              l.curvePoints[last].y = rect.y;
-                           } else if (
-                              l.curvePoints[0].y >= rect.y &&
-                              l.curvePoints[0].y <= rect.y + rect.height
-                           ) {
-                              if (
-                                 l.curvePoints[0].x <
-                                 rect.x + (rect.x + rect.width - rect.x) * 0.5
+                           const { curvePoints } = l;
+                           if (l.lineType === "elbow") {
+                              if (curvePoints[0].y < rect.y) {
+                                 curvePoints[last].x = rect.x + rect.width / 2;
+                                 curvePoints[last].y = rect.y;
+                                 if (r) {
+                                    updateCurvePoint(
+                                       l,
+                                       r.x + r.width / 2,
+                                       r.y + r.height,
+                                       0
+                                    );
+                                 } else if (t) {
+                                    updateCurvePoint(
+                                       l,
+                                       t.x + t.width / 2,
+                                       t.y + t.height,
+                                       0
+                                    );
+                                 } else if (s) {
+                                    updateCurvePoint(
+                                       l,
+                                       s.x,
+                                       s.y + s.yRadius,
+                                       0
+                                    );
+                                 }
+                              } else if (
+                                 curvePoints[0].y > rect.y &&
+                                 curvePoints[0].y < rect.y + rect.height
                               ) {
-                                 l.curvePoints[last].x = rect.x;
-                              } else {
-                                 l.curvePoints[last].x = rect.x + rect.width;
+                                 if (
+                                    curvePoints[0].x <
+                                    rect.x + rect.width / 2
+                                 ) {
+                                    curvePoints[last].x = rect.x;
+                                    if (r) {
+                                       curvePoints[0].x = r.x + r.width;
+                                    } else if (t) {
+                                       curvePoints[0].x = t.x + t.width;
+                                    } else if (s) {
+                                       curvePoints[0].x = s.x + s.xRadius;
+                                    }
+                                 } else {
+                                    curvePoints[last].x = rect.x + rect.width;
+                                    if (r) {
+                                       curvePoints[0].x = r.x;
+                                    } else if (t) {
+                                       curvePoints[0].x = t.x;
+                                    } else if (s) {
+                                       curvePoints[0].x = s.x - s.xRadius;
+                                    }
+                                 }
+                                 curvePoints[last].y = rect.y + rect.height / 2;
+                                 if (r) {
+                                    curvePoints[0].y = r.y + r.height / 2;
+                                 } else if (t) {
+                                    curvePoints[0].y = t.y + t.height / 2;
+                                 } else if (s) {
+                                    curvePoints[0].y = s.y;
+                                 }
+                              } else if (
+                                 curvePoints[0].y >
+                                 rect.y + rect.height
+                              ) {
+                                 curvePoints[last].x = rect.x + rect.width / 2;
+                                 curvePoints[last].y = rect.y + rect.height;
+                                 if (r) {
+                                    updateCurvePoint(
+                                       l,
+                                       r.x + r.width / 2,
+                                       r.y,
+                                       0
+                                    );
+                                 } else if (t) {
+                                    updateCurvePoint(
+                                       l,
+                                       t.x + t.width / 2,
+                                       t.y,
+                                       0
+                                    );
+                                 } else if (s) {
+                                    updateCurvePoint(
+                                       l,
+                                       s.x,
+                                       s.y - s.xRadius,
+                                       0
+                                    );
+                                 }
                               }
-                              l.curvePoints[last].y =
-                                 rect.y + (rect.y + rect.height - rect.y) * 0.5;
-                           } else {
-                              l.curvePoints[last].x =
-                                 rect.x + (rect.x + rect.width - rect.x) * 0.5;
-                              l.curvePoints[last].y = rect.y + rect.height;
                            }
                         }
                      });
@@ -1321,7 +1407,6 @@ export default class Shapes {
                });
             }
          }
-         this.draw();
       } else if (arc) {
          arc.isActive = true;
          arc.x = mouseX - arc.offsetX;
@@ -1329,9 +1414,12 @@ export default class Shapes {
          this.showGuides(
             arc.x - arc.xRadius,
             arc.y - arc.yRadius,
+            2 * arc.xRadius,
+            2 * arc.xRadius,
             this.dragElement,
             arc
          );
+         //  this.drawRenderCanvas(arc.type, arc);
          if (arc.pointTo?.length > 0) {
             let line = [];
             let arrowStartSphere = [];
@@ -1358,23 +1446,81 @@ export default class Shapes {
                   if (ar == arc) {
                      line.forEach((l) => {
                         if (this.circleMap.get(l.startTo) === arc) {
-                           const last = l.curvePoints.length - 1;
-                           if (l.curvePoints[last].y < arc.y - arc.yRadius) {
-                              l.curvePoints[0].x = arc.x;
-                              l.curvePoints[0].y = arc.y - arc.yRadius;
+                           const { curvePoints, endTo } = l;
+                           const {
+                              rect: r,
+                              text: t,
+                              sphere: s,
+                           } = this.getShape(endTo);
+                           const last = curvePoints.length - 1;
+
+                           if (curvePoints[last].y < arc.y - arc.yRadius) {
+                              this.updateCurvePoint(
+                                 l,
+                                 arc.x,
+                                 arc.y - arc.yRadius,
+                                 0
+                              );
+                              if (r) {
+                                 this.updateCurvePoint(
+                                    l,
+                                    r.x + r.width / 2,
+                                    r.y + r.height,
+                                    1
+                                 );
+                              } else if (t) {
+                                 this.updateCurvePoint(
+                                    l,
+                                    t.x + t.width / 2,
+                                    t.y + t.height,
+                                    1
+                                 );
+                              } else if (s) {
+                                 this.updateCurvePoint(
+                                    l,
+                                    s.x,
+                                    s.y + s.yRadius,
+                                    1
+                                 );
+                              }
                            } else if (
-                              l.curvePoints[last].y > arc.y - arc.yRadius &&
-                              l.curvePoints[last].y < arc.y + arc.yRadius
+                              curvePoints[last].y > arc.y - arc.yRadius &&
+                              curvePoints[last].y < arc.y + arc.yRadius
                            ) {
-                              if (l.curvePoints[last].x < arc.x - arc.xRadius) {
+                              if (curvePoints[last].x < arc.x - arc.xRadius) {
                                  l.curvePoints[0].x = arc.x - arc.xRadius;
                               } else {
                                  l.curvePoints[0].x = arc.x + arc.xRadius;
                               }
                               l.curvePoints[0].y = arc.y;
-                           } else {
+                           } else if (
+                              curvePoints[last].y >
+                              arc.y + arc.yRadius
+                           ) {
                               l.curvePoints[0].y = arc.y + arc.yRadius;
                               l.curvePoints[0].x = arc.x;
+                              if (r) {
+                                 this.updateCurvePoint(
+                                    l,
+                                    r.x + r.width / 2,
+                                    r.y,
+                                    last
+                                 );
+                              } else if (t) {
+                                 this.updateCurvePoint(
+                                    l,
+                                    t.x + t.width / 2,
+                                    t.y,
+                                    last
+                                 );
+                              } else if (s) {
+                                 this.updateCurvePoint(
+                                    l,
+                                    s.x,
+                                    s.y - s.yRadius,
+                                    last
+                                 );
+                              }
                            }
                         }
                      });
@@ -1386,22 +1532,105 @@ export default class Shapes {
                   if (ar == arc) {
                      line.forEach((l) => {
                         if (this.circleMap.get(l.endTo) === arc) {
+                           const { startTo, curvePoints } = l;
+                           const {
+                              rect: r,
+                              text: t,
+                              sphere: s,
+                           } = this.getShape(startTo);
+
                            const last = l.curvePoints.length - 1;
-                           if (l.curvePoints[0].y < arc.y - arc.yRadius) {
-                              l.curvePoints[last].x = arc.x;
-                              l.curvePoints[last].y = arc.y - arc.yRadius;
+                           if (curvePoints[0].y < arc.y - arc.yRadius) {
+                              this.updateCurvePoint(
+                                 l,
+                                 arc.x,
+                                 arc.y - arc.yRadius,
+                                 last
+                              );
+                              if (r) {
+                                 this.updateCurvePoint(
+                                    l,
+                                    r.x + r.width / 2,
+                                    r.y + r.height,
+                                    0
+                                 );
+                              } else if (t) {
+                                 this.updateCurvePoint(
+                                    l,
+                                    t.x + t.width / 2,
+                                    t.y + t.height,
+                                    0
+                                 );
+                              } else if (s) {
+                                 this.updateCurvePoint(
+                                    l,
+                                    s.x,
+                                    s.y + s.yRadius,
+                                    0
+                                 );
+                              }
                            } else if (
-                              l.curvePoints[0].y > arc.y - arc.yRadius &&
-                              l.curvePoints[0].y < arc.y + arc.yRadius
+                              curvePoints[0].y > arc.y - arc.yRadius &&
+                              curvePoints[0].y < arc.y + arc.yRadius
                            ) {
                               if (l.curvePoints[0].x < arc.x) {
                                  l.curvePoints[last].x = arc.x - arc.xRadius;
-                              } else
+                                 if (r) {
+                                    l.curvePoints[0].x = r.x + r.width;
+                                 } else if (t) {
+                                    l.curvePoints[0].y = t.x + t.width;
+                                 } else if (s) {
+                                    l.curvePoints[0].y = s.x + s.xRadius;
+                                 }
+                              } else {
                                  l.curvePoints[last].x = arc.x + arc.xRadius;
+                                 if (r) {
+                                    l.curvePoints[0].x = r.x;
+                                 } else if (t) {
+                                    l.curvePoints[0].x = t.x;
+                                 } else if (s) {
+                                    l.curvePoints[0].x = s.x - s.xRadius;
+                                 }
+                              }
+
                               l.curvePoints[last].y = arc.y;
+                              if (r) {
+                                 l.curvePoints[0].y = r.y + r.height / 2;
+                              } else if (t) {
+                                 l.curvePoints[0].y = t.y + t.height / 2;
+                              } else if (s) {
+                                 l.curvePoints[0].y = s.y;
+                              }
                            } else {
-                              l.curvePoints[last].x = arc.x;
-                              l.curvePoints[last].y = arc.y + arc.yRadius;
+                              this.updateCurvePoint(
+                                 l,
+                                 arc.x,
+                                 arc.y + arc.yRadius,
+                                 last
+                              );
+
+                              if (r) {
+                                 this.updateCurvePoint(
+                                    l,
+                                    r.x + r.with / 2,
+                                    r.y,
+                                    0
+                                 );
+                              } else if (t) {
+                                 this.updateCurvePoint(
+                                    l,
+                                    t.x + t.with / 2,
+                                    t.y,
+                                    0
+                                 );
+                              } else if (s) {
+                                 this.updateCurvePoint(
+                                    l,
+                                    s.x,
+                                    s.y - s.yRadius,
+                                    0
+                                 );
+                              }
                            }
                         }
                      });
@@ -1409,11 +1638,19 @@ export default class Shapes {
                });
             }
          }
-         this.draw();
       } else if (text) {
          text.x = mouseX - text.offsetX;
          text.y = mouseY - text.offsetY;
-         this.showGuides(text.x, text.y, this.dragElement, text);
+         this.showGuides(
+            text.x,
+            text.y,
+            text.width,
+            text.height,
+            this.dragElement,
+            text
+         );
+
+         //  this.drawRenderCanvas("text", text);
          if (text.pointTo.length > 0) {
             let arcs = text.pointTo.map((t) => {
                return this.lineMap.get(t);
@@ -1474,7 +1711,6 @@ export default class Shapes {
                });
             }
          }
-         this.draw();
       } else if (line) {
          line.curvePoints.forEach((ele) => {
             const deltaX = mouseX - ele.offsetX;
@@ -1482,15 +1718,16 @@ export default class Shapes {
             this.showGuides(
                line.curvePoints[0].x,
                line.curvePoints[0].y,
+               line.maxX - line.minX,
+               line.maxY - line.minY,
                this.dragElement,
                line
             );
             ele.x = deltaX;
             ele.y = deltaY;
          });
-
-         this.draw();
       }
+      this.draw();
    }
 
    mouseUp(e) {
@@ -1516,7 +1753,6 @@ export default class Shapes {
                x + width,
                y + height
             );
-         this.draw();
       } else if (line) {
          const key = this.resizeElement.key;
          if (this.resizeElement.direction === "resizeStart") {
@@ -1764,6 +2000,7 @@ export default class Shapes {
          }
       } else if (lineDrag) {
          this.updateLineMinMax(this.dragElement);
+         lineDrag.isActive = true;
       } else if (textDrag) {
          if (textDrag.pointTo.length > 0) {
             textDrag.pointTo.forEach((l) => {
@@ -1778,11 +2015,321 @@ export default class Shapes {
          this.canvasBreakpoints.width,
          this.canvasBreakpoints.height
       );
+      this.renderCanvasCtx.clearRect(
+         0,
+         0,
+         this.renderCanvas.width,
+         this.renderCanvas.height
+      );
       this.resizeElement = null;
       this.dragElement = null;
+      this.draw();
    }
 
-   showGuides(x, y, key, object) {
+   drawRenderCanvas(shape, object) {
+      this.renderCanvasCtx.clearRect(
+         0,
+         0,
+         window.innerWidth,
+         window.innerHeight
+      );
+      this.renderCanvasCtx.save();
+      this.renderCanvasCtx.translate(
+         -scrollBar.scrollPositionX,
+         -scrollBar.scrollPositionY
+      );
+      this.renderCanvasCtx.scale(Scale.scale, Scale.scale);
+      const drawDotsAndRect = (
+         x,
+         y,
+         width,
+         height,
+         tolerance,
+         isActive,
+         activeColor
+      ) => {
+         if (isActive) {
+            // Draw dots
+            this.dots(
+               { x: x - tolerance, y: y - tolerance },
+               { x: x + width + tolerance, y: y - tolerance },
+               { x: x + width + tolerance, y: y + height + tolerance },
+               { x: x - tolerance, y: y + height + tolerance },
+               { context: this.renderCanvasCtx }
+            );
+
+            // Draw active rectangle
+            this.renderCanvasCtx.beginPath();
+            this.renderCanvasCtx.strokeStyle = activeColor;
+            this.renderCanvasCtx.rect(
+               x - tolerance,
+               y - tolerance,
+               width + 2 * tolerance,
+               height + 2 * tolerance
+            );
+            this.renderCanvasCtx.stroke();
+            this.renderCanvasCtx.closePath();
+         }
+      };
+
+      switch (shape) {
+         case "rect":
+            const {
+               x,
+               y,
+               width,
+               height,
+               radius,
+               lineWidth,
+               borderColor,
+               fillStyle,
+               text,
+               textSize,
+               isActive,
+            } = object;
+
+            drawDotsAndRect(
+               x,
+               y,
+               width,
+               height,
+               this.tolerance,
+               isActive,
+               this.activeColor
+            );
+
+            // Draw rounded rectangle
+            this.renderCanvasCtx.beginPath();
+            this.renderCanvasCtx.lineWidth = lineWidth;
+            this.renderCanvasCtx.strokeStyle = borderColor;
+            this.renderCanvasCtx.fillStyle = fillStyle;
+            this.renderCanvasCtx.moveTo(x + radius, y);
+            this.renderCanvasCtx.arcTo(
+               x + width,
+               y,
+               x + width,
+               y + height,
+               radius
+            );
+            this.renderCanvasCtx.arcTo(
+               x + width,
+               y + height,
+               x,
+               y + height,
+               radius
+            );
+            this.renderCanvasCtx.arcTo(x, y + height, x, y, radius);
+            this.renderCanvasCtx.arcTo(x, y, x + width, y, radius);
+            this.renderCanvasCtx.stroke();
+            this.renderCanvasCtx.fill();
+            this.renderCanvasCtx.closePath();
+            break;
+         case "sphere":
+            drawDotsAndRect(
+               object.x - object.xRadius,
+               object.y - object.yRadius,
+               2 * object.xRadius,
+               2 * object.yRadius,
+               this.tolerance,
+               object.isActive,
+               this.activeColor
+            );
+
+            // Draw circle
+            this.renderCanvasCtx.beginPath();
+            this.renderCanvasCtx.lineWidth = object.lineWidth;
+            this.renderCanvasCtx.fillStyle = object.fillStyle;
+            this.renderCanvasCtx.strokeStyle = object.borderColor;
+            this.renderCanvasCtx.ellipse(
+               object.x,
+               object.y,
+               object.xRadius,
+               object.yRadius,
+               0,
+               0,
+               2 * Math.PI
+            );
+            this.renderCanvasCtx.fill();
+            this.renderCanvasCtx.stroke();
+            this.renderCanvasCtx.closePath();
+
+            break;
+         case "text":
+            drawDotsAndRect(
+               object.x,
+               object.y,
+               object.width,
+               object.height,
+               this.tolerance,
+               object.isActive,
+               this.activeColor
+            );
+            // Set the font size and style before measuring the text
+            this.renderCanvasCtx.fillStyle = object.fillStyle;
+            this.renderCanvasCtx.font = `${object.textSize}px ${
+               object.font || "Arial"
+            }`;
+
+            let maxWidth = 0;
+            object.content.forEach((c) => {
+               const textMetrics = this.context.measureText(c);
+               maxWidth = Math.max(maxWidth, textMetrics.width);
+            });
+
+            // Store the measured dimensions
+            object.width = maxWidth;
+            object.height = object.content.length * object.textSize;
+
+            let currentY = object.y;
+            object.content.forEach((c) => {
+               const textMetrics = this.renderCanvasCtx.measureText(c);
+               this.renderCanvasCtx.fillText(
+                  c,
+                  object.x,
+                  currentY + textMetrics.actualBoundingBoxAscent
+               );
+               currentY +=
+                  textMetrics.actualBoundingBoxAscent +
+                  textMetrics.actualBoundingBoxDescent +
+                  this.tolerance;
+            });
+
+            break;
+         case "line":
+            const { curvePoints, lineType } = object;
+
+            this.context.beginPath();
+            this.context.lineWidth = object.lineWidth;
+
+            if (object.isActive) {
+               this.context.strokeStyle = this.activeColor;
+               this.dots(...curvePoints, { context: this.context });
+            } else {
+               this.context.strokeStyle = object.borderColor;
+            }
+
+            this.context.moveTo(curvePoints[0].x, curvePoints[0].y);
+
+            if (lineType === "straight") {
+               for (let i = 1; i < curvePoints.length; i++) {
+                  this.context.lineTo(curvePoints[i].x, curvePoints[i].y);
+               }
+            } else if (lineType === "elbow") {
+               const headlen = 10;
+               this.context.arcTo(
+                  curvePoints[1].x,
+                  curvePoints[0].y,
+                  curvePoints[1].x,
+                  curvePoints[1].y,
+                  object.radius
+               );
+               this.context.lineTo(curvePoints[1].x, curvePoints[1].y);
+
+               // Draw the arrowhead
+               const lastPoint = line.curvePoints[line.curvePoints.length - 1];
+               const firstPoint = line.curvePoints[0];
+
+               // arrow back side
+               if (firstPoint.y === lastPoint.y) {
+                  if (firstPoint.x < lastPoint.x) {
+                     // Draw the first side of the arrowhead
+                     this.context.moveTo(lastPoint.x, lastPoint.y);
+                     this.context.lineTo(
+                        lastPoint.x - headlen,
+                        lastPoint.y - 5
+                     );
+                     this.context.stroke();
+                     this.context.closePath();
+
+                     // Draw the second side of the arrowhead
+                     this.context.beginPath();
+                     this.context.moveTo(lastPoint.x, lastPoint.y);
+                     this.context.lineTo(
+                        lastPoint.x - headlen,
+                        lastPoint.y + 5
+                     );
+                  } else {
+                     // Draw the first side of the arrowhead
+                     this.context.moveTo(lastPoint.x, lastPoint.y);
+                     this.context.lineTo(
+                        lastPoint.x + headlen,
+                        lastPoint.y - 5
+                     );
+                     this.context.stroke();
+                     this.context.closePath();
+
+                     // Draw the second side of the arrowhead
+                     this.context.beginPath();
+                     this.context.moveTo(lastPoint.x, lastPoint.y);
+                     this.context.lineTo(
+                        lastPoint.x + headlen,
+                        lastPoint.y + 5
+                     );
+                  }
+               } else if (firstPoint.y < lastPoint.y) {
+                  // Draw the first side of the arrowhead
+                  this.context.moveTo(lastPoint.x, lastPoint.y);
+                  this.context.lineTo(
+                     lastPoint.x + headlen * 0.5,
+                     lastPoint.y - headlen
+                  );
+                  this.context.stroke();
+                  this.context.closePath();
+
+                  // Draw the second side of the arrowhead
+                  this.context.beginPath();
+                  this.context.moveTo(lastPoint.x, lastPoint.y);
+                  this.context.lineTo(
+                     lastPoint.x - headlen * 0.5,
+                     lastPoint.y - headlen
+                  );
+               } else if (firstPoint.y > lastPoint.y) {
+                  // Draw the first side of the arrowhead
+                  this.context.moveTo(lastPoint.x, lastPoint.y);
+                  this.context.lineTo(
+                     lastPoint.x + headlen * 0.5,
+                     lastPoint.y + headlen
+                  );
+                  this.context.stroke();
+                  this.context.closePath();
+
+                  // Draw the second side of the arrowhead
+                  this.context.beginPath();
+                  this.context.moveTo(lastPoint.x, lastPoint.y);
+                  this.context.lineTo(
+                     lastPoint.x - headlen * 0.5,
+                     lastPoint.y + headlen
+                  );
+               }
+
+               // arrow front
+            } else {
+               for (let i = 1; i < curvePoints.length - 1; i++) {
+                  const cp1 = curvePoints[i];
+                  const cp2 = curvePoints[i + 1];
+                  const t = 0.8; // Weighting factor, 0.5 for halfway, closer to 1 for closer to cp2
+                  const midPointX = (1 - t) * cp1.x + t * cp2.x;
+                  const midPointY = (1 - t) * cp1.y + t * cp2.y;
+                  this.context.quadraticCurveTo(
+                     cp1.x,
+                     cp1.y,
+                     midPointX,
+                     midPointY
+                  );
+               }
+               const lastPoint = curvePoints[curvePoints.length - 1];
+               this.context.lineTo(lastPoint.x, lastPoint.y);
+            }
+            this.context.stroke();
+            this.context.closePath();
+            break;
+         default:
+            break;
+      }
+      this.renderCanvasCtx.restore();
+   }
+
+   showGuides(x, y, width, height, key, object) {
       // Clear the entire this.canvas
 
       this.breakPointsCtx.clearRect(
@@ -1804,9 +2351,85 @@ export default class Shapes {
       // Variable to track if a guide is drawn
       let guideDrawn = false;
       this.breakPointsCtx.beginPath();
-      this.breakpoints.forEach((point, pointKey) => {
+      //   this.breakpoints.forEach((point, pointKey) => {
+      //      if (key !== pointKey) {
+      //         if (Math.abs(point.minX - x) <= this.tolerance) {
+      //            object.x =
+      //               object.type === "sphere"
+      //                  ? point.minX + object.xRadius
+      //                  : point.minX;
+
+      //            this.breakPointsCtx.moveTo(point.minX, y);
+      //            this.breakPointsCtx.lineTo(point.minX, point.minY);
+      //            return (guideDrawn = true);
+      //         } else if (Math.abs(point.maxX - x) <= this.tolerance) {
+      //            object.x =
+      //               object.type === "sphere"
+      //                  ? point.maxX + object.xRadius
+      //                  : point.maxX;
+
+      //            this.breakPointsCtx.moveTo(point.maxX, y);
+      //            this.breakPointsCtx.lineTo(point.maxX, point.minY);
+      //            return (guideDrawn = true);
+      //         } else if (Math.abs(point.minY - y) <= this.tolerance) {
+      //            object.y =
+      //               object.type === "sphere"
+      //                  ? point.minY + object.yRadius
+      //                  : point.minY;
+
+      //            this.breakPointsCtx.moveTo(point.minX, point.minY);
+      //            this.breakPointsCtx.lineTo(x, point.minY);
+      //            return (guideDrawn = true);
+      //         } else if (Math.abs(point.maxY - y) <= this.tolerance) {
+      //            object.y =
+      //               object.type === "sphere"
+      //                  ? point.maxY + object.yRadius
+      //                  : point.maxY;
+      //            this.breakPointsCtx.moveTo(point.minX, point.maxY);
+      //            this.breakPointsCtx.lineTo(x, point.maxY);
+      //            return (guideDrawn = true);
+      //         } else if (Math.abs(point.minX - (x + width)) <= this.tolerance) {
+      //            object.x =
+      //               object.type === "sphere"
+      //                  ? point.minX - width / 2
+      //                  : point.minX - width;
+
+      //            this.breakPointsCtx.moveTo(point.minX, y);
+      //            this.breakPointsCtx.lineTo(point.minX, point.minY);
+      //            return (guideDrawn = true);
+      //         } else if (Math.abs(point.maxX - (x + width)) <= this.tolerance) {
+      //            object.x =
+      //               object.type === "sphere"
+      //                  ? point.maxX - width / 2
+      //                  : point.maxX - width;
+
+      //            this.breakPointsCtx.moveTo(point.maxX, y);
+      //            this.breakPointsCtx.lineTo(point.maxX, point.minY);
+      //            return (guideDrawn = true);
+      //         } else if (Math.abs(point.minY - (y + height)) <= this.tolerance) {
+      //            object.y =
+      //               object.type === "sphere"
+      //                  ? point.minY - height / 2
+      //                  : point.minY - height;
+
+      //            this.breakPointsCtx.moveTo(point.minX, point.minY);
+      //            this.breakPointsCtx.lineTo(x, point.minY);
+      //            return (guideDrawn = true);
+      //         } else if (Math.abs(point.maxY - (y + height)) <= this.tolerance) {
+      //            object.y =
+      //               object.type === "sphere"
+      //                  ? point.maxY - height / 2
+      //                  : point.maxY - height;
+
+      //            this.breakPointsCtx.moveTo(point.minX, point.maxY);
+      //            this.breakPointsCtx.lineTo(x, point.maxY);
+      //            return (guideDrawn = true);
+      //         }
+      //      }
+      //   });
+
+      for (let [pointKey, point] of this.breakpoints) {
          if (key !== pointKey) {
-            console.log(point.minX, point.maxX, point.midX);
             if (Math.abs(point.minX - x) <= this.tolerance) {
                object.x =
                   object.type === "sphere"
@@ -1842,21 +2465,49 @@ export default class Shapes {
                this.breakPointsCtx.moveTo(point.minX, point.maxY);
                this.breakPointsCtx.lineTo(x, point.maxY);
                guideDrawn = true;
-            } else if (Math.abs(point.midX - x) <= this.tolerance) {
-               object.x = point.midX;
+            } else if (Math.abs(point.minX - (x + width)) <= this.tolerance) {
+               object.x =
+                  object.type === "sphere"
+                     ? point.minX - width / 2
+                     : point.minX - width;
 
-               this.breakPointsCtx.moveTo(point.midX, point.maxY);
-               this.breakPointsCtx.lineTo(point.midX, y);
+               this.breakPointsCtx.moveTo(point.minX, y);
+               this.breakPointsCtx.lineTo(point.minX, point.minY);
                guideDrawn = true;
-            } else if (Math.abs(point.midY - y) <= this.tolerance) {
-               object.y = point.midY;
+            } else if (Math.abs(point.maxX - (x + width)) <= this.tolerance) {
+               object.x =
+                  object.type === "sphere"
+                     ? point.maxX - width / 2
+                     : point.maxX - width;
 
-               this.breakPointsCtx.moveTo(point.manX, point.midY);
-               this.breakPointsCtx.lineTo(x, point.midY);
+               this.breakPointsCtx.moveTo(point.maxX, y);
+               this.breakPointsCtx.lineTo(point.maxX, point.minY);
+               guideDrawn = true;
+            } else if (Math.abs(point.minY - (y + height)) <= this.tolerance) {
+               object.y =
+                  object.type === "sphere"
+                     ? point.minY - height / 2
+                     : point.minY - height;
+
+               this.breakPointsCtx.moveTo(point.minX, point.minY);
+               this.breakPointsCtx.lineTo(x, point.minY);
+               guideDrawn = true;
+            } else if (Math.abs(point.maxY - (y + height)) <= this.tolerance) {
+               object.y =
+                  object.type === "sphere"
+                     ? point.maxY - height / 2
+                     : point.maxY - height;
+
+               this.breakPointsCtx.moveTo(point.minX, point.maxY);
+               this.breakPointsCtx.lineTo(x, point.maxY);
                guideDrawn = true;
             }
+
+            if (guideDrawn) {
+               break;
+            }
          }
-      });
+      }
 
       // Only stroke if a guide was drawn
       if (guideDrawn) {
@@ -2131,7 +2782,7 @@ export default class Shapes {
          "mousedown",
          this.mouseDownDragAndResize.bind(this)
       );
-      this.canvas.addEventListener("click", this.canvasClick.bind(this));
+      this.draw();
    }
 
    cleanup() {
@@ -2141,7 +2792,6 @@ export default class Shapes {
          "mousedown",
          this.mouseDownDragAndResize.bind(this)
       );
-      this.canvas.removeEventListener("click", this.canvasClick.bind(this));
    }
 
    renderText(textArray, x, y, textSize, height, width) {
@@ -2149,7 +2799,7 @@ export default class Shapes {
       let totalTextHeight = textArray.length * textSize;
 
       // Calculate the starting y-coordinate to center the text block vertically
-      let startY = y + (height - totalTextHeight) * 0.5;
+      let startY = y + (height - totalTextHeight) * 0.5 + textSize;
 
       // Set the text properties
       this.context.fillStyle = "white";
@@ -2171,3 +2821,390 @@ export default class Shapes {
       }
    }
 }
+
+//    draw() {
+//       //   this.context.clearRect(0, 0, this.canvas.width, this.canvas.height); // Clear the this.canvas
+//       this.context.clearRect(0, 0, window.innerWidth, window.innerHeight); // Clear the this.canvas
+
+//       this.context.save();
+//       this.context.translate(
+//          -scrollBar.scrollPositionX,
+//          -scrollBar.scrollPositionY
+//       );
+//       this.context.scale(Scale.scale, Scale.scale);
+//       this.context.lineWidth = this.lineWidth;
+//       this.context.strokeStyle = "rgb(2, 211, 134)";
+
+//       this.rectMap.forEach((rect) => {
+//          const {
+//             x,
+//             y,
+//             width,
+//             height,
+//             radius,
+//             lineWidth,
+//             borderColor,
+//             fillStyle,
+//             text,
+//             textSize,
+//          } = rect;
+
+//          if (rect.isActive) {
+//             //dots
+//             this.dots(
+//                { x: rect.x - this.tolerance, y: rect.y - this.tolerance },
+//                {
+//                   x: rect.x + rect.width + this.tolerance,
+//                   y: rect.y - this.tolerance,
+//                },
+//                {
+//                   x: rect.x + rect.width + this.tolerance,
+//                   y: rect.y + rect.height + this.tolerance,
+//                },
+//                {
+//                   x: rect.x - this.tolerance,
+//                   y: rect.y + rect.height + this.tolerance,
+//                }
+//             );
+
+//             this.context.beginPath();
+//             this.context.moveTo(x + width * 0.5, y - this.tolerance);
+//             this.context.lineTo(x + width * 0.5, y - 20);
+//             this.context.stroke();
+//             this.context.closePath();
+
+//             this.dots({ x: x + width * 0.5, y: y - 20 });
+
+//             // Draw the rectangle using this.canvas rect method
+//             this.context.beginPath();
+//             this.context.strokeStyle = this.activeColor;
+//             // this.context.fillStyle = "rgb(2, 211, 134)";
+//             this.context.rect(
+//                x - this.tolerance,
+//                y - this.tolerance,
+//                width + 2 * this.tolerance,
+//                height + 2 * this.tolerance
+//             );
+//             this.context.stroke();
+//          }
+
+//          this.context.beginPath();
+//          this.context.lineWidth = lineWidth;
+//          this.context.strokeStyle = borderColor;
+//          this.context.fillStyle = fillStyle;
+//          this.context.moveTo(x + radius, y);
+//          this.context.arcTo(x + width, y, x + width, y + height, radius);
+//          this.context.arcTo(x + width, y + height, x, y + height, radius);
+//          this.context.arcTo(x, y + height, x, y, radius);
+//          this.context.arcTo(x, y, x + width, y, radius);
+//          this.context.stroke();
+//          this.context.fill();
+//          this.context.closePath();
+
+//          // render text
+//          this.renderText(text, x, y, textSize, height, width);
+//       });
+
+//       this.circleMap.forEach((sphere) => {
+//          const x = sphere.x - sphere.xRadius;
+//          const y = sphere.y - sphere.yRadius;
+//          const width = sphere.x + sphere.xRadius;
+//          const height = sphere.y + sphere.yRadius;
+//          if (sphere.isActive) {
+//             //dots
+//             this.dots(
+//                { x: x - this.tolerance, y: y - this.tolerance },
+//                { x: width + this.tolerance, y: y - this.tolerance },
+//                { x: width + this.tolerance, y: height + this.tolerance },
+//                { x: x - this.tolerance, y: height + this.tolerance }
+//             );
+
+//             // Draw the rectangle using this.canvas rect method
+//             this.context.beginPath();
+//             this.context.strokeStyle = this.activeColor;
+//             // this.context.fillStyle = "rgb(2, 211, 134)";
+//             this.context.rect(
+//                x - this.tolerance,
+//                y - this.tolerance,
+//                2 * sphere.xRadius + 2 * this.tolerance,
+//                2 * sphere.yRadius + 2 * this.tolerance
+//             );
+//             this.context.stroke();
+//          }
+//          this.context.beginPath();
+//          this.context.lineWidth = sphere.lineWidth;
+//          this.context.fillStyle = sphere.fillStyle;
+//          this.context.strokeStyle = sphere.borderColor;
+//          this.context.ellipse(
+//             sphere.x,
+//             sphere.y,
+//             sphere.xRadius,
+//             sphere.yRadius,
+//             0,
+//             0,
+//             2 * Math.PI
+//          );
+//          this.context.fill();
+//          this.context.closePath();
+//          this.context.stroke();
+
+//          //   render text
+//          this.renderText(
+//             sphere.text,
+//             x,
+//             y,
+//             sphere.textSize,
+//             2 * sphere.yRadius,
+//             2 * sphere.xRadius
+//          );
+//       });
+
+//       // this.context.save();
+//       // pencilMap.forEach((pencil) => {
+//       //   this.context.beginPath();
+//       //   pencil.forEach((coor, index) => {
+//       //     if (index === 0) {
+//       //       this.context.moveTo(coor.x, coor.y); // Move to the first point
+//       //     } else {
+//       //       // Use quadraticCurveTo for drawing curved lines
+//       //       const prevCoor = pencil[index - 1];
+//       //       const cx = (coor.x + prevCoor.x) / 2; // Control point x-coordinate
+//       //       const cy = (coor.y + prevCoor.y) / 2; // Control point y-coordinate
+//       //       this.context.quadraticCurveTo(prevCoor.x, prevCoor.y, cx, cy); // Draw a quadratic curve
+//       //     }
+//       //   });
+
+//       //   // Set line properties
+//       //   this.context.lineCap = "round";
+//       //   this.context.lineJoin = "round";
+//       //   this.context.lineWidth = 1.6;
+//       //   this.context.strokeStyle = "#dcdcdc";
+//       //   this.context.stroke();
+//       //   this.context.closePath();
+//       // });
+//       // this.context.restore();
+//       // this.context.clearRect(0, 0, this.canvas.width, this.canvas.height); // Clear the this.canvas
+
+//       this.textMap.forEach((t) => {
+//          if (t.isActive) {
+//             //dots
+//             this.dots(
+//                { x: t.x - this.tolerance, y: t.y - this.tolerance },
+//                {
+//                   x: t.x + t.width + this.tolerance,
+//                   y: t.y - this.tolerance,
+//                },
+//                {
+//                   x: t.x + t.width + this.tolerance,
+//                   y: t.y + t.height + this.tolerance,
+//                },
+//                {
+//                   x: t.x - this.tolerance,
+//                   y: t.y + t.height + this.tolerance,
+//                }
+//             );
+
+//             this.context.beginPath();
+//             this.context.strokeStyle = this.activeColor;
+//             this.context.rect(
+//                t.x - this.tolerance,
+//                t.y - this.tolerance,
+//                2 * this.tolerance + t.width,
+//                2 * this.tolerance + t.height
+//             );
+//             this.context.stroke();
+//          }
+//          // Set the font size before measuring the text
+//          this.context.fillStyle = t.fillStyle;
+//          this.context.font = `${t.textSize}px ${t.font || "Arial"}`;
+//          let maxWidth = 0;
+
+//          // Measure each string in the content array
+//          t.content.forEach((c) => {
+//             const textMetrics = this.context.measureText(c);
+//             maxWidth = Math.max(maxWidth, textMetrics.width);
+//          });
+
+//          // Store the measured dimensions
+//          t.width = maxWidth;
+//          t.height = t.content.length * t.textSize;
+
+//          let currentY = t.y;
+
+//          // Draw each string, adjusting the y coordinate
+
+//          t.content.forEach((c) => {
+//             const textMetrics = this.context.measureText(c);
+//             this.context.fillText(
+//                c,
+//                t.x,
+//                currentY + textMetrics.actualBoundingBoxAscent
+//             );
+//             currentY +=
+//                textMetrics.actualBoundingBoxAscent +
+//                textMetrics.actualBoundingBoxDescent +
+//                this.tolerance;
+//          });
+//       });
+
+//       this.lineMap.forEach((line) => {
+//          if (line.isActive) {
+//             this.context.lineWidth = 3;
+//             // this.context.fillStyle = "rgb(2, 211, 134)";
+//             this.context.strokeStyle = this.activeColor;
+
+//             this.dots(...line.curvePoints);
+
+//             if (!line.lineType || line.lineType === "straight") {
+//                this.context.beginPath();
+//                this.context.moveTo(
+//                   line.curvePoints[0].x,
+//                   line.curvePoints[0].y
+//                );
+//                for (let i = 1; i < line.curvePoints.length; i++) {
+//                   this.context.lineTo(
+//                      line.curvePoints[i].x,
+//                      line.curvePoints[i].y
+//                   );
+//                }
+//                this.context.stroke();
+//                this.context.closePath();
+//             }
+//          } else {
+//             this.context.strokeStyle = line.borderColor;
+//          }
+
+//          this.context.beginPath();
+//          this.context.lineWidth = line.lineWidth;
+//          this.context.moveTo(line.curvePoints[0].x, line.curvePoints[0].y);
+
+//          if (line.lineType === "straight") {
+//             for (let i = 0; i < line.curvePoints.length; i++) {
+//                this.context.lineTo(
+//                   line.curvePoints[i].x,
+//                   line.curvePoints[i].y
+//                );
+//             }
+//          } else if (line.lineType === "elbow") {
+//             const headlen = 15;
+
+//             this.context.lineWidth = line.lineWidth;
+
+//             this.context.arcTo(
+//                line.curvePoints[1].x,
+//                line.curvePoints[0].y,
+//                line.curvePoints[1].x,
+//                line.curvePoints[1].y,
+//                line.radius
+//             );
+//             // Draw a line from the end of the arc to (arrow.tox, arrow.toy)
+//             // }
+//             this.context.lineTo(line.curvePoints[1].x, line.curvePoints[1].y);
+
+//             this.context.stroke();
+
+//             // Draw the arrowhead
+//             const lastPoint = line.curvePoints[line.curvePoints.length - 1];
+//             const firstPoint = line.curvePoints[0];
+
+//             // arrow back side
+//             this.context.beginPath();
+//             if (firstPoint.y === lastPoint.y) {
+//                if (firstPoint.x < lastPoint.x) {
+//                   // Draw the first side of the arrowhead
+//                   this.context.moveTo(lastPoint.x, lastPoint.y);
+//                   this.context.lineTo(lastPoint.x - headlen, lastPoint.y - 5);
+//                   this.context.stroke();
+//                   this.context.closePath();
+
+//                   // Draw the second side of the arrowhead
+//                   this.context.beginPath();
+//                   this.context.moveTo(lastPoint.x, lastPoint.y);
+//                   this.context.lineTo(lastPoint.x - headlen, lastPoint.y + 5);
+//                } else {
+//                   // Draw the first side of the arrowhead
+//                   this.context.moveTo(lastPoint.x, lastPoint.y);
+//                   this.context.lineTo(lastPoint.x + headlen, lastPoint.y - 5);
+//                   this.context.stroke();
+//                   this.context.closePath();
+
+//                   // Draw the second side of the arrowhead
+//                   this.context.beginPath();
+//                   this.context.moveTo(lastPoint.x, lastPoint.y);
+//                   this.context.lineTo(lastPoint.x + headlen, lastPoint.y + 5);
+//                }
+//             } else if (firstPoint.y < lastPoint.y) {
+//                // Draw the first side of the arrowhead
+//                this.context.moveTo(lastPoint.x, lastPoint.y);
+//                this.context.lineTo(
+//                   lastPoint.x + headlen * 0.5,
+//                   lastPoint.y - headlen
+//                );
+//                this.context.stroke();
+//                this.context.closePath();
+
+//                // Draw the second side of the arrowhead
+//                this.context.beginPath();
+//                this.context.moveTo(lastPoint.x, lastPoint.y);
+//                this.context.lineTo(
+//                   lastPoint.x - headlen * 0.5,
+//                   lastPoint.y - headlen
+//                );
+//             } else if (firstPoint.y > lastPoint.y) {
+//                // Draw the first side of the arrowhead
+//                this.context.moveTo(lastPoint.x, lastPoint.y);
+//                this.context.lineTo(
+//                   lastPoint.x + headlen * 0.5,
+//                   lastPoint.y + headlen
+//                );
+//                this.context.stroke();
+//                this.context.closePath();
+
+//                // Draw the second side of the arrowhead
+//                this.context.beginPath();
+//                this.context.moveTo(lastPoint.x, lastPoint.y);
+//                this.context.lineTo(
+//                   lastPoint.x - headlen * 0.5,
+//                   lastPoint.y + headlen
+//                );
+//             }
+
+//             // arrow front
+//             this.context.stroke();
+//             this.context.closePath();
+//          } else {
+//             // Start the path at the first point
+//             if (line.curvePoints.length <= 2) {
+//                this.context.lineTo(
+//                   line.curvePoints[1].x,
+//                   line.curvePoints[1].y
+//                );
+//             } else {
+//                for (let i = 1; i < line.curvePoints.length - 1; i++) {
+//                   const cp1 = line.curvePoints[i];
+//                   const cp2 = line.curvePoints[i + 1];
+
+//                   // Calculate the weighted midpoint (e.g., 80% closer to cp2)
+//                   const t = 0.8; // Weighting factor, 0.5 for halfway, closer to 1 for closer to cp2
+//                   const midPointX = (1 - t) * cp1.x + t * cp2.x;
+//                   const midPointY = (1 - t) * cp1.y + t * cp2.y;
+
+//                   // Use cp1 as the control point and the adjusted midpoint as the end point
+//                   this.context.quadraticCurveTo(
+//                      cp1.x,
+//                      cp1.y,
+//                      midPointX,
+//                      midPointY
+//                   );
+//                }
+//                // Drawing the last segment to the last point
+//                let lastPoint = line.curvePoints[line.curvePoints.length - 1];
+//                this.context.lineTo(lastPoint.x, lastPoint.y);
+//             }
+//          }
+//          this.context.stroke();
+//          this.context.closePath();
+//       });
+
+//       this.context.restore();
+//    }
