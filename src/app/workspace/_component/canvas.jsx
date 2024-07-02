@@ -144,7 +144,8 @@ export default function Canvas({}) {
          });
       }
 
-      const canvasClick = (e) => {
+      function canvasClick(e) {
+         if (config.mode === "pencil") return;
          if (config.currentActive !== currentActive) {
             setCurrentActive(config.currentActive);
          }
@@ -217,9 +218,9 @@ export default function Canvas({}) {
             config.mode = "free";
             setMode(config.mode);
          }
-      };
+      }
 
-      const canvasZoomInOutAndScroll = (e) => {
+      function canvasZoomInOutAndScroll(e) {
          // Get the bounding rectangle of the canvas
          const rect = canvas.getBoundingClientRect();
          // Calculate the mouse position relative to the canvas
@@ -284,7 +285,7 @@ export default function Canvas({}) {
             renderFigure();
             shape.draw();
          }
-      };
+      }
 
       function newText(event, canvas) {
          if (event.target.tagName === "TEXTAREA") return;
@@ -324,79 +325,48 @@ export default function Canvas({}) {
          }
       }
 
-      shape.initialize();
-      canvas.addEventListener("click", canvasClick);
-      window.addEventListener("wheel", canvasZoomInOutAndScroll, {
-         passive: false,
-      });
-      canvas.addEventListener("dblclick", (e) => {
-         newText(e, canvas);
-      });
-
-      return () => {
-         shape.cleanup();
-         canvas.removeEventListener("click", canvasClick);
-         canvas.removeEventListener("dblclick", (e) => {
-            newText(e, canvas);
-         });
-         window.removeEventListener("wheel", canvasZoomInOutAndScroll);
-      };
-   }, [
-      rectMap,
-      textMap,
-      lineMap,
-      circleMap,
-      mode,
-      breakPoints,
-      currentActive,
-      figure,
-   ]);
-
-   function getCurrentShape(current) {
-      switch (current.type) {
-         case "rect":
-            const newShape = new Rect(
-               current.x,
-               current.y,
-               current.width,
-               current.height,
-               current.text,
-               current.textSize
-            );
-            rectMap.set(newShape.id, newShape);
-            return newShape;
-         case "sphere":
-            const newSphere = new Circle(
-               current.x,
-               current.y,
-               current.xRadius,
-               current.yRadius,
-               current.text,
-               current.textSize
-            );
-            circleMap.set(newSphere.id, newSphere);
-            return newSphere;
-         case "text":
-            const newText = new Text(
-               current.x,
-               current.y,
-               current.size,
-               current.content,
-               current.font,
-               true,
-               current.height,
-               current.width
-            );
-            textMap.set(newText.id, newText);
-            return newText;
-         default:
-            break;
+      function getCurrentShape(current) {
+         switch (current.type) {
+            case "rect":
+               const newShape = new Rect(
+                  current.x,
+                  current.y,
+                  current.width,
+                  current.height,
+                  current.text,
+                  current.textSize
+               );
+               rectMap.set(newShape.id, newShape);
+               return newShape;
+            case "sphere":
+               const newSphere = new Circle(
+                  current.x,
+                  current.y,
+                  current.xRadius,
+                  current.yRadius,
+                  current.text,
+                  current.textSize
+               );
+               circleMap.set(newSphere.id, newSphere);
+               return newSphere;
+            case "text":
+               const newText = new Text(
+                  current.x,
+                  current.y,
+                  current.size,
+                  current.content,
+                  current.font,
+                  true,
+                  current.height,
+                  current.width
+               );
+               textMap.set(newText.id, newText);
+               return newText;
+            default:
+               break;
+         }
       }
-   }
 
-   useEffect(() => {
-      const canvas = canvasRef.current;
-      const shape = shapeClassRef.current;
       function duplicate(e) {
          if (e.altKey && config.mode !== "handsFree") {
             const current = shape.canvasClick(e);
@@ -547,26 +517,37 @@ export default function Canvas({}) {
          }
       }
 
+      shape.initialize();
+      canvas.addEventListener("click", canvasClick);
       canvas.addEventListener("mousedown", duplicate);
+      window.addEventListener("wheel", canvasZoomInOutAndScroll, {
+         passive: false,
+      });
+      canvas.addEventListener("dblclick", (e) => {
+         newText(e, canvas);
+      });
       window.addEventListener("keydown", duplicateCtrl_D, { passive: false });
 
       return () => {
+         shape.cleanup();
+         canvas.removeEventListener("click", canvasClick);
          canvas.removeEventListener("mousedown", duplicate);
+         canvas.removeEventListener("dblclick", (e) => {
+            newText(e, canvas);
+         });
+         window.removeEventListener("wheel", canvasZoomInOutAndScroll);
          window.removeEventListener("keydown", duplicateCtrl_D);
       };
-   }, [rectMap]);
-
-   //   useEffect(() => {
-   //     if (shapes.length > 0)
-   //       shapes.forEach((s) => {
-   //         if (s.shapeType === "rect") {
-   //           rectMap.set(s.params.id, s.params);
-   //         } else if (s.shapeType === "sphere") {
-   //           circleMap.set(s.params.id, s.params);
-   //         }
-   //       });
-   //     if (shapeClassRef.current) shapeClassRef.current.draw();
-   //   }, []);
+   }, [
+      rectMap,
+      textMap,
+      lineMap,
+      circleMap,
+      mode,
+      breakPoints,
+      currentActive,
+      figure,
+   ]);
 
    return (
       <>

@@ -1,3 +1,4 @@
+import { get } from "react-hook-form";
 import { config, Scale, scrollBar } from "../../../lib/utils.ts";
 import Doc from "./Doc.jsx";
 
@@ -228,18 +229,18 @@ export default class Shapes {
 
       this.context.save();
 
+      this.context.translate(
+         -scrollBar.scrollPositionX,
+         -scrollBar.scrollPositionY
+      );
       //   const centerX = this.canvas.width / 2;
       //   const centerY = this.canvas.height / 2;
 
       //   // Translate to the center, apply scaling, and then translate back
       //   this.context.translate(centerX, centerY);
-      this.context.scale(Scale.scale, Scale.scale);
       //   this.context.translate(-centerX, -centerY);
+      this.context.scale(Scale.scale, Scale.scale);
 
-      this.context.translate(
-         -scrollBar.scrollPositionX,
-         -scrollBar.scrollPositionY
-      );
       this.context.lineWidth = this.lineWidth;
       this.context.strokeStyle = "rgb(2, 211, 134)";
 
@@ -939,6 +940,24 @@ export default class Shapes {
       object.curvePoints[index].y = y;
    };
 
+   getClosestPointOnSphere(sphere, point) {
+      const dx = point.x - sphere.x;
+      const dy = point.y - sphere.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const closestX = sphere.x + (dx / dist) * sphere.xRadius;
+      const closestY = sphere.y + (dy / dist) * sphere.yRadius;
+      return { x: closestX, y: closestY };
+   }
+
+   getClosestPoints(rect, point) {
+      const closestX = Math.max(rect.x, Math.min(point.x, rect.x + rect.width));
+      const closestY = Math.max(
+         rect.y,
+         Math.min(point.y, rect.y + rect.height)
+      );
+      return { x: closestX, y: closestY };
+   }
+
    mouseMove(e) {
       if (config.mode === "pencil") return;
 
@@ -1171,126 +1190,38 @@ export default class Shapes {
 
                            const { curvePoints, lineType } = l;
                            const last = curvePoints.length - 1;
-                           const lastPoint = curvePoints[last];
-                           const rectMidX = rect.x + rect.width * 0.5;
-                           const rectMidY = rect.y + rect.height * 0.5;
 
-                           if (lineType === "elbow") {
-                              if (curvePoints[last].y < rect.y) {
-                                 updateCurvePoint(
-                                    l,
-                                    rect.x + rect.width / 2,
-                                    rect.y,
-                                    0
-                                 );
-                                 if (r) {
-                                    updateCurvePoint(
-                                       l,
-                                       r.x + r.width / 2,
-                                       r.y + r.height,
-                                       1
-                                    );
-                                 } else if (t) {
-                                    updateCurvePoint(
-                                       l,
-                                       t.x + t.width / 2,
-                                       t.y + t.height,
-                                       1
-                                    );
-                                 } else if (s) {
-                                    updateCurvePoint(
-                                       l,
-                                       s.x,
-                                       s.y + s.yRadius,
-                                       1
-                                    );
-                                 }
-                              } else if (
-                                 curvePoints[last].y > rect.y &&
-                                 curvePoints[last].y < rect.y + rect.height
-                              ) {
-                                 if (
-                                    curvePoints[last].x <
-                                    rect.x + rect.width / 2
-                                 ) {
-                                    curvePoints[0].x = rect.x;
-                                    if (r) {
-                                       curvePoints[last].x = r.x + r.width;
-                                    } else if (t) {
-                                       curvePoints[last].x = t.x + t.width;
-                                    } else if (s) {
-                                       curvePoints[last].x = s.x + s.xRadius;
-                                    }
-                                 } else {
-                                    curvePoints[0].x = rect.x + rect.width;
-                                    if (r) {
-                                       curvePoints[last].x = r.x;
-                                    } else if (t) {
-                                       curvePoints[last].x = t.x;
-                                    } else if (s) {
-                                       curvePoints[last].x = s.x - s.xRadius;
-                                    }
-                                 }
-                                 curvePoints[0].y = rect.y + rect.height / 2;
-                                 if (r) {
-                                    curvePoints[last].y = r.y + r.height / 2;
-                                 } else if (t) {
-                                    curvePoints[last].y = t.y + t.height / 2;
-                                 } else if (s) {
-                                    curvePoints[last].y = s.y;
-                                 }
-                              } else {
-                                 updateCurvePoint(
-                                    l,
-                                    rect.x + rect.width / 2,
-                                    rect.y + rect.height,
-                                    0
-                                 );
-
-                                 if (r) {
-                                    updateCurvePoint(
-                                       l,
-                                       r.x + r.width / 2,
-                                       r.y,
-                                       1
-                                    );
-                                 } else if (t) {
-                                    updateCurvePoint(
-                                       l,
-                                       t.x + t.width / 2,
-                                       t.y,
-                                       1
-                                    );
-                                 } else if (s) {
-                                    updateCurvePoint(
-                                       l,
-                                       s.x,
-                                       s.y - s.xRadius,
-                                       1
-                                    );
-                                 }
-                              }
-                           } else {
-                              if (lastPoint.y < rect.y) {
-                                 updateCurvePoint(rectMidX, rect.y);
-                              } else if (
-                                 lastPoint.y >= rect.y &&
-                                 lastPoint.y <= rect.y + rect.height
-                              ) {
-                                 if (lastPoint.x > rect.x) {
-                                    updateCurvePoint(
-                                       rect.x + rect.width,
-                                       rectMidY
-                                    );
-                                 } else {
-                                    updateCurvePoint(rect.x, rectMidY);
-                                 }
-                              } else {
-                                 updateCurvePoint(
-                                    rectMidX,
-                                    rect.y + rect.height
-                                 );
-                              }
+                           const { x, y } = this.getClosestPoints(
+                              {
+                                 x: rect.x + rect.width / 2,
+                                 y: rect.y,
+                                 width: 5,
+                                 height: rect.height,
+                              },
+                              { x: curvePoints[last].x, y: curvePoints[last].y }
+                           );
+                           updateCurvePoint(l, x, y, 0);
+                           if (r) {
+                              const { x, y } = this.getClosestPoints(r, {
+                                 x: curvePoints[0].x,
+                                 y: curvePoints[0].y,
+                              });
+                              curvePoints[last].x = x;
+                              curvePoints[last].y = y;
+                           } else if (t) {
+                              const { x, y } = this.getClosestPoints(t, {
+                                 x: curvePoints[0].x,
+                                 y: curvePoints[0].y,
+                              });
+                              curvePoints[last].x = x;
+                              curvePoints[last].y = y;
+                           } else if (s) {
+                              const { x, y } = this.getClosestPointOnSphere(s, {
+                                 x: curvePoints[0].x,
+                                 y: curvePoints[0].y,
+                              });
+                              curvePoints[last].x = x;
+                              curvePoints[last].y = y;
                            }
                         }
                      });
@@ -1309,97 +1240,38 @@ export default class Shapes {
                               text: t,
                               sphere: s,
                            } = this.getShape(l.startTo);
-                           const last = l.curvePoints.length - 1;
+
                            const { curvePoints } = l;
-                           if (l.lineType === "elbow") {
-                              if (curvePoints[0].y < rect.y) {
-                                 curvePoints[last].x = rect.x + rect.width / 2;
-                                 curvePoints[last].y = rect.y;
-                                 if (r) {
-                                    updateCurvePoint(
-                                       l,
-                                       r.x + r.width / 2,
-                                       r.y + r.height,
-                                       0
-                                    );
-                                 } else if (t) {
-                                    updateCurvePoint(
-                                       l,
-                                       t.x + t.width / 2,
-                                       t.y + t.height,
-                                       0
-                                    );
-                                 } else if (s) {
-                                    updateCurvePoint(
-                                       l,
-                                       s.x,
-                                       s.y + s.yRadius,
-                                       0
-                                    );
-                                 }
-                              } else if (
-                                 curvePoints[0].y > rect.y &&
-                                 curvePoints[0].y < rect.y + rect.height
-                              ) {
-                                 if (
-                                    curvePoints[0].x <
-                                    rect.x + rect.width / 2
-                                 ) {
-                                    curvePoints[last].x = rect.x;
-                                    if (r) {
-                                       curvePoints[0].x = r.x + r.width;
-                                    } else if (t) {
-                                       curvePoints[0].x = t.x + t.width;
-                                    } else if (s) {
-                                       curvePoints[0].x = s.x + s.xRadius;
-                                    }
-                                 } else {
-                                    curvePoints[last].x = rect.x + rect.width;
-                                    if (r) {
-                                       curvePoints[0].x = r.x;
-                                    } else if (t) {
-                                       curvePoints[0].x = t.x;
-                                    } else if (s) {
-                                       curvePoints[0].x = s.x - s.xRadius;
-                                    }
-                                 }
-                                 curvePoints[last].y = rect.y + rect.height / 2;
-                                 if (r) {
-                                    curvePoints[0].y = r.y + r.height / 2;
-                                 } else if (t) {
-                                    curvePoints[0].y = t.y + t.height / 2;
-                                 } else if (s) {
-                                    curvePoints[0].y = s.y;
-                                 }
-                              } else if (
-                                 curvePoints[0].y >
-                                 rect.y + rect.height
-                              ) {
-                                 curvePoints[last].x = rect.x + rect.width / 2;
-                                 curvePoints[last].y = rect.y + rect.height;
-                                 if (r) {
-                                    updateCurvePoint(
-                                       l,
-                                       r.x + r.width / 2,
-                                       r.y,
-                                       0
-                                    );
-                                 } else if (t) {
-                                    updateCurvePoint(
-                                       l,
-                                       t.x + t.width / 2,
-                                       t.y,
-                                       0
-                                    );
-                                 } else if (s) {
-                                    updateCurvePoint(
-                                       l,
-                                       s.x,
-                                       s.y - s.xRadius,
-                                       0
-                                    );
-                                 }
-                              }
+                           const last = curvePoints.length - 1;
+
+                           const { x, y } = this.getClosestPoints(
+                              {
+                                 x: rect.x + rect.width / 2,
+                                 y: rect.y,
+                                 width: 5,
+                                 height: rect.height,
+                              },
+                              { x: curvePoints[0].x, y: curvePoints[0].y }
+                           );
+                           updateCurvePoint(l, x, y, last);
+                           if (r) {
+                              const { x, y } = this.getClosestPoints(r, {
+                                 x: curvePoints[last].x,
+                                 y: curvePoints[last].y,
+                              });
+                              this.updateCurvePoint(l, x, y, 0);
+                           } else if (t) {
+                              const { x, y } = this.getClosestPoints(t, {
+                                 x: curvePoints[last].x,
+                                 y: curvePoints[last].y,
+                              });
+                              this.updateCurvePoint(l, x, y, 0);
+                           } else if (s) {
+                              const { x, y } = this.getClosestPointOnSphere(s, {
+                                 x: curvePoints[last].x,
+                                 y: curvePoints[last].y,
+                              });
+                              this.updateCurvePoint(l, x, y, 0);
                            }
                         }
                      });
@@ -1454,73 +1326,30 @@ export default class Shapes {
                            } = this.getShape(endTo);
                            const last = curvePoints.length - 1;
 
-                           if (curvePoints[last].y < arc.y - arc.yRadius) {
-                              this.updateCurvePoint(
-                                 l,
-                                 arc.x,
-                                 arc.y - arc.yRadius,
-                                 0
-                              );
-                              if (r) {
-                                 this.updateCurvePoint(
-                                    l,
-                                    r.x + r.width / 2,
-                                    r.y + r.height,
-                                    1
-                                 );
-                              } else if (t) {
-                                 this.updateCurvePoint(
-                                    l,
-                                    t.x + t.width / 2,
-                                    t.y + t.height,
-                                    1
-                                 );
-                              } else if (s) {
-                                 this.updateCurvePoint(
-                                    l,
-                                    s.x,
-                                    s.y + s.yRadius,
-                                    1
-                                 );
-                              }
-                           } else if (
-                              curvePoints[last].y > arc.y - arc.yRadius &&
-                              curvePoints[last].y < arc.y + arc.yRadius
-                           ) {
-                              if (curvePoints[last].x < arc.x - arc.xRadius) {
-                                 l.curvePoints[0].x = arc.x - arc.xRadius;
-                              } else {
-                                 l.curvePoints[0].x = arc.x + arc.xRadius;
-                              }
-                              l.curvePoints[0].y = arc.y;
-                           } else if (
-                              curvePoints[last].y >
-                              arc.y + arc.yRadius
-                           ) {
-                              l.curvePoints[0].y = arc.y + arc.yRadius;
-                              l.curvePoints[0].x = arc.x;
-                              if (r) {
-                                 this.updateCurvePoint(
-                                    l,
-                                    r.x + r.width / 2,
-                                    r.y,
-                                    last
-                                 );
-                              } else if (t) {
-                                 this.updateCurvePoint(
-                                    l,
-                                    t.x + t.width / 2,
-                                    t.y,
-                                    last
-                                 );
-                              } else if (s) {
-                                 this.updateCurvePoint(
-                                    l,
-                                    s.x,
-                                    s.y - s.yRadius,
-                                    last
-                                 );
-                              }
+                           const { x, y } = this.getClosestPointOnSphere(arc, {
+                              x: curvePoints[last].x,
+                              y: curvePoints[last].y,
+                           });
+                           this.updateCurvePoint(l, x, y, 0);
+
+                           if (r) {
+                              const { x, y } = this.getClosestPoints(r, {
+                                 x: curvePoints[0].x,
+                                 y: curvePoints[0].y,
+                              });
+                              this.updateCurvePoint(l, x, y, last);
+                           } else if (t) {
+                              const { x, y } = this.getClosestPoints(t, {
+                                 x: curvePoints[0].x,
+                                 y: curvePoints[0].y,
+                              });
+                              this.updateCurvePoint(l, x, y, last);
+                           } else if (s) {
+                              const { x, y } = this.getClosestPointOnSphere(s, {
+                                 x: curvePoints[0].x,
+                                 y: curvePoints[0].y,
+                              });
+                              this.updateCurvePoint(l, x, y, last);
                            }
                         }
                      });
@@ -1540,97 +1369,31 @@ export default class Shapes {
                            } = this.getShape(startTo);
 
                            const last = l.curvePoints.length - 1;
-                           if (curvePoints[0].y < arc.y - arc.yRadius) {
-                              this.updateCurvePoint(
-                                 l,
-                                 arc.x,
-                                 arc.y - arc.yRadius,
-                                 last
-                              );
-                              if (r) {
-                                 this.updateCurvePoint(
-                                    l,
-                                    r.x + r.width / 2,
-                                    r.y + r.height,
-                                    0
-                                 );
-                              } else if (t) {
-                                 this.updateCurvePoint(
-                                    l,
-                                    t.x + t.width / 2,
-                                    t.y + t.height,
-                                    0
-                                 );
-                              } else if (s) {
-                                 this.updateCurvePoint(
-                                    l,
-                                    s.x,
-                                    s.y + s.yRadius,
-                                    0
-                                 );
-                              }
-                           } else if (
-                              curvePoints[0].y > arc.y - arc.yRadius &&
-                              curvePoints[0].y < arc.y + arc.yRadius
-                           ) {
-                              if (l.curvePoints[0].x < arc.x) {
-                                 l.curvePoints[last].x = arc.x - arc.xRadius;
-                                 if (r) {
-                                    l.curvePoints[0].x = r.x + r.width;
-                                 } else if (t) {
-                                    l.curvePoints[0].y = t.x + t.width;
-                                 } else if (s) {
-                                    l.curvePoints[0].y = s.x + s.xRadius;
-                                 }
-                              } else {
-                                 l.curvePoints[last].x = arc.x + arc.xRadius;
-                                 if (r) {
-                                    l.curvePoints[0].x = r.x;
-                                 } else if (t) {
-                                    l.curvePoints[0].x = t.x;
-                                 } else if (s) {
-                                    l.curvePoints[0].x = s.x - s.xRadius;
-                                 }
-                              }
 
-                              l.curvePoints[last].y = arc.y;
-                              if (r) {
-                                 l.curvePoints[0].y = r.y + r.height / 2;
-                              } else if (t) {
-                                 l.curvePoints[0].y = t.y + t.height / 2;
-                              } else if (s) {
-                                 l.curvePoints[0].y = s.y;
-                              }
-                           } else {
-                              this.updateCurvePoint(
-                                 l,
-                                 arc.x,
-                                 arc.y + arc.yRadius,
-                                 last
-                              );
+                           const { x, y } = this.getClosestPointOnSphere(arc, {
+                              x: curvePoints[0].x,
+                              y: curvePoints[0].y,
+                           });
+                           this.updateCurvePoint(l, x, y, last);
 
-                              if (r) {
-                                 this.updateCurvePoint(
-                                    l,
-                                    r.x + r.with / 2,
-                                    r.y,
-                                    0
-                                 );
-                              } else if (t) {
-                                 this.updateCurvePoint(
-                                    l,
-                                    t.x + t.with / 2,
-                                    t.y,
-                                    0
-                                 );
-                              } else if (s) {
-                                 this.updateCurvePoint(
-                                    l,
-                                    s.x,
-                                    s.y - s.yRadius,
-                                    0
-                                 );
-                              }
+                           if (r) {
+                              const { x, y } = this.getClosestPoints(r, {
+                                 x: curvePoints[last].x,
+                                 y: curvePoints[last].y,
+                              });
+                              this.updateCurvePoint(l, x, y, 0);
+                           } else if (t) {
+                              const { x, y } = this.getClosestPoints(t, {
+                                 x: curvePoints[last].x,
+                                 y: curvePoints[last].y,
+                              });
+                              this.updateCurvePoint(l, x, y, 0);
+                           } else if (s) {
+                              const { x, y } = this.getClosestPointOnSphere(s, {
+                                 x: curvePoints[last].x,
+                                 y: curvePoints[last].y,
+                              });
+                              this.updateCurvePoint(l, x, y, 0);
                            }
                         }
                      });
@@ -1673,16 +1436,51 @@ export default class Shapes {
                lineStart.forEach((ar) => {
                   if (ar === text) {
                      arcs.forEach((a) => {
-                        const length = a.curvePoints.length - 1;
                         if (this.textMap.get(a.startTo) === text) {
-                           if (a.curvePoints[length].y < a.curvePoints[0].y) {
-                              a.curvePoints[0].y = text.y - this.tolerance;
-                           } else
-                              a.curvePoints[0].y =
-                                 text.y + text.height + this.tolerance;
+                           const { curvePoints, endTo } = a;
+                           const last = curvePoints.length - 1;
+                           const {
+                              rect: r,
+                              text: t,
+                              sphere: s,
+                           } = this.getShape(endTo);
 
-                           a.curvePoints[0].x =
-                              text.x + (text.width + text.x - text.x) * 0.5;
+                           const { x, y } = this.getClosestPoints(
+                              {
+                                 x: text.x + text.width / 2 - this.tolerance,
+                                 y: text.y,
+                                 width: this.tolerance,
+                                 height: text.height,
+                              },
+                              {
+                                 x: curvePoints[last].x,
+                                 y: curvePoints[last].y,
+                              }
+                           );
+                           this.updateCurvePoint(a, x, y, 0);
+
+                           if (r) {
+                              //tail
+                              const { x, y } = this.getClosestPoints(r, {
+                                 x: curvePoints[0].x,
+                                 y: curvePoints[0].y,
+                              });
+                              this.updateCurvePoint(a, x, y, last);
+                           } else if (t) {
+                              //tail
+                              const { x, y } = this.getClosestPoints(t, {
+                                 x: curvePoints[0].x,
+                                 y: curvePoints[0].y,
+                              });
+                              this.updateCurvePoint(a, x, y, last);
+                           } else if (t) {
+                              //tail
+                              const { x, y } = this.getClosestPointOnSphere(s, {
+                                 x: curvePoints[0].x,
+                                 y: curvePoints[0].y,
+                              });
+                              this.updateCurvePoint(a, x, y, last);
+                           }
                         }
                      });
                   }
@@ -1692,18 +1490,49 @@ export default class Shapes {
             if (lineEnd.length > 0) {
                lineEnd.forEach((ar) => {
                   if (ar === text) {
-                     arcs.forEach((a) => {
-                        const length = a.curvePoints.length - 1;
-                        if (this.textMap.get(a.endTo) === text) {
-                           if (a.curvePoints[0].y < a.curvePoints[length].y) {
-                              a.curvePoints[length].x =
-                                 text.x + (text.width + text.x - text.x) * 0.5;
-                              a.curvePoints[length].y = text.y - this.tolerance;
-                           } else {
-                              a.curvePoints[length].x =
-                                 text.x + (text.width + text.x - text.x) * 0.5;
-                              a.curvePoints[length].y =
-                                 text.y + text.height + this.tolerance;
+                     arcs.forEach((l) => {
+                        if (this.textMap.get(l.endTo) === text) {
+                           const { curvePoints, startTo } = l;
+                           const last = curvePoints.length - 1;
+
+                           const {
+                              rect: r,
+                              text: t,
+                              sphere: s,
+                           } = this.getShape(startTo);
+
+                           const { x, y } = this.getClosestPoints(
+                              {
+                                 x: text.x + text.width / 2 - this.tolerance,
+                                 y: text.y,
+                                 width: this.tolerance,
+                                 height: text.height,
+                              },
+                              {
+                                 x: curvePoints[0].x,
+                                 y: curvePoints[0].y,
+                              }
+                           );
+                           this.updateCurvePoint(a, x, y, last);
+
+                           if (r) {
+                              const { x, y } = this.getClosestPoints(r, {
+                                 x: curvePoints[last].x,
+                                 y: curvePoints[last].y,
+                              });
+                              this.updateCurvePoint(l, x, y, 0);
+                           } else if (t) {
+                              const { x, y } = this.getClosestPoints(t, {
+                                 x: curvePoints[last].x,
+                                 y: curvePoints[last].y,
+                              });
+                              this.updateCurvePoint(l, x, y, 0);
+                           } else if (s) {
+                              const { x, y } = this.getClosestPointOnSphere(s, {
+                                 x: curvePoints[last].x,
+                                 y: curvePoints[last].y,
+                              });
+                              this.updateCurvePoint(l, x, y, 0);
                            }
                         }
                      });
@@ -2794,6 +2623,10 @@ export default class Shapes {
       );
    }
 
+   duplicate() {
+    
+   }
+
    renderText(textArray, x, y, textSize, height, width) {
       // Calculate the total height of the text block
       let totalTextHeight = textArray.length * textSize;
@@ -2821,390 +2654,3 @@ export default class Shapes {
       }
    }
 }
-
-//    draw() {
-//       //   this.context.clearRect(0, 0, this.canvas.width, this.canvas.height); // Clear the this.canvas
-//       this.context.clearRect(0, 0, window.innerWidth, window.innerHeight); // Clear the this.canvas
-
-//       this.context.save();
-//       this.context.translate(
-//          -scrollBar.scrollPositionX,
-//          -scrollBar.scrollPositionY
-//       );
-//       this.context.scale(Scale.scale, Scale.scale);
-//       this.context.lineWidth = this.lineWidth;
-//       this.context.strokeStyle = "rgb(2, 211, 134)";
-
-//       this.rectMap.forEach((rect) => {
-//          const {
-//             x,
-//             y,
-//             width,
-//             height,
-//             radius,
-//             lineWidth,
-//             borderColor,
-//             fillStyle,
-//             text,
-//             textSize,
-//          } = rect;
-
-//          if (rect.isActive) {
-//             //dots
-//             this.dots(
-//                { x: rect.x - this.tolerance, y: rect.y - this.tolerance },
-//                {
-//                   x: rect.x + rect.width + this.tolerance,
-//                   y: rect.y - this.tolerance,
-//                },
-//                {
-//                   x: rect.x + rect.width + this.tolerance,
-//                   y: rect.y + rect.height + this.tolerance,
-//                },
-//                {
-//                   x: rect.x - this.tolerance,
-//                   y: rect.y + rect.height + this.tolerance,
-//                }
-//             );
-
-//             this.context.beginPath();
-//             this.context.moveTo(x + width * 0.5, y - this.tolerance);
-//             this.context.lineTo(x + width * 0.5, y - 20);
-//             this.context.stroke();
-//             this.context.closePath();
-
-//             this.dots({ x: x + width * 0.5, y: y - 20 });
-
-//             // Draw the rectangle using this.canvas rect method
-//             this.context.beginPath();
-//             this.context.strokeStyle = this.activeColor;
-//             // this.context.fillStyle = "rgb(2, 211, 134)";
-//             this.context.rect(
-//                x - this.tolerance,
-//                y - this.tolerance,
-//                width + 2 * this.tolerance,
-//                height + 2 * this.tolerance
-//             );
-//             this.context.stroke();
-//          }
-
-//          this.context.beginPath();
-//          this.context.lineWidth = lineWidth;
-//          this.context.strokeStyle = borderColor;
-//          this.context.fillStyle = fillStyle;
-//          this.context.moveTo(x + radius, y);
-//          this.context.arcTo(x + width, y, x + width, y + height, radius);
-//          this.context.arcTo(x + width, y + height, x, y + height, radius);
-//          this.context.arcTo(x, y + height, x, y, radius);
-//          this.context.arcTo(x, y, x + width, y, radius);
-//          this.context.stroke();
-//          this.context.fill();
-//          this.context.closePath();
-
-//          // render text
-//          this.renderText(text, x, y, textSize, height, width);
-//       });
-
-//       this.circleMap.forEach((sphere) => {
-//          const x = sphere.x - sphere.xRadius;
-//          const y = sphere.y - sphere.yRadius;
-//          const width = sphere.x + sphere.xRadius;
-//          const height = sphere.y + sphere.yRadius;
-//          if (sphere.isActive) {
-//             //dots
-//             this.dots(
-//                { x: x - this.tolerance, y: y - this.tolerance },
-//                { x: width + this.tolerance, y: y - this.tolerance },
-//                { x: width + this.tolerance, y: height + this.tolerance },
-//                { x: x - this.tolerance, y: height + this.tolerance }
-//             );
-
-//             // Draw the rectangle using this.canvas rect method
-//             this.context.beginPath();
-//             this.context.strokeStyle = this.activeColor;
-//             // this.context.fillStyle = "rgb(2, 211, 134)";
-//             this.context.rect(
-//                x - this.tolerance,
-//                y - this.tolerance,
-//                2 * sphere.xRadius + 2 * this.tolerance,
-//                2 * sphere.yRadius + 2 * this.tolerance
-//             );
-//             this.context.stroke();
-//          }
-//          this.context.beginPath();
-//          this.context.lineWidth = sphere.lineWidth;
-//          this.context.fillStyle = sphere.fillStyle;
-//          this.context.strokeStyle = sphere.borderColor;
-//          this.context.ellipse(
-//             sphere.x,
-//             sphere.y,
-//             sphere.xRadius,
-//             sphere.yRadius,
-//             0,
-//             0,
-//             2 * Math.PI
-//          );
-//          this.context.fill();
-//          this.context.closePath();
-//          this.context.stroke();
-
-//          //   render text
-//          this.renderText(
-//             sphere.text,
-//             x,
-//             y,
-//             sphere.textSize,
-//             2 * sphere.yRadius,
-//             2 * sphere.xRadius
-//          );
-//       });
-
-//       // this.context.save();
-//       // pencilMap.forEach((pencil) => {
-//       //   this.context.beginPath();
-//       //   pencil.forEach((coor, index) => {
-//       //     if (index === 0) {
-//       //       this.context.moveTo(coor.x, coor.y); // Move to the first point
-//       //     } else {
-//       //       // Use quadraticCurveTo for drawing curved lines
-//       //       const prevCoor = pencil[index - 1];
-//       //       const cx = (coor.x + prevCoor.x) / 2; // Control point x-coordinate
-//       //       const cy = (coor.y + prevCoor.y) / 2; // Control point y-coordinate
-//       //       this.context.quadraticCurveTo(prevCoor.x, prevCoor.y, cx, cy); // Draw a quadratic curve
-//       //     }
-//       //   });
-
-//       //   // Set line properties
-//       //   this.context.lineCap = "round";
-//       //   this.context.lineJoin = "round";
-//       //   this.context.lineWidth = 1.6;
-//       //   this.context.strokeStyle = "#dcdcdc";
-//       //   this.context.stroke();
-//       //   this.context.closePath();
-//       // });
-//       // this.context.restore();
-//       // this.context.clearRect(0, 0, this.canvas.width, this.canvas.height); // Clear the this.canvas
-
-//       this.textMap.forEach((t) => {
-//          if (t.isActive) {
-//             //dots
-//             this.dots(
-//                { x: t.x - this.tolerance, y: t.y - this.tolerance },
-//                {
-//                   x: t.x + t.width + this.tolerance,
-//                   y: t.y - this.tolerance,
-//                },
-//                {
-//                   x: t.x + t.width + this.tolerance,
-//                   y: t.y + t.height + this.tolerance,
-//                },
-//                {
-//                   x: t.x - this.tolerance,
-//                   y: t.y + t.height + this.tolerance,
-//                }
-//             );
-
-//             this.context.beginPath();
-//             this.context.strokeStyle = this.activeColor;
-//             this.context.rect(
-//                t.x - this.tolerance,
-//                t.y - this.tolerance,
-//                2 * this.tolerance + t.width,
-//                2 * this.tolerance + t.height
-//             );
-//             this.context.stroke();
-//          }
-//          // Set the font size before measuring the text
-//          this.context.fillStyle = t.fillStyle;
-//          this.context.font = `${t.textSize}px ${t.font || "Arial"}`;
-//          let maxWidth = 0;
-
-//          // Measure each string in the content array
-//          t.content.forEach((c) => {
-//             const textMetrics = this.context.measureText(c);
-//             maxWidth = Math.max(maxWidth, textMetrics.width);
-//          });
-
-//          // Store the measured dimensions
-//          t.width = maxWidth;
-//          t.height = t.content.length * t.textSize;
-
-//          let currentY = t.y;
-
-//          // Draw each string, adjusting the y coordinate
-
-//          t.content.forEach((c) => {
-//             const textMetrics = this.context.measureText(c);
-//             this.context.fillText(
-//                c,
-//                t.x,
-//                currentY + textMetrics.actualBoundingBoxAscent
-//             );
-//             currentY +=
-//                textMetrics.actualBoundingBoxAscent +
-//                textMetrics.actualBoundingBoxDescent +
-//                this.tolerance;
-//          });
-//       });
-
-//       this.lineMap.forEach((line) => {
-//          if (line.isActive) {
-//             this.context.lineWidth = 3;
-//             // this.context.fillStyle = "rgb(2, 211, 134)";
-//             this.context.strokeStyle = this.activeColor;
-
-//             this.dots(...line.curvePoints);
-
-//             if (!line.lineType || line.lineType === "straight") {
-//                this.context.beginPath();
-//                this.context.moveTo(
-//                   line.curvePoints[0].x,
-//                   line.curvePoints[0].y
-//                );
-//                for (let i = 1; i < line.curvePoints.length; i++) {
-//                   this.context.lineTo(
-//                      line.curvePoints[i].x,
-//                      line.curvePoints[i].y
-//                   );
-//                }
-//                this.context.stroke();
-//                this.context.closePath();
-//             }
-//          } else {
-//             this.context.strokeStyle = line.borderColor;
-//          }
-
-//          this.context.beginPath();
-//          this.context.lineWidth = line.lineWidth;
-//          this.context.moveTo(line.curvePoints[0].x, line.curvePoints[0].y);
-
-//          if (line.lineType === "straight") {
-//             for (let i = 0; i < line.curvePoints.length; i++) {
-//                this.context.lineTo(
-//                   line.curvePoints[i].x,
-//                   line.curvePoints[i].y
-//                );
-//             }
-//          } else if (line.lineType === "elbow") {
-//             const headlen = 15;
-
-//             this.context.lineWidth = line.lineWidth;
-
-//             this.context.arcTo(
-//                line.curvePoints[1].x,
-//                line.curvePoints[0].y,
-//                line.curvePoints[1].x,
-//                line.curvePoints[1].y,
-//                line.radius
-//             );
-//             // Draw a line from the end of the arc to (arrow.tox, arrow.toy)
-//             // }
-//             this.context.lineTo(line.curvePoints[1].x, line.curvePoints[1].y);
-
-//             this.context.stroke();
-
-//             // Draw the arrowhead
-//             const lastPoint = line.curvePoints[line.curvePoints.length - 1];
-//             const firstPoint = line.curvePoints[0];
-
-//             // arrow back side
-//             this.context.beginPath();
-//             if (firstPoint.y === lastPoint.y) {
-//                if (firstPoint.x < lastPoint.x) {
-//                   // Draw the first side of the arrowhead
-//                   this.context.moveTo(lastPoint.x, lastPoint.y);
-//                   this.context.lineTo(lastPoint.x - headlen, lastPoint.y - 5);
-//                   this.context.stroke();
-//                   this.context.closePath();
-
-//                   // Draw the second side of the arrowhead
-//                   this.context.beginPath();
-//                   this.context.moveTo(lastPoint.x, lastPoint.y);
-//                   this.context.lineTo(lastPoint.x - headlen, lastPoint.y + 5);
-//                } else {
-//                   // Draw the first side of the arrowhead
-//                   this.context.moveTo(lastPoint.x, lastPoint.y);
-//                   this.context.lineTo(lastPoint.x + headlen, lastPoint.y - 5);
-//                   this.context.stroke();
-//                   this.context.closePath();
-
-//                   // Draw the second side of the arrowhead
-//                   this.context.beginPath();
-//                   this.context.moveTo(lastPoint.x, lastPoint.y);
-//                   this.context.lineTo(lastPoint.x + headlen, lastPoint.y + 5);
-//                }
-//             } else if (firstPoint.y < lastPoint.y) {
-//                // Draw the first side of the arrowhead
-//                this.context.moveTo(lastPoint.x, lastPoint.y);
-//                this.context.lineTo(
-//                   lastPoint.x + headlen * 0.5,
-//                   lastPoint.y - headlen
-//                );
-//                this.context.stroke();
-//                this.context.closePath();
-
-//                // Draw the second side of the arrowhead
-//                this.context.beginPath();
-//                this.context.moveTo(lastPoint.x, lastPoint.y);
-//                this.context.lineTo(
-//                   lastPoint.x - headlen * 0.5,
-//                   lastPoint.y - headlen
-//                );
-//             } else if (firstPoint.y > lastPoint.y) {
-//                // Draw the first side of the arrowhead
-//                this.context.moveTo(lastPoint.x, lastPoint.y);
-//                this.context.lineTo(
-//                   lastPoint.x + headlen * 0.5,
-//                   lastPoint.y + headlen
-//                );
-//                this.context.stroke();
-//                this.context.closePath();
-
-//                // Draw the second side of the arrowhead
-//                this.context.beginPath();
-//                this.context.moveTo(lastPoint.x, lastPoint.y);
-//                this.context.lineTo(
-//                   lastPoint.x - headlen * 0.5,
-//                   lastPoint.y + headlen
-//                );
-//             }
-
-//             // arrow front
-//             this.context.stroke();
-//             this.context.closePath();
-//          } else {
-//             // Start the path at the first point
-//             if (line.curvePoints.length <= 2) {
-//                this.context.lineTo(
-//                   line.curvePoints[1].x,
-//                   line.curvePoints[1].y
-//                );
-//             } else {
-//                for (let i = 1; i < line.curvePoints.length - 1; i++) {
-//                   const cp1 = line.curvePoints[i];
-//                   const cp2 = line.curvePoints[i + 1];
-
-//                   // Calculate the weighted midpoint (e.g., 80% closer to cp2)
-//                   const t = 0.8; // Weighting factor, 0.5 for halfway, closer to 1 for closer to cp2
-//                   const midPointX = (1 - t) * cp1.x + t * cp2.x;
-//                   const midPointY = (1 - t) * cp1.y + t * cp2.y;
-
-//                   // Use cp1 as the control point and the adjusted midpoint as the end point
-//                   this.context.quadraticCurveTo(
-//                      cp1.x,
-//                      cp1.y,
-//                      midPointX,
-//                      midPointY
-//                   );
-//                }
-//                // Drawing the last segment to the last point
-//                let lastPoint = line.curvePoints[line.curvePoints.length - 1];
-//                this.context.lineTo(lastPoint.x, lastPoint.y);
-//             }
-//          }
-//          this.context.stroke();
-//          this.context.closePath();
-//       });
-
-//       this.context.restore();
-//    }
