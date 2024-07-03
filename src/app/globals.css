@@ -3,42 +3,42 @@
 @tailwind utilities;
 
 .bg-radial-gradient {
-  background: radial-gradient(
-    circle,
-    rgba(5, 172, 102, 0.111) 0%,
-    rgba(22, 92, 204, 0) 50%,
-    rgba(1, 53, 138, 0.027) 100%
-  );
-  /* Replace rgba values with your desired colors and adjust stops as needed */
-  width: 100%;
-  height: 100%;
+   background: radial-gradient(
+      circle,
+      rgba(5, 172, 102, 0.111) 0%,
+      rgba(22, 92, 204, 0) 50%,
+      rgba(1, 53, 138, 0.027) 100%
+   );
+   /* Replace rgba values with your desired colors and adjust stops as needed */
+   width: 100%;
+   height: 100%;
 }
 
 .text-shadow {
-  text-shadow: 3px 3px 10px rgba(0, 128, 66, 0.496);
+   text-shadow: 3px 3px 10px rgba(0, 128, 66, 0.496);
 }
 
 h1.ce-header {
-  @apply text-3xl font-extrabold;
+   @apply text-3xl font-extrabold;
 }
 h2.ce-header {
-  @apply text-2xl font-bold;
+   @apply text-2xl font-bold;
 }
 
 h3.ce-header {
-  @apply text-xl font-bold;
+   @apply text-xl font-bold;
 }
 
 h5.ce-header {
-  @apply text-base font-bold;
+   @apply text-base font-bold;
 }
 
 h5.ce-header {
-  @apply text-base font-semibold;
+   @apply text-base font-semibold;
 }
 
 h5.ce-header {
-  @apply text-base font-semibold;
+   @apply text-base font-semibold;
 }
 
 .ce-block--selected .ce-block__content,
@@ -50,9 +50,15 @@ h5.ce-header {
 .ce-toolbar__settings-btn,
 .cdx-button,
 .ce-popover,
+.ce-popover-item,
+.ce-popover-item:hover,
 .ce-toolbar__plus:hover {
-  background: #cdcdcd;
-  color: inherit;
+   @apply bg-black;
+   @apply text-white;
+}
+
+.ce-inline-tool--active {
+   background: transparent;
 }
 
 .ce-inline-tool,
@@ -60,12 +66,13 @@ h5.ce-header {
 .ce-toolbox__button,
 .cdx-settings-button,
 .ce-toolbar__plus {
-  color: inherit;
+   color: inherit;
+   background: transparent;
 }
 
-/* ::selection {
-  background: #c7c7c7;
-} */
+::selection {
+   background: #009160;
+}
 
 .cdx-settings-button:hover,
 .ce-settings__button:hover,
@@ -73,143 +80,143 @@ h5.ce-header {
 .ce-toolbox__button:hover,
 .cdx-button:hover,
 .ce-inline-toolbar__dropdown:hover,
-.ce-inline-tool:hover,
+/* .ce-inline-tool:hover, */
 .ce-popover__item:hover,
 .ce-toolbar__settings-btn:hover {
-  background-color: #aaaaaa;
-  color: inherit;
+   background-color: #aaaaaa;
+   color: inherit;
 }
 
 .cdx-quote__text,
 .cdx-list__item,
 .ce-paragraph {
-  background: transparent;
-  padding: 0px 12px;
-  border-radius: 4px;
-  border-bottom: 1px solid #2c2c2c;
-  padding: 3px;
-  @apply text-lg;
+   background: transparent;
+   padding: 0px 12px;
+   border-radius: 4px;
+   border-bottom: 1px solid #2c2c2c;
+   padding: 3px;
+   @apply text-lg;
 }
 .ce-header {
-  @apply bg-background;
-  padding: 0 10px;
+   @apply bg-background;
+   padding: 0 10px;
 }
 .ce-header::selection,
 .ce-paragraph::selection,
 .ce-list__item::selection {
-  @apply bg-secondary;
-  @apply text-primary;
+   @apply bg-secondary;
+   @apply text-primary;
 }
 
 .cdx-notify--error {
-  background: #fb5d5d !important;
+   background: #fb5d5d !important;
 }
 
 .cdx-notify__cross::after,
 .cdx-notify__cross::before {
-  background: white;
+   background: white;
 }
 
 /* General hiding of scroll bars for specific elements */
 .hide-scrollbars-element {
-  -ms-overflow-style: none; /* Internet Explorer 10+ */
-  scrollbar-width: 10px; /* Firefox */
+   -ms-overflow-style: none; /* Internet Explorer 10+ */
+   scrollbar-width: 10px; /* Firefox */
 }
 
 .hide-scrollbars-element::-webkit-scrollbar {
-  display: none; /* Safari and Chrome */
+   display: none; /* Safari and Chrome */
 }
 
 @layer base {
-  :root {
-    --background: 192 87% 95%;
-    --foreground: 192 5% 3%;
-    --card: 192 50% 90%;
-    --card-foreground: 192 5% 10%;
-    --popover: 192 87% 95%;
-    --popover-foreground: 192 95% 3%;
-    --primary: 192 91% 79%;
-    --primary-foreground: 0 0% 0%;
-    --secondary: 192 30% 70%;
-    --secondary-foreground: 0 0% 0%;
-    --muted: 154 30% 85%;
-    --muted-foreground: 192 5% 35%;
-    --accent: 154 30% 80%;
-    --accent-foreground: 192 5% 10%;
-    --destructive: 0 87% 30%;
-    --destructive-foreground: 192 5% 90%;
-    --border: 192 30% 50%;
-    --input: 192 30% 18%;
-    --ring: 192 91% 79%;
-    --radius: 0.3rem;
-  }
-  .dark {
-    --background: 192 50% 5%;
-    --foreground: 192 5% 90%;
-    --card: 192 50% 3%;
-    --card-foreground: 192 5% 90%;
-    --popover: 192 50% 5%;
-    --popover-foreground: 192 5% 90%;
-    --primary: 192 91% 79%;
-    --primary-foreground: 0 0% 0%;
-    --secondary: 192 30% 10%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 154 30% 15%;
-    --muted-foreground: 192 5% 60%;
-    --accent: 154 30% 15%;
-    --accent-foreground: 192 5% 90%;
-    --destructive: 0 87% 30%;
-    --destructive-foreground: 192 5% 90%;
-    --border: 192 30% 18%;
-    --input: 192 30% 18%;
-    --ring: 192 91% 79%;
-    --radius: 0.3rem;
-    --small: 16px;
-    --medium: 18px;
-    --large: 20px;
-  }
+   :root {
+      --background: 192 87% 95%;
+      --foreground: 192 5% 3%;
+      --card: 192 50% 90%;
+      --card-foreground: 192 5% 10%;
+      --popover: 192 87% 95%;
+      --popover-foreground: 192 95% 3%;
+      --primary: 192 91% 79%;
+      --primary-foreground: 0 0% 0%;
+      --secondary: 192 30% 70%;
+      --secondary-foreground: 0 0% 0%;
+      --muted: 154 30% 85%;
+      --muted-foreground: 192 5% 35%;
+      --accent: 154 30% 80%;
+      --accent-foreground: 192 5% 10%;
+      --destructive: 0 87% 30%;
+      --destructive-foreground: 192 5% 90%;
+      --border: 192 30% 50%;
+      --input: 192 30% 18%;
+      --ring: 192 91% 79%;
+      --radius: 0.3rem;
+   }
+   .dark {
+      --background: 192 50% 5%;
+      --foreground: 192 5% 90%;
+      --card: 192 50% 3%;
+      --card-foreground: 192 5% 90%;
+      --popover: 192 50% 5%;
+      --popover-foreground: 192 5% 90%;
+      --primary: 192 91% 79%;
+      --primary-foreground: 0 0% 0%;
+      --secondary: 192 30% 10%;
+      --secondary-foreground: 0 0% 100%;
+      --muted: 154 30% 15%;
+      --muted-foreground: 192 5% 60%;
+      --accent: 154 30% 15%;
+      --accent-foreground: 192 5% 90%;
+      --destructive: 0 87% 30%;
+      --destructive-foreground: 192 5% 90%;
+      --border: 192 30% 18%;
+      --input: 192 30% 18%;
+      --ring: 192 91% 79%;
+      --radius: 0.3rem;
+      --small: 16px;
+      --medium: 18px;
+      --large: 20px;
+   }
 }
 
 .shape {
-  position: absolute;
-  border: 1px solid white;
-  border-radius: 2px;
-  z-index: 999;
-  @apply text-zinc-300;
+   position: absolute;
+   border: 1px solid white;
+   border-radius: 2px;
+   z-index: 999;
+   @apply text-zinc-300;
 }
 
 .background {
-  background: radial-gradient(rgba(6, 243, 109, 0.5) 3px, transparent 4px),
-    radial-gradient(rgba(2, 92, 2, 0.5) 3px, transparent 4px),
-    linear-gradient(#1b1b1b 4px, transparent 0),
-    linear-gradient(
-      45deg,
-      transparent 74px,
-      transparent 75px,
-      #1b1a1a 75px,
-      #1c1c1c 76px,
-      transparent 77px,
-      transparent 109px
-    ),
-    linear-gradient(
-      -45deg,
-      transparent 75px,
-      transparent 76px,
-      #1b1b1b 76px,
-      #1f1f1f 77px,
-      transparent 78px,
-      transparent 109px
-    ),
-    #000000;
-  background-size: 109px 109px, 109px 109px, 100% 6px, 109px 109px, 109px 109px;
-  background-position: 54px 55px, 0px 0px, 0px 0px, 0px 0px, 0px 0px;
+   background: radial-gradient(rgba(6, 243, 109, 0.5) 3px, transparent 4px),
+      radial-gradient(rgba(2, 92, 2, 0.5) 3px, transparent 4px),
+      linear-gradient(#1b1b1b 4px, transparent 0),
+      linear-gradient(
+         45deg,
+         transparent 74px,
+         transparent 75px,
+         #1b1a1a 75px,
+         #1c1c1c 76px,
+         transparent 77px,
+         transparent 109px
+      ),
+      linear-gradient(
+         -45deg,
+         transparent 75px,
+         transparent 76px,
+         #1b1b1b 76px,
+         #1f1f1f 77px,
+         transparent 78px,
+         transparent 109px
+      ),
+      #000000;
+   background-size: 109px 109px, 109px 109px, 100% 6px, 109px 109px, 109px 109px;
+   background-position: 54px 55px, 0px 0px, 0px 0px, 0px 0px, 0px 0px;
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+   * {
+      @apply border-border;
+   }
+   body {
+      @apply bg-background text-foreground;
+   }
 }

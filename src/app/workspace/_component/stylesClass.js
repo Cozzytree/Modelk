@@ -59,7 +59,7 @@ export class Line extends DefaultStyles {
       this.lineType = lineType;
       this.type = "line";
       this.minX = minX;
-      this.maxX = minY;
+      this.maxX = maxX;
       this.minY = minY;
       this.maxY = maxY;
       this.isActive = isActive;
@@ -67,16 +67,7 @@ export class Line extends DefaultStyles {
 }
 
 export class Text extends DefaultStyles {
-   constructor(
-      x,
-      y,
-      size,
-      content = [],
-      font,
-      isActive,
-      height = 0,
-      width = 0
-   ) {
+   constructor(x, y, size, content = [], font, isActive, height, width) {
       super();
       this.content = content;
       this.pointTo = [];
@@ -85,7 +76,7 @@ export class Text extends DefaultStyles {
       this.x = x;
       this.y = y;
       this.font = font;
-      this.textSize = size;
+      this.textSize = size || this.textSize;
       this.isActive = isActive;
       this.height = height;
       this.width = width;
@@ -103,7 +94,6 @@ export class Figure extends DefaultStyles {
       this.isActive = true;
    }
 }
-
 
 // document.addEventListener("DOMContentLoaded", function () {
 //     const canvas = document.getElementById('myCanvas');

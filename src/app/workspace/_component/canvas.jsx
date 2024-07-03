@@ -199,7 +199,7 @@ export default function Canvas({}) {
             const newArr = new Line(
                "elbow",
                mouseX,
-               mouseX,
+               mouseY,
                mouseX + 100,
                mouseY,
                [
@@ -353,13 +353,12 @@ export default function Canvas({}) {
                const newText = new Text(
                   current.x,
                   current.y,
-                  current.size,
+                  current.textSize,
                   current.content,
                   current.font,
-                  true,
-                  current.height,
-                  current.width
+                  true
                );
+               newText.height = newText.content.length * newText.textSize;
                textMap.set(newText.id, newText);
                return newText;
             default:
