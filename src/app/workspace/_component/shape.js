@@ -1,17 +1,16 @@
 import { config, Scale, scrollBar } from "../../../lib/utils.ts";
+import { Circle, Figure, Line, Rect, Text } from "./stylesClass.js";
+
+const imageMap = new Map();
+const rectMap = new Map();
+const circleMap = new Map();
+const textMap = new Map();
+const lineMap = new Map();
+const breakPoints = new Map();
+const figureMap = new Map();
 
 export default class Shapes {
-   constructor(
-      canvas,
-      canvasBreakpoints,
-      rectMap,
-      circleMap,
-      textMap,
-      lineMap,
-      breakpoints,
-      currentActive,
-      renderCanvas
-   ) {
+   constructor(canvas, canvasBreakpoints, renderCanvas) {
       this.canvas = canvas;
       this.canvasBreakpoints = canvasBreakpoints;
       this.renderCanvas = renderCanvas;
@@ -26,9 +25,11 @@ export default class Shapes {
       this.circleMap = circleMap;
       this.textMap = textMap;
       this.lineMap = lineMap;
-      this.breakpoints = breakpoints;
-      this.currentActive = currentActive;
+      this.imageMap = imageMap;
+      this.figureMap = figureMap;
+      this.breakpoints = breakPoints;
       this.shapeToRender = null;
+      this.cache = new Map();
 
       document.addEventListener("keydown", (e) => {
          // select all
@@ -289,6 +290,7 @@ export default class Shapes {
             text,
             textSize,
             isActive,
+            fillType,
          } = rect;
 
          drawDotsAndRect(
@@ -300,6 +302,8 @@ export default class Shapes {
             isActive,
             this.activeColor
          );
+         let parttern;
+         //  if()
 
          // Draw rounded rectangle
          this.context.beginPath();
@@ -433,7 +437,6 @@ export default class Shapes {
          }
 
          this.context.moveTo(curvePoints[0].x, curvePoints[0].y);
-
          if (lineType === "straight") {
             for (let i = 1; i < curvePoints.length; i++) {
                this.context.lineTo(curvePoints[i].x, curvePoints[i].y);
@@ -522,6 +525,65 @@ export default class Shapes {
       this.context.restore();
    }
 
+   drawImage() {
+      this.renderCanvasCtx.clearRect(
+         0,
+         0,
+         this.renderCanvas.width,
+         this.renderCanvas.height
+      );
+      this.renderCanvasCtx.save();
+      this.renderCanvasCtx.translate(
+         -scrollBar.scrollPositionX,
+         -scrollBar.scrollPositionY
+      );
+      this.renderCanvasCtx.scale(Scale.scale, Scale.scale);
+
+      this.imageMap.forEach((image, key) => {
+         const { x, y, width, height, isActive, src } = image;
+
+         if (!this.cache.has(key)) {
+            const img = new Image();
+            img.src = src;
+            this.cache.set(key, img);
+            img.onload = () => {
+               this.drawImageOnCanvas(img, x, y, width, height, isActive);
+            };
+         } else {
+            const img = this.cache.get(key);
+            this.drawImageOnCanvas(img, x, y, width, height, isActive);
+         }
+      });
+
+      this.renderCanvasCtx.restore();
+   }
+
+   drawImageOnCanvas(img, x, y, width, height, isActive) {
+      if (isActive) {
+         this.dots(
+            { x: x - this.tolerance, y: y - this.tolerance },
+            { x: x + width + this.tolerance, y: y - this.tolerance },
+            { x: x + width + this.tolerance, y: y + height + this.tolerance },
+            { x: x - this.tolerance, y: y + height + this.tolerance },
+            {
+               context: this.renderCanvasCtx,
+            }
+         );
+
+         this.renderCanvasCtx.beginPath();
+         this.renderCanvasCtx.strokeStyle = this.activeColor;
+         this.renderCanvasCtx.rect(
+            x - this.tolerance,
+            y - this.tolerance,
+            width + 2 * this.tolerance,
+            height + 2 * this.tolerance
+         );
+         this.renderCanvasCtx.stroke();
+         this.renderCanvasCtx.closePath();
+      }
+      this.renderCanvasCtx.drawImage(img, x, y, width, height);
+   }
+
    dots(...sides) {
       this.context.lineWidth = 1.7;
       for (let i = 0; i < sides.length - 1; i++) {
@@ -577,6 +639,130 @@ export default class Shapes {
       //   this.canvasClick(e);
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
 
+      //image resize
+      this.imageMap.forEach((image, key) => {
+         const { x, y, width, height } = image;
+         // left right
+         const leftEdge = mouseX >= x - this.tolerance && mouseX <= x;
+         const rightEdge =
+            mouseX >= x + width && mouseX <= x + width + this.tolerance;
+         const verticalBounds =
+            mouseY >= y + this.tolerance &&
+            mouseY <= y + height - this.tolerance;
+
+         if (leftEdge && verticalBounds) {
+            object.isActive = true;
+            isResizing = true;
+            const img = new Image();
+            img.src = image.src;
+
+            this.resizeElement = {
+               direction: "left-edge",
+               key,
+               x: x + width,
+               img,
+            };
+         } else if (rightEdge && verticalBounds) {
+            image.isActive = true;
+            isResizing = true;
+            const img = new Image();
+            img.src = image.src;
+
+            this.resizeElement = {
+               direction: "right-edge",
+               key,
+               x: x,
+               img,
+            };
+         }
+
+         //  // top - bottom
+         const withinTopEdge =
+            mouseY >= y - this.tolerance && mouseY <= y + this.tolerance;
+         const withinBottomEdge =
+            mouseY >= y + height - this.tolerance &&
+            mouseY <= y + height + this.tolerance;
+         const withinHorizontalBounds =
+            mouseX > x + this.tolerance && mouseX < x + width - this.tolerance;
+
+         if (withinTopEdge && withinHorizontalBounds) {
+            image.isActive = true;
+            isResizing = true;
+            const img = new Image();
+            img.src = image.src;
+
+            this.resizeElement = {
+               direction: "top-edge",
+               key,
+               y: y + height,
+               img,
+            };
+         } else if (withinBottomEdge && withinHorizontalBounds) {
+            image.isActive = true;
+            isResizing = true;
+            const img = new Image();
+            img.src = image.src;
+            this.resizeElement = {
+               direction: "bottom-edge",
+               key,
+               y: y,
+               img,
+            };
+         }
+
+         // Check for corners resize
+         const withinTopLeftCorner =
+            mouseX >= x - this.tolerance &&
+            mouseX <= x + this.tolerance &&
+            mouseY >= y - this.tolerance &&
+            mouseY <= y + this.tolerance;
+
+         const withinTopRightCorner =
+            mouseX >= x + width - this.tolerance &&
+            mouseX <= x + width + this.tolerance &&
+            mouseY >= y - this.tolerance &&
+            mouseY <= y + this.tolerance;
+
+         const withinBottomLeftCorner =
+            mouseX >= x - this.tolerance &&
+            mouseX <= x + this.tolerance &&
+            mouseY >= y + height - this.tolerance &&
+            mouseY <= y + height + this.tolerance;
+
+         const withinBottomRightCorner =
+            mouseX >= x + width - this.tolerance &&
+            mouseX <= x + width + this.tolerance &&
+            mouseY >= y + height - this.tolerance &&
+            mouseY <= y + height + this.tolerance;
+
+         // resize corners
+         [
+            { cond: withinBottomLeftCorner, d: "bottom-left" },
+            { cond: withinBottomRightCorner, d: "bottom-right" },
+            { cond: withinTopLeftCorner, d: "top-left" },
+            { cond: withinTopRightCorner, d: "top-right" },
+         ].forEach((any) => {
+            if (any.cond) {
+               isResizing = true;
+               const img = new Image();
+               img.src = image.src;
+               this.resizeElement = {
+                  key,
+                  rectMaxX: x + width,
+                  rectMaxY: y + height,
+                  direction: any.d,
+                  x: x,
+                  y: y,
+                  width: width,
+                  height: height,
+                  img,
+               };
+               return;
+            }
+         });
+      });
+      if (isResizing) return;
+
       // line resize
       this.lineMap.forEach((line, key) => {
          let points = line.curvePoints;
@@ -615,24 +801,23 @@ export default class Shapes {
 
       // rect resize
       this.rectMap.forEach((rect, key) => {
-         // Check for horizontal resizing
-         const leftEdge = mouseX >= rect.x - this.tolerance && mouseX <= rect.x;
+         const { x, y, width, height } = rect;
+         // left right
+         const leftEdge = mouseX >= x - this.tolerance && mouseX <= x;
          const rightEdge =
-            mouseX >= rect.x + rect.width &&
-            mouseX <= rect.x + rect.width + this.tolerance;
+            mouseX >= x + width && mouseX <= x + width + this.tolerance;
          const verticalBounds =
-            mouseY >= rect.y + this.tolerance &&
-            mouseY <= rect.y + rect.height - this.tolerance;
+            mouseY >= y + this.tolerance &&
+            mouseY <= y + height - this.tolerance;
 
-         // horizontel resizing parameters
          if (leftEdge && verticalBounds) {
-            rect.isActive = true;
+            object.isActive = true;
             isResizing = true;
             this.isDraggingOrResizing = true;
             this.resizeElement = {
                direction: "left-edge",
                key,
-               x: rect.x + rect.width,
+               x: x + width,
             };
          } else if (rightEdge && verticalBounds) {
             rect.isActive = true;
@@ -640,65 +825,61 @@ export default class Shapes {
             this.resizeElement = {
                direction: "right-edge",
                key,
-               x: rect.x,
+               x: x,
             };
          }
 
-         // vertical resizing parameters//
+         //  // top - bottom
          const withinTopEdge =
-            mouseY >= rect.y - this.tolerance &&
-            mouseY <= rect.y + this.tolerance;
+            mouseY >= y - this.tolerance && mouseY <= y + this.tolerance;
          const withinBottomEdge =
-            mouseY >= rect.y + rect.height - this.tolerance &&
-            mouseY <= rect.y + rect.height + this.tolerance;
+            mouseY >= y + height - this.tolerance &&
+            mouseY <= y + height + this.tolerance;
          const withinHorizontalBounds =
-            mouseX > rect.x + this.tolerance &&
-            mouseX < rect.x + rect.width - this.tolerance;
+            mouseX > x + this.tolerance && mouseX < x + width - this.tolerance;
 
          if (withinTopEdge && withinHorizontalBounds) {
             rect.isActive = true;
-            rect.verticalResizing = true;
             isResizing = true;
             this.resizeElement = {
                direction: "top-edge",
                key,
-               y: rect.y + rect.height,
+               y: y + height,
             };
          } else if (withinBottomEdge && withinHorizontalBounds) {
             rect.isActive = true;
-            rect.verticalResizing = true;
             isResizing = true;
             this.resizeElement = {
                direction: "bottom-edge",
                key,
-               y: rect.y,
+               y: y,
             };
          }
 
          // Check for corners resize
          const withinTopLeftCorner =
-            mouseX >= rect.x - this.tolerance &&
-            mouseX <= rect.x + this.tolerance &&
-            mouseY >= rect.y - this.tolerance &&
-            mouseY <= rect.y + this.tolerance;
+            mouseX >= x - this.tolerance &&
+            mouseX <= x + this.tolerance &&
+            mouseY >= y - this.tolerance &&
+            mouseY <= y + this.tolerance;
 
          const withinTopRightCorner =
-            mouseX >= rect.x + rect.width - this.tolerance &&
-            mouseX <= rect.x + rect.width + this.tolerance &&
-            mouseY >= rect.y - this.tolerance &&
-            mouseY <= rect.y + this.tolerance;
+            mouseX >= x + width - this.tolerance &&
+            mouseX <= x + width + this.tolerance &&
+            mouseY >= y - this.tolerance &&
+            mouseY <= y + this.tolerance;
 
          const withinBottomLeftCorner =
-            mouseX >= rect.x - this.tolerance &&
-            mouseX <= rect.x + this.tolerance &&
-            mouseY >= rect.y + rect.height - this.tolerance &&
-            mouseY <= rect.y + rect.height + this.tolerance;
+            mouseX >= x - this.tolerance &&
+            mouseX <= x + this.tolerance &&
+            mouseY >= y + height - this.tolerance &&
+            mouseY <= y + height + this.tolerance;
 
          const withinBottomRightCorner =
-            mouseX >= rect.x + rect.width - this.tolerance &&
-            mouseX <= rect.x + rect.width + this.tolerance &&
-            mouseY >= rect.y + rect.height - this.tolerance &&
-            mouseY <= rect.y + rect.height + this.tolerance;
+            mouseX >= x + width - this.tolerance &&
+            mouseX <= x + width + this.tolerance &&
+            mouseY >= y + height - this.tolerance &&
+            mouseY <= y + height + this.tolerance;
 
          // resize corners
          [
@@ -711,13 +892,13 @@ export default class Shapes {
                isResizing = true;
                this.resizeElement = {
                   key,
-                  rectMaxX: rect.x + rect.width,
-                  rectMaxY: rect.y + rect.height,
+                  rectMaxX: x + width,
+                  rectMaxY: y + height,
                   direction: any.d,
-                  x: rect.x,
-                  y: rect.y,
-                  width: rect.width,
-                  height: rect.height,
+                  x: x,
+                  y: y,
+                  width: width,
+                  height: height,
                };
                return;
             }
@@ -816,6 +997,37 @@ export default class Shapes {
       let smallestRect = null;
       let smallestText = null;
       let line = null;
+      let smallestImage = null;
+
+      //   image drag params
+      this.imageMap.forEach((image, key) => {
+         const { x, y, width, height } = image;
+         if (
+            mouseX > x &&
+            mouseX < x + width &&
+            mouseY > y &&
+            mouseY < y + height
+         ) {
+            if (smallestImage == null || smallestImage.width > width) {
+               smallestImage = { image, key };
+            }
+         }
+         if (image.isActive) {
+            image.isActive = false;
+         }
+      });
+
+      if (smallestImage?.key) {
+         const img = new Image();
+         img.src = smallestImage.image.src;
+         smallestImage.image.offsetX = mouseX - smallestImage.image.x;
+         smallestImage.image.offsetY = mouseY - smallestImage.image.y;
+         smallestImage.image.isActive = true;
+         this.dragElement = { src: img, key: smallestImage.key };
+
+         this.drawImage();
+         return;
+      }
 
       const checkRect = (rect, key) => {
          if (rect.isActive) rect.isActive = false;
@@ -930,7 +1142,9 @@ export default class Shapes {
          this.dragElement = smallestText.key;
          config.currentActive = smallestText.text;
       }
+
       this.draw();
+      this.drawImage();
    }
 
    updateCurvePoint = (object, x, y, index) => {
@@ -1030,15 +1244,10 @@ export default class Shapes {
                            );
                            this.updateCurvePoint(l, x, y, 0);
                         } else {
-                           const { x, y } = this.getClosestPoints(
-                              {
-                                 x: object.x + object.width / 2,
-                                 y: object.y,
-                                 width: 5,
-                                 height: object.height,
-                              },
-                              { x: curvePoints[last].x, y: curvePoints[last].y }
-                           );
+                           const { x, y } = this.getClosestPoints(object, {
+                              x: curvePoints[last].x,
+                              y: curvePoints[last].y,
+                           });
                            this.updateCurvePoint(l, x, y, 0);
                         }
 
@@ -1141,6 +1350,7 @@ export default class Shapes {
       let circleResize = this.circleMap.get(this.resizeElement?.key);
       let textResize = this.textMap.get(this.resizeElement?.key);
       let lineResize = this.lineMap.get(this.resizeElement?.key);
+      let imageResize = this.imageMap.get(this.resizeElement?.key);
 
       if (rectResize) {
          if (this.resizeElement.direction === "left-edge") {
@@ -1244,6 +1454,151 @@ export default class Shapes {
             }
          }
          this.updateLinesPointTo(rectResize);
+      } else if (imageResize) {
+         if (this.resizeElement.direction === "left-edge") {
+            const { x } = this.resizeElement;
+            if (mouseX < x) {
+               imageResize.x = mouseX;
+               imageResize.width = x - mouseX;
+            } else if (mouseX > x) {
+               imageResize.x = x;
+               imageResize.width = mouseX - x;
+            }
+         } else if (this.resizeElement.direction === "right-edge") {
+            const { x } = this.resizeElement;
+            if (mouseX > x) {
+               imageResize.width = mouseX - x;
+            } else if (mouseX < x) {
+               imageResize.x = mouseX;
+               imageResize.width = x - mouseX;
+            }
+         } else if (this.resizeElement.direction === "top-edge") {
+            const { y } = this.resizeElement;
+            if (mouseY < y) {
+               imageResize.y = mouseY;
+               imageResize.height = y - mouseY;
+            } else if (mouseY > y) {
+               imageResize.y = y;
+               imageResize.height = mouseY - y;
+            }
+         } else if (this.resizeElement.direction === "bottom-edge") {
+            const { y } = this.resizeElement;
+            if (mouseY > y) {
+               imageResize.height = mouseY - y;
+            } else if (mouseY < y) {
+               imageResize.y = mouseY;
+               imageResize.height = y - mouseY;
+            }
+         } else {
+            const direction = this.resizeElement.direction;
+            let { rectMaxX, rectMaxY, x, y, height, width } =
+               this.resizeElement;
+
+            switch (direction) {
+               case "top-left":
+                  imageResize.x = Math.min(mouseX, rectMaxX);
+                  imageResize.y = Math.min(mouseY, rectMaxY);
+                  imageResize.width = Math.abs(rectMaxX - mouseX);
+                  imageResize.height = Math.abs(rectMaxY - mouseY);
+                  break;
+
+               case "top-right":
+                  if (mouseX > x) {
+                     imageResize.width = mouseX - x;
+                  } else if (mouseX < x) {
+                     imageResize.x = mouseX;
+                     imageResize.width = x - mouseX;
+                  }
+                  if (mouseY < y + height) {
+                     imageResize.y = mouseY;
+                     imageResize.height = y + height - mouseY;
+                  } else if (mouseY > height + y) {
+                     imageResize.y = y + height;
+                     imageResize.height = mouseY - imageResize.y;
+                  }
+
+                  break;
+
+               case "bottom-left":
+                  if (mouseX < x + width) {
+                     imageResize.x = mouseX;
+                     imageResize.width = x + width - mouseX;
+                  } else if (mouseX > x + width) {
+                     imageResize.x = x + width;
+                     imageResize.width = mouseX - imageResize.x;
+                  }
+
+                  if (mouseY > y) {
+                     imageResize.height = mouseY - y;
+                  } else if (mouseY < y) {
+                     imageResize.height = y - mouseY;
+                     imageResize.y = mouseY;
+                  }
+
+                  break;
+
+               case "bottom-right":
+                  if (mouseX > x) imageResize.width = mouseX - imageResize.x;
+                  else if (mouseX < x) {
+                     imageResize.x = mouseX;
+                     imageResize.width = x - mouseX;
+                  }
+                  if (mouseY > y) imageResize.height = mouseY - imageResize.y;
+                  else if (mouseY < y) {
+                     imageResize.y = mouseY;
+                     imageResize.height = y - mouseY;
+                  }
+
+                  break;
+
+               default:
+                  break;
+            }
+         }
+         const { x, y, width, height, isActive } = imageResize;
+         this.breakPointsCtx.clearRect(
+            0,
+            0,
+            this.canvasBreakpoints.width,
+            this.canvasBreakpoints.height
+         );
+
+         this.breakPointsCtx.save();
+         this.breakPointsCtx.translate(
+            -scrollBar.scrollPositionX,
+            -scrollBar.scrollPositionY
+         );
+         if (isActive) {
+            this.dots(
+               { x: x - this.tolerance, y: y - this.tolerance },
+               { x: x + width + this.tolerance, y: y - this.tolerance },
+               {
+                  x: x + width + this.tolerance,
+                  y: y + height + this.tolerance,
+               },
+               { x: x - this.tolerance, y: y + height + this.tolerance },
+               { context: this.breakPointsCtx }
+            );
+
+            this.breakPointsCtx.strokeStyle = this.activeColor;
+            this.breakPointsCtx.rect(
+               x - this.tolerance,
+               y - this.tolerance,
+               width + 2 * this.tolerance,
+               height + 2 * this.tolerance
+            );
+            this.breakPointsCtx.stroke();
+         }
+         this.breakPointsCtx.scale(Scale.scale, Scale.scale);
+         this.breakPointsCtx.drawImage(
+            this.resizeElement?.img,
+            x,
+            y,
+            width,
+            height
+         );
+         this.breakPointsCtx.restore();
+         return;
       } else if (circleResize) {
          if (this.resizeElement.direction === "horizontel") {
             circleResize.isActive = true;
@@ -1308,6 +1663,7 @@ export default class Shapes {
       let arc = this.circleMap.get(this.dragElement);
       let text = this.textMap.get(this.dragElement);
       let line = this.lineMap.get(this.dragElement);
+      let image = this.imageMap.get(this.dragElement?.key);
 
       if (rect) {
          rect.isActive = true;
@@ -1736,6 +2092,53 @@ export default class Shapes {
             ele.x = deltaX;
             ele.y = deltaY;
          });
+      } else if (image) {
+         image.x = mouseX - image.offsetX;
+         image.y = mouseY - image.offsetY;
+         const { x, y, width, height, isActive } = image;
+         this.breakPointsCtx.clearRect(
+            0,
+            0,
+            this.canvasBreakpoints.width,
+            this.canvasBreakpoints.height
+         );
+
+         this.breakPointsCtx.save();
+         this.breakPointsCtx.translate(
+            -scrollBar.scrollPositionX,
+            -scrollBar.scrollPositionY
+         );
+         if (isActive) {
+            this.dots(
+               { x: x - this.tolerance, y: y - this.tolerance },
+               { x: x + width + this.tolerance, y: y - this.tolerance },
+               {
+                  x: x + width + this.tolerance,
+                  y: y + height + this.tolerance,
+               },
+               { x: x - this.tolerance, y: y + height + this.tolerance },
+               { context: this.breakPointsCtx }
+            );
+
+            this.breakPointsCtx.strokeStyle = this.activeColor;
+            this.breakPointsCtx.rect(
+               x - this.tolerance,
+               y - this.tolerance,
+               width + 2 * this.tolerance,
+               height + 2 * this.tolerance
+            );
+            this.breakPointsCtx.stroke();
+         }
+         this.breakPointsCtx.scale(Scale.scale, Scale.scale);
+         this.breakPointsCtx.drawImage(
+            this.dragElement?.src,
+            x,
+            y,
+            width,
+            height
+         );
+         this.breakPointsCtx.restore();
+         return;
       }
       this.draw();
    }
@@ -1749,6 +2152,7 @@ export default class Shapes {
       const rect = this.rectMap.get(this.resizeElement?.key);
       const line = this.lineMap.get(this.resizeElement?.key);
       const sphere = this.circleMap.get(this.resizeElement?.key);
+      const imageResize = this.imageMap.get(this.resizeElement?.key);
 
       if (rect) {
          rect.isActive = true;
@@ -1763,6 +2167,17 @@ export default class Shapes {
                x + width,
                y + height
             );
+      } else if (imageResize) {
+         imageResize.isActive = true;
+         this.breakPointsCtx.clearRect(
+            0,
+            0,
+            this.canvasBreakpoints.width,
+            this.canvasBreakpoints.height
+         );
+         this.drawImage();
+         this.resizeElement = null;
+         return;
       } else if (line) {
          const key = this.resizeElement.key;
          if (this.resizeElement.direction === "resizeStart") {
@@ -1989,6 +2404,7 @@ export default class Shapes {
       const arcDrag = this.circleMap.get(this.dragElement);
       const lineDrag = this.lineMap.get(this.dragElement);
       const textDrag = this.textMap.get(this.dragElement);
+      const image = this.imageMap.get(this.dragElement?.key);
 
       if (rectDrag) {
          this.updateGuides(
@@ -2025,6 +2441,16 @@ export default class Shapes {
                this.updateLineMinMax(l);
             });
          }
+      } else if (image) {
+         this.dragElement = null;
+         this.breakPointsCtx.clearRect(
+            0,
+            0,
+            this.canvasBreakpoints.width,
+            this.canvasBreakpoints.height
+         );
+         this.drawImage();
+         return;
       }
 
       this.breakPointsCtx.clearRect(
@@ -2033,15 +2459,125 @@ export default class Shapes {
          this.canvasBreakpoints.width,
          this.canvasBreakpoints.height
       );
-      this.renderCanvasCtx.clearRect(
-         0,
-         0,
-         this.renderCanvas.width,
-         this.renderCanvas.height
-      );
+      if (!this.resizeElement && !this.dragElement) return;
       this.resizeElement = null;
       this.dragElement = null;
       this.draw();
+      //   this.drawImage();
+   }
+
+   renderImageMove(object) {
+      const { x, y, width, height, src, isActive } = object;
+      this.breakPointsCtx.clearRect(
+         0,
+         0,
+         this.canvasBreakpoints.width,
+         this.canvasBreakpoints.height
+      );
+
+      this.breakPointsCtx.save();
+      this.breakPointsCtx.translate(
+         -scrollBar.scrollPositionX,
+         -scrollBar.scrollPositionY
+      );
+      if (isActive) {
+         this.dots(
+            { x: x - this.tolerance, y: y - this.tolerance },
+            { x: x + this.tolerance, y: y - this.tolerance },
+            { x: x + width + this.tolerance, y: y + height + this.tolerance },
+            { x: x - this.tolerance, y: y + height + this.tolerance },
+            { context: this.breakPointsCtx }
+         );
+         this.breakPointsCtx.rect(
+            x - this.tolerance,
+            y - this.tolerance,
+            width + 2 * this.tolerance,
+            height + 2 * this.tolerance
+         );
+      }
+      this.breakPointsCtx.scale(Scale.scale, Scale.scale);
+      this.breakPointsCtx.drawImage(src, x, y, width, height);
+      this.breakPointsCtx.restore();
+   }
+
+   insertNewAsset(e, setMode, setCurrentActive, currentActive, handler) {
+      const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
+      if (config.mode === "rect") {
+         const newRect = new Rect(mouseX, mouseY, 100, 100, [], 15, true);
+         rectMap.set(newRect.id, newRect);
+         // change modes
+         setMode("free");
+         config.mode = "free";
+
+         // add breakpoint
+         breakPoints.set(newRect.id, {
+            minX: newRect.x,
+            minY: newRect.y,
+            maxX: newRect.x + newRect.width,
+            maxY: newRect.y + newRect.height,
+            midX: newRect.x + newRect.width / 2,
+            midY: newRect.y + newRect.height / 2,
+         });
+         config.currentActive = newRect;
+         this.draw();
+      } else if (config.mode === "sphere") {
+         const newSphere = new Circle(mouseX, mouseY, 50, 50);
+
+         circleMap.set(newSphere.id, newSphere);
+
+         // change modes
+         setMode("free");
+         config.mode = "free";
+
+         // add breakpoint
+         breakPoints.set(newSphere.id, {
+            minX: newSphere.x - newSphere.xRadius,
+            minY: newSphere.y - newSphere.yRadius,
+            maxX: newSphere.x + newSphere.xRadius,
+            maxY: newSphere.y + newSphere.yRadius,
+            midX: newSphere.x,
+            midY: newSphere.y,
+         });
+
+         config.currentActive = newSphere;
+         this.draw();
+      } else if (config.mode === "arrowLine") {
+         const newArr = new Line(
+            "elbow",
+            mouseX,
+            mouseY,
+            mouseX + 100,
+            mouseY,
+            [
+               { x: mouseX, y: mouseY },
+               { x: mouseX + 100, y: mouseY },
+            ],
+            true
+         );
+         lineMap.set(newArr.id, newArr);
+         config.mode = "free";
+         setMode(config.mode);
+         config.currentActive = newArr;
+
+         this.draw();
+      } else if (config.mode === "figure") {
+         const newFigure = new Figure(mouseX, mouseY, "Figure", 100, 100);
+         this.figureMap.set(newFigure.id, newFigure);
+         renderFigure();
+         config.mode = "free";
+         setMode(config.mode);
+         config.currentActive = newFigure;
+
+         this.draw();
+      }
+      if (config.currentActive !== currentActive) {
+         setCurrentActive(config.currentActive);
+      }
+   }
+
+   insertImage(imageFile) {
+      this.imageMap.set(Date.now(), imageFile);
+      this.drawImage();
    }
 
    drawRenderCanvas(shape, object) {
@@ -2685,6 +3221,11 @@ export default class Shapes {
             this.breakPointsCtx.closePath();
          }
       });
+
+      this.lineMap.forEach((image) => {
+        
+      })
+
       this.breakPointsCtx.stroke();
       this.breakPointsCtx.restore();
    }
@@ -2717,26 +3258,264 @@ export default class Shapes {
       return Math.sqrt(dx * dx + dy * dy);
    }
 
-   initialize() {
-      this.canvas.addEventListener("mouseup", this.mouseUp.bind(this));
-      this.canvas.addEventListener("mousemove", this.mouseMove.bind(this));
-      this.canvas.addEventListener(
-         "mousedown",
-         this.mouseDownDragAndResize.bind(this)
-      );
-      this.draw();
+   canvasZoomInOutAndScroll(e, setScale) {
+      // Get the bounding rectangle of the canvas
+      const rect = this.canvas.getBoundingClientRect();
+      // Calculate the mouse position relative to the canvas
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      if (
+         mouseX >= 0 &&
+         mouseX <= this.canvas.width &&
+         mouseY >= 0 &&
+         mouseY <= this.canvas.height
+      ) {
+         if (e.ctrlKey) {
+            e.preventDefault();
+
+            if (e.deltaY > 0) {
+               // zoom out
+               Scale.scale /= Scale.scalingFactor;
+            } else {
+               //zoom in
+               Scale.scale *= Scale.scalingFactor;
+            }
+            if (mouseX > rect.width / 2) {
+               scrollBar.scrollPositionX += 10;
+            } else if (mouseX < rect.width / 2) {
+               scrollBar.scrollPositionX -= 10;
+            }
+            Scale.scale = Math.round(Scale.scale * 10) / 10;
+            setScale(Scale.scale);
+            //    e.preventDefault();
+            //    // Calculate the mouse position in the canvas coordinates before scaling
+            //    const mouseCanvasX =
+            //       (mouseX + scrollBar.scrollPositionX) / Scale.scale;
+            //    const mouseCanvasY =
+            //       (mouseY + scrollBar.scrollPositionY) / Scale.scale;
+
+            //    // Save the old scale
+            //    const oldScale = Scale.scale;
+
+            //    // Adjust the scale
+            //    if (e.deltaY > 0) {
+            //       // Zoom out
+            //       Scale.scale /= Scale.scalingFactor;
+            //    } else {
+            //       // Zoom in
+            //       Scale.scale *= Scale.scalingFactor;
+            //    }
+
+            //    // Round the scale
+            //    Scale.scale = Math.round(Scale.scale * 10) / 10;
+            //    setScale(Scale.scale);
+
+            //    // Calculate the new scroll positions to keep the mouse position stationary
+            //    scrollBar.scrollPositionX = mouseCanvasX * Scale.scale - mouseX;
+            // //    scrollBar.scrollPositionY = mouseCanvasY * Scale.scale - mouseY;
+         } else {
+            if (e.deltaY > 0) {
+               scrollBar.scrollPositionY += 40; // Adjust this value as needed
+            } else {
+               scrollBar.scrollPositionY -= 40; // Adjust this value as needed
+            }
+         }
+         this.draw();
+         this.drawImage();
+      }
    }
 
-   cleanup() {
-      this.canvas.removeEventListener("mouseup", this.mouseUp.bind(this));
-      this.canvas.removeEventListener("mousemove", this.mouseMove.bind(this));
-      this.canvas.removeEventListener(
-         "mousedown",
-         this.mouseDownDragAndResize.bind(this)
-      );
+   getCurrentShape(current) {
+      switch (current.type) {
+         case "rect":
+            const newShape = new Rect(
+               current.x,
+               current.y,
+               current.width,
+               current.height,
+               current.text,
+               current.textSize
+            );
+            rectMap.set(newShape.id, newShape);
+            return newShape;
+         case "sphere":
+            const newSphere = new Circle(
+               current.x,
+               current.y,
+               current.xRadius,
+               current.yRadius,
+               current.text,
+               current.textSize
+            );
+            circleMap.set(newSphere.id, newSphere);
+            return newSphere;
+         case "text":
+            const newText = new Text(
+               current.x,
+               current.y,
+               current.textSize,
+               current.content,
+               current.font,
+               true
+            );
+            newText.height = newText.content.length * newText.textSize;
+            textMap.set(newText.id, newText);
+            return newText;
+         default:
+            break;
+      }
    }
 
-   duplicate() {}
+   duplicate(e) {
+      if (e.altKey && config.mode !== "handsFree") {
+         const current = this.canvasClick(e);
+
+         if (current) {
+            const newShape = this.getCurrentShape(current);
+
+            const mouseMoveHandler = (moveEvent) => {
+               const { x, y } = this.getTransformedMouseCoords(moveEvent);
+               newShape.x = x;
+               newShape.y = y;
+               this.draw();
+            };
+
+            const mouseUpHandler = () => {
+               if (newShape.type === "rect") {
+                  breakPoints.set(newShape.id, {
+                     minX: newShape.x,
+                     maxX: newShape.x + newShape.width,
+                     minY: newShape.y,
+                     maxX: newShape.y + newShape.height,
+                  });
+               } else if (newShape.type === "sphere") {
+                  breakPoints.set(newShape.id, {
+                     minX: newShape.x - newShape.xRadius,
+                     maxX: newShape.x + newShape.xRadius,
+                     minY: newShape.y - newShape.yRadius,
+                     maxX: newShape.y + newShape.yRadius,
+                  });
+               }
+               this.canvas.removeEventListener("mousemove", mouseMoveHandler);
+               this.canvas.removeEventListener("mouseup", mouseUpHandler);
+               this.canvas.removeEventListener("click", this.canvasClick);
+            };
+
+            this.canvas.addEventListener("mousemove", mouseMoveHandler);
+            this.canvas.addEventListener("mouseup", mouseUpHandler);
+         }
+      } else if (config.mode === "handsFree") {
+         let { x, y } = this.getTransformedMouseCoords(e);
+         const MAX_SCROLL_CHANGE = 2;
+         const handlermove = (event) => {
+            const { x: moveX, y: moveY } =
+               this.getTransformedMouseCoords(event);
+            if (moveX > x) {
+               scrollBar.scrollPositionX =
+                  scrollBar.scrollPositionX - (moveX - x);
+            } else {
+               scrollBar.scrollPositionX =
+                  scrollBar.scrollPositionX + (x - moveX);
+            }
+
+            if (moveY > y) {
+               scrollBar.scrollPositionY =
+                  scrollBar.scrollPositionY - (moveY - y);
+            } else {
+               scrollBar.scrollPositionY =
+                  scrollBar.scrollPositionY + (y - moveY);
+            }
+
+            this.draw();
+            this.drawImage();
+         };
+         const handlerUp = () => {
+            this.canvas.removeEventListener("mousemove", handlermove);
+            this.canvas.removeEventListener("mouseup", handlerUp);
+         };
+         this.canvas.addEventListener("mousemove", handlermove);
+         this.canvas.addEventListener("mouseup", handlerUp);
+      }
+   }
+
+   duplicateCtrl_D(e) {
+      if (e.ctrlKey && e.key === "d") {
+         const padding = 10;
+         e.preventDefault();
+         this.rectMap.forEach((rect) => {
+            if (rect.isActive) {
+               let newRect = new Rect(
+                  rect.x + padding,
+                  rect.y + padding,
+                  rect.width,
+                  rect.height,
+                  rect.text,
+                  rect.textSize,
+                  true
+               );
+               rectMap.set(newRect.id, newRect);
+               breakPoints.set(newRect.id, {
+                  minX: rect.x,
+                  minY: rect.y,
+                  maxX: rect.x + rect.width,
+                  maxY: rect.y + rect.height,
+               });
+               rect.isActive = false;
+            }
+         });
+         this.circleMap.forEach((sphere) => {
+            if (sphere.isActive) {
+               const newSphere = new Circle(
+                  sphere.x + padding,
+                  sphere.y + padding,
+                  sphere.xRadius,
+                  sphere.yRadius,
+                  sphere.text,
+                  sphere.textSize,
+                  false
+               );
+               circleMap.set(newSphere.id, newSphere);
+               breakPoints.set(newSphere.id, {
+                  minX: newSphere.x - newSphere.xRadius,
+                  minY: newSphere.y - newSphere.yRadius,
+                  maxX: newSphere.x + newSphere.xRadius,
+                  maxY: newSphere.y + newSphere.xRadius,
+               });
+               sphere.isActive = false;
+            }
+         });
+         this.textMap.forEach((text) => {
+            if (text.isActive) {
+               const newText = new Text(
+                  text.x + padding,
+                  text.y + padding,
+                  text.size,
+                  text.content,
+                  true
+               );
+               textMap.set(newText.id, newText);
+               text.isActive = false;
+            }
+         });
+         this.lineMap.forEach((line) => {
+            if (line.isActive) {
+               const newLine = new Line(
+                  line.lineType,
+                  line.minX,
+                  line.minY,
+                  line.maxX,
+                  line.maxY,
+                  line.curvePoints,
+                  true
+               );
+               lineMap.set(newLine.id, newLine);
+               console.log(lineMap);
+               Line.isActive = false;
+            }
+         });
+         this.draw();
+      }
+   }
 
    renderText(textArray, x, y, textSize, height, width) {
       // Calculate the total height of the text block
@@ -2763,5 +3542,66 @@ export default class Shapes {
          // Move to the next line
          startY += textSize;
       }
+   }
+
+   newShape(shape) {
+      this.rectMap.set(shape.id, shape);
+      this.draw();
+   }
+
+   newText(event) {
+      if (event.target.tagName === "TEXTAREA") return;
+
+      if (config.mode === "free" || config.mode === "text") {
+         const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(event);
+
+         const html = `<textarea class="w-fit absolute px-[3px] text-[14px] outline-none z-[999] h-fit shadow-sm bg-transparent" id="input"></textarea>`;
+
+         const canvasDiv = document.getElementById("canvas-div");
+         canvasDiv.insertAdjacentHTML("afterbegin", html);
+         const input = document.getElementById("input");
+         input.style.left = mouseX + "px";
+         input.style.top = mouseY + "px";
+         input.style.fontSize = "18px";
+         input.focus();
+         const changeEvent = (e) => {
+            const content = e.target.value.split("\n");
+            const newText = new Text(mouseX, mouseY, 15, content, "Monoscope");
+            this.textMap.set(newText.id, newText);
+            input.remove();
+         };
+
+         input.addEventListener("change", changeEvent);
+
+         input.addEventListener("blur", (e) => {
+            input.removeEventListener("change", changeEvent);
+            input.remove();
+            this.draw();
+         });
+      }
+   }
+
+   initialize() {
+      this.canvas.addEventListener("mouseup", this.mouseUp.bind(this));
+      this.canvas.addEventListener("mousemove", this.mouseMove.bind(this));
+      this.canvas.addEventListener("mousedown", (e) => {
+         this.mouseDownDragAndResize(e);
+         this.duplicate(e);
+      });
+      this.canvas.addEventListener("dblclick", this.newText.bind(this));
+      window.addEventListener("keydown", this.duplicateCtrl_D.bind(this), {
+         passive: false,
+      });
+   }
+
+   cleanup() {
+      this.canvas.removeEventListener("mouseup", this.mouseUp.bind(this));
+      this.canvas.removeEventListener("mousemove", this.mouseMove.bind(this));
+      this.canvas.removeEventListener("mousedown", (e) => {
+         this.mouseDownDragAndResize(e);
+         this.duplicate(e);
+      });
+      this.canvas.removeEventListener("dblclick", this.newText.bind(this));
+      window.removeEventListener("keydown", this.duplicateCtrl_D.bind(this));
    }
 }

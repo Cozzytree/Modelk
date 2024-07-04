@@ -21,6 +21,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/workspace/[workspaceId]/page.jsx"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/workspace/[workspaceId]/page.jsx", "src/app/workspace/_tools/simpleTool.js"],
   "exclude": ["node_modules"]
 }

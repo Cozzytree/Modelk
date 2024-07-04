@@ -5,7 +5,7 @@ import ImageTool from "@editorjs/image";
 import Checklist from "@editorjs/checklist";
 import List from "@editorjs/list";
 import Quote from "@editorjs/quote";
-import SimpleTool from "../_tools/simpleTool.ts";
+import SimpleTool from "../_tools/simpleTool.js";
 import Table from "../_tools/table.js";
 import { useEffect, useRef } from "react";
 

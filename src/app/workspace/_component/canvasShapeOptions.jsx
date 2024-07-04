@@ -109,7 +109,7 @@ export default function CanvasShapeOptions({
                 {currentActive?.type !== "line" && (
                   <MenubarSub>
                     <MenubarSubTrigger
-                      style={{ background: config?.currentActive.borderColor }}
+                      style={{ background: config?.currentActive?.borderColor }}
                       className="w-[30px] h-[30px]"
                     ></MenubarSubTrigger>
                     <MenubarSubContent className="grid grid-cols-4 w-fit gap-[3px]">

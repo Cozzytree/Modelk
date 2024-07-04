@@ -4,15 +4,8 @@ import {
    ToolboxConfig,
 } from "@editorjs/editorjs";
 
-interface SimpleToolData {
-   text: string;
-}
-
-class SimpleTool implements BlockTool {
-   data: SimpleTool;
-   wrapper: HTMLElement | null;
-
-   static get toolbox(): ToolboxConfig {
+class SimpleTool {
+   static get toolbox() {
       return {
          title: "Simple Tool",
          icon: `<svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="100" height="100" viewBox="0 0 50 50">
@@ -21,12 +14,12 @@ class SimpleTool implements BlockTool {
       };
    }
 
-   constructor({ data, config, api, readOnly }: BlockToolConstructorOptions) {
+   constructor({ data, config, api, readOnly }) {
       this.data = data;
       this.wrapper = null;
    }
 
-   render(): HTMLElement {
+   render() {
       this.wrapper = document.createElement("div");
       this.wrapper.classList.add("simple-tool");
 
@@ -36,7 +29,7 @@ class SimpleTool implements BlockTool {
       input.value = this.data.text || "";
 
       input.addEventListener("input", (event) => {
-         this.data.text = (event.target as HTMLElement).value;
+         this.data.text = event.target.value;
       });
 
       this.wrapper.appendChild(input);
@@ -44,8 +37,8 @@ class SimpleTool implements BlockTool {
       return this.wrapper;
    }
 
-   save(blockContent: HTMLElement): SimpleToolData {
-      const input = blockContent.querySelector("input") as any;
+   save(blockContent) {
+      const input = blockContent.querySelector("input");
       return {
          text: input.value,
       };

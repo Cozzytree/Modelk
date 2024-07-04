@@ -6,6 +6,7 @@ class DefaultStyles {
       this.containerId = null;
       this.borderColor = "white";
       this.fillStyle = "transparent";
+      this.fillType = "full"; // full , net
       this.id = Date.now();
       this.textSize = 20;
       this.text = [];
@@ -13,7 +14,7 @@ class DefaultStyles {
 }
 
 export class Rect extends DefaultStyles {
-   constructor(x, y, width, height, text = [], textSize = 20, isActive) {
+   constructor(x, y, width, height, text = [], textSize = 20, isActive = true) {
       super();
       this.pointTo = [];
       this.x = x;
@@ -44,13 +45,13 @@ export class Circle extends DefaultStyles {
 
 export class Line extends DefaultStyles {
    constructor(
-      lineType,
+      lineType = "",
       minX = null,
       minY = null,
       maxX = null,
       maxY = null,
       curvePoints = [],
-      isActive
+      isActive = false
    ) {
       super();
       this.startTo = null;
@@ -63,6 +64,7 @@ export class Line extends DefaultStyles {
       this.minY = minY;
       this.maxY = maxY;
       this.isActive = isActive;
+      this.lineWidth = 1;
    }
 }
 
@@ -95,90 +97,24 @@ export class Figure extends DefaultStyles {
    }
 }
 
-// document.addEventListener("DOMContentLoaded", function () {
-//     const canvas = document.getElementById('myCanvas');
-//     const ctx = canvas.getContext('2d');
+// save as image option
+// const canvas = document.getElementById("myCanvas");
+// const saveButton = document.getElementById("saveButton");
 
-//     // Define the rectangle
-//     const rect = {
-//         x: 100,
-//         y: 100,
-//         width: 200,
-//         height: 150
-//     };
+// // Example: Draw something on the canvas
+// const ctx = canvas.getContext("2d");
+// ctx.fillStyle = "red";
+// ctx.fillRect(50, 50, 200, 200);
+// ctx.fillStyle = "blue";
+// ctx.font = "30px Arial";
+// ctx.fillText("Hello Canvas", 70, 100);
 
-//     // Define the points
-//     const pointA = { x: 120, y: 120 };  // Point connected to the rectangle
-//     let pointB = { x: 350, y: 300 };  // Point not connected to the rectangle
-
-//     function draw() {
-//         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-//         // Draw the rectangle
-//         ctx.strokeStyle = 'black';
-//         ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-
-//         // Draw the points
-//         ctx.fillStyle = 'red';
-//         ctx.beginPath();
-//         ctx.arc(pointA.x, pointA.y, 5, 0, Math.PI * 2, true); // Point A
-//         ctx.fill();
-
-//         ctx.fillStyle = 'blue';
-//         ctx.beginPath();
-//         ctx.arc(pointB.x, pointB.y, 5, 0, Math.PI * 2, true); // Point B
-//         ctx.fill();
-
-//         // Draw the line connecting pointA to the rectangle
-//         ctx.beginPath();
-//         ctx.moveTo(pointA.x, pointA.y);
-//         ctx.lineTo(rect.x + rect.width, pointA.y);
-//         ctx.strokeStyle = 'black';
-//         ctx.stroke();
-
-//         // Calculate the closest point on the rectangle to pointB
-//         function clamp(value, min, max) {
-//             return Math.max(min, Math.min(max, value));
-//         }
-
-//         const closestPointOnRect = {
-//             x: clamp(pointB.x, rect.x, rect.x + rect.width),
-//             y: clamp(pointB.y, rect.y, rect.y + rect.height)
-//         };
-
-//         // Draw the closest point on the rectangle
-//         ctx.fillStyle = 'green';
-//         ctx.beginPath();
-//         ctx.arc(closestPointOnRect.x, closestPointOnRect.y, 5, 0, Math.PI * 2, true); // Closest point on rectangle
-//         ctx.fill();
-
-//         // Draw the line from pointB to the closest point on the rectangle
-//         ctx.beginPath();
-//         ctx.moveTo(pointB.x, pointB.y);
-//         ctx.lineTo(closestPointOnRect.x, closestPointOnRect.y);
-//         ctx.strokeStyle = 'blue';
-//         ctx.stroke();
-
-//         // Calculate the distance
-//         const distance = Math.sqrt(
-//             (closestPointOnRect.x - pointB.x) ** 2 +
-//             (closestPointOnRect.y - pointB.y) ** 2
-//         );
-
-//         console.log('Distance:', distance);
-
-//         // Update pointA to the closest point on the rectangle
-//         pointA.x = closestPointOnRect.x;
-//         pointA.y = closestPointOnRect.y;
-//     }
-
-//     draw();
-
-//     // Add mousemove event listener to update pointB and redraw
-//     canvas.addEventListener('mousemove', function (event) {
-//         const rect = canvas.getBoundingClientRect();
-//         pointB.x = event.clientX - rect.left;
-//         pointB.y = event.clientY - rect.top;
-//         draw();
-//     });
+// saveButton.addEventListener("click", () => {
+//    const dataURL = canvas.toDataURL("image/png");
+//    const link = document.createElement("a");
+//    link.href = dataURL;
+//    link.download = "canvas-image.png";
+//    document.body.appendChild(link);
+//    link.click();
+//    document.body.removeChild(link);
 // });
