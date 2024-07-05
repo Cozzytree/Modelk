@@ -65,6 +65,8 @@ export class Line extends DefaultStyles {
       this.maxY = maxY;
       this.isActive = isActive;
       this.lineWidth = 1;
+      this.arrowLeft = false;
+      this.arrowRight = true;
    }
 }
 

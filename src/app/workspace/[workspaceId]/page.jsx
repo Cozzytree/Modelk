@@ -99,19 +99,19 @@ export default function Workspace() {
                </Button>
             </div>
          </div>
-         
+
          <div
             className={`h-screen w-screen grid ${
                workspaceMode === "Both"
                   ? "grid-cols-[0.5fr_1fr]"
                   : "grid-cols-1"
-            } overflow-hidden divide-x-2`}
+            } overflow-hidden divide-x`}
          >
             {/* document */}
             <div
                className={`${
                   workspaceMode === "Canvas" ? "hidden" : "block"
-               } flex justify-center w-full  mt-12`}
+               } flex justify-center w-full mt-12`}
             >
                <Doc />
             </div>

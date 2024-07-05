@@ -9,8 +9,15 @@ import {
    MenubarSubTrigger,
    MenubarTrigger,
 } from "@/components/ui/menubar";
+import { Toggle } from "@/components/ui/toggle.tsx";
 import { config, colors, thickness, lineType, fontsizes } from "@/lib/utils.ts";
-import { ArrowTopRightIcon, PlusIcon, SquareIcon } from "@radix-ui/react-icons";
+import {
+   ArrowLeftIcon,
+   ArrowRightIcon,
+   ArrowTopRightIcon,
+   PlusIcon,
+   SquareIcon,
+} from "@radix-ui/react-icons";
 import { useEffect, useState } from "react";
 
 export default function CanvasShapeOptions({
@@ -219,58 +226,104 @@ export default function CanvasShapeOptions({
                </MenubarMenu>
 
                {currentActive.type === "line" && (
-                  <MenubarMenu>
-                     <MenubarTrigger className="h-full w-full">
-                        <ArrowTopRightIcon />
-                     </MenubarTrigger>
-                     <MenubarContent>
-                        {lineType.map((line) => (
-                           <p
-                              onClick={() => {
-                                 if (config.currentActive) {
-                                    if (line === "elbow") {
-                                       config.currentActive.lineType = "elbow";
-                                       config.currentActive.curvePoints = [
-                                          config.currentActive.curvePoints[0],
-                                          config.currentActive.curvePoints[
-                                             config.currentActive.curvePoints
-                                                .length - 1
-                                          ],
-                                       ];
-                                    } else {
-                                       config.currentActive.lineType =
-                                          "straight";
-                                       let first =
-                                          config.currentActive.curvePoints[0];
-                                       let last =
-                                          config.currentActive.curvePoints[
-                                             config.currentActive.curvePoints
-                                                .length - 1
+                  <div className="flex gap-1 p-[1px] items-center justify-center h-full w-full">
+                     <MenubarMenu>
+                        <MenubarTrigger className="h-full w-full">
+                           <ArrowTopRightIcon />
+                        </MenubarTrigger>
+                        <MenubarContent>
+                           {lineType.map((line) => (
+                              <p
+                                 onClick={() => {
+                                    if (config.currentActive) {
+                                       const { curvePoints } =
+                                          config.currentActive;
+                                       if (line === "straight") {
+                                          config.currentActive.lineType =
+                                             "straight";
+                                          config.currentActive.curvePoints = [
+                                             curvePoints[0],
+                                             curvePoints[
+                                                curvePoints.length - 1
+                                             ],
                                           ];
-                                       let midX = (first.x + last.x) / 2;
-                                       let midY = (first.y + last.y) / 2;
+                                       } else if (line === "elbow") {
+                                          config.currentActive.lineType =
+                                             "elbow";
+                                          let first = curvePoints[0];
+                                          let last =
+                                             curvePoints[
+                                                curvePoints.length - 1
+                                             ];
 
-                                       let midpoint = { x: midX, y: midY };
+                                          config.currentActive.curvePoints = [
+                                             first,
+                                             last,
+                                          ];
+                                       } else {
+                                          config.currentActive.lineType = line;
+                                          let first = curvePoints[0];
+                                          let last =
+                                             curvePoints[
+                                                curvePoints.length - 1
+                                             ];
+                                          let mid = {
+                                             x: (first.x + last.x) / 2,
+                                             y: (last.y + first.y) / 2,
+                                          };
 
-                                       config.currentActive.curvePoints = [
-                                          first,
-                                          midpoint,
-                                          last,
-                                       ];
+                                          config.currentActive.curvePoints = [
+                                             first,
+                                             mid,
+                                             last,
+                                          ];
+                                       }
+
+                                       setCurrent(config.currentActive);
+                                       if (shapeClassRef) shapeClassRef.draw();
                                     }
+                                 }}
+                                 key={line}
+                                 className="text-center text-xs cursor-pointer hover:bg-secondary transition-all duration-150 p-1 rounded-md"
+                              >
+                                 {line}
+                              </p>
+                           ))}
+                        </MenubarContent>
+                     </MenubarMenu>
 
-                                    setCurrent(config.currentActive);
-                                    if (shapeClassRef) shapeClassRef.draw();
-                                 }
-                              }}
-                              key={line}
-                              className="text-center text-xs cursor-pointer hover:bg-secondary transition-all duration-150 p-1 rounded-md"
-                           >
-                              {line}
-                           </p>
-                        ))}
-                     </MenubarContent>
-                  </MenubarMenu>
+                     <Button
+                        variant={"ghost"}
+                        size={"icon"}
+                        className="px-3 h-full"
+                        onClick={() => {
+                           if (config.currentActive) {
+                              config.currentActive.arrowLeft =
+                                 !config.currentActive.arrowLeft;
+                              if (shapeClassRef) shapeClassRef.draw();
+                              setCurrent(config.currentActive);
+                           }
+                        }}
+                     >
+                        <ArrowLeftIcon className="text-primary scale-[1.5]" />
+                     </Button>
+
+                     <Button
+                        variant={"ghost"}
+                        size={"icon"}
+                        className="px-3 h-full"
+                        onClick={() => {
+                           if (config.currentActive) {
+                              config.currentActive.arrowRight =
+                                 !config.currentActive.arrowRight;
+                              if (shapeClassRef) shapeClassRef.draw();
+                              setCurrent(config.currentActive);
+                           }
+                        }}
+                     >
+                        <ArrowRightIcon className="text-primary scale-[1.5]" />
+                     </Button>
+                  </div>
                )}
 
                {currentActive.type === "rect" && (

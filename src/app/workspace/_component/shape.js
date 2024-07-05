@@ -44,7 +44,16 @@ export default class Shapes {
             this.textMap.forEach((text) => {
                text.isActive = true;
             });
+            this.lineMap.forEach((line) => {
+               line.isActive = true;
+            });
+
+            this.imageMap.forEach((image) => {
+               image.isActive = true;
+            });
+
             this.draw();
+            this.drawImage();
          }
       });
 
@@ -53,15 +62,27 @@ export default class Shapes {
             //remove selected square
             this.rectMap.forEach((rect, key) => {
                if (rect.isActive) {
+                  rect.pointTo.forEach((p) => {
+                     let line = this.lineMap.get(p);
+                     if (line?.startTo === key && !line.isActive) {
+                        line.startTo = null;
+                     }
+                     if (line?.endTo === key && !line.isActive) {
+                        line.endTo === null;
+                     }
+                     console.log(line, key);
+                  });
                   this.rectMap.delete(key);
-                  breakpoints.delete(key);
+                  this.breakpoints.delete(key);
                }
             });
 
             this.lineMap.forEach((line, key) => {
                if (line.isActive) {
                   if (line.startTo) {
-                     const { rect, text, sphere } = this.getShape(line.startTo);
+                     const { rect, text, sphere, image } = this.getShape(
+                        line.startTo
+                     );
                      if (rect) {
                         rect.pointTo.filter((r) => r !== key);
                      }
@@ -71,8 +92,14 @@ export default class Shapes {
                      if (sphere) {
                         sphere.pointTo.filter((r) => r !== key);
                      }
+
+                     if (image) {
+                        image.pointTo.filter((i) => i !== key);
+                     }
                   } else if (line.endTo) {
-                     const { rect, text, sphere } = this.getShape(line.endTo);
+                     const { rect, text, sphere, image } = this.getShape(
+                        line.endTo
+                     );
 
                      if (rect) {
                         rect.pointTo.filter((r) => r !== key);
@@ -82,6 +109,9 @@ export default class Shapes {
                      }
                      if (sphere) {
                         sphere.pointTo.filter((r) => r !== key);
+                     }
+                     if (image) {
+                        image.pointTo.filter((i) => i !== key);
                      }
                   }
                   this.lineMap.delete(key);
@@ -91,13 +121,31 @@ export default class Shapes {
             //remove selected arcs
             this.circleMap.forEach((arc, key) => {
                if (arc.isActive) {
+                  arc.pointTo.forEach((p) => {
+                     let line = this.lineMap.get(p);
+                     if (line.startTo === key && !line.isActive) {
+                        line.startTo = null;
+                     }
+                     if (line.endTo === key && !line.isActive) {
+                        line.endTo === null;
+                     }
+                  });
                   this.circleMap.delete(key);
-                  breakpoints.delete(key);
+                  this.breakpoints.delete(key);
                }
             });
 
             this.textMap.forEach((text, key) => {
                if (text.isActive) {
+                  text.pointTo.forEach((p) => {
+                     let line = this.lineMap.get(p);
+                     if (line.startTo === key && !line.isActive) {
+                        line.startTo = null;
+                     }
+                     if (line.endTo === key && !line.isActive) {
+                        line.endTo === null;
+                     }
+                  });
                   this.textMap.delete(key);
                }
             });
@@ -220,6 +268,37 @@ export default class Shapes {
          config.currentActive = minLine;
       }
       return config.currentActive;
+   }
+
+   drawArrows(startPoint, endPoint, arrowLength) {
+      // Draw the back arrowhead
+      const firstPoint = startPoint;
+      const lastPoint = endPoint;
+
+      // Calculate the angle of the arrow
+      let angle = Math.atan2(
+         lastPoint.y - firstPoint.y,
+         lastPoint.x - firstPoint.x
+      );
+
+      // Draw the first side of the back arrowhead
+      this.context.moveTo(lastPoint.x, lastPoint.y);
+      this.context.lineTo(
+         lastPoint.x - arrowLength * Math.cos(angle - Math.PI / 6),
+         lastPoint.y - arrowLength * Math.sin(angle - Math.PI / 6)
+      );
+      this.context.stroke();
+      this.context.closePath();
+
+      // Draw the second side of the back arrowhead
+      this.context.beginPath();
+      this.context.moveTo(lastPoint.x, lastPoint.y);
+      this.context.lineTo(
+         lastPoint.x - arrowLength * Math.cos(angle + Math.PI / 6),
+         lastPoint.y - arrowLength * Math.sin(angle + Math.PI / 6)
+      );
+      this.context.stroke();
+      this.context.closePath();
    }
 
    draw() {
@@ -424,6 +503,8 @@ export default class Shapes {
             borderColor,
             radius,
             isActive,
+            arrowLeft,
+            arrowRight,
          } = line;
 
          this.context.beginPath();
@@ -436,76 +517,75 @@ export default class Shapes {
             this.context.strokeStyle = borderColor;
          }
 
-         this.context.moveTo(curvePoints[0].x, curvePoints[0].y);
+         const headlen = 10;
+
          if (lineType === "straight") {
+            this.context.moveTo(curvePoints[0].x, curvePoints[0].y);
             for (let i = 1; i < curvePoints.length; i++) {
                this.context.lineTo(curvePoints[i].x, curvePoints[i].y);
             }
+            if (arrowLeft) {
+               this.drawArrows(
+                  {
+                     x: curvePoints[curvePoints.length - 1].x,
+                     y: curvePoints[curvePoints.length - 1].y,
+                  },
+                  {
+                     x: curvePoints[0].x,
+                     y: curvePoints[0].y,
+                  },
+                  headlen
+               );
+            }
+            if (arrowRight) {
+               this.drawArrows(
+                  {
+                     x: curvePoints[0].x,
+                     y: curvePoints[0].y,
+                  },
+                  {
+                     x: curvePoints[curvePoints.length - 1].x,
+                     y: curvePoints[curvePoints.length - 1].y,
+                  },
+                  headlen
+               );
+            }
          } else if (lineType === "elbow") {
-            const headlen = 10;
+            const first = curvePoints[0];
+            const last = curvePoints[curvePoints.length - 1];
+            const mid = {
+               x: (first.x + last.x) / 2,
+               y: (first.y + last.y) / 2,
+            };
 
-            // Draw the line
-            this.context.lineTo(curvePoints[1].x, curvePoints[1].y);
+            // Start from the first point
+            this.context.moveTo(first.x, first.y);
 
-            // Draw the back arrowhead
-            const lastPoint = line.curvePoints[line.curvePoints.length - 1];
-            const firstPoint = line.curvePoints[0];
+            // Draw the first arc: From first to mid horizontally
+            this.context.arcTo(mid.x, first.y, mid.x, mid.y, radius);
 
-            // Calculate the angle of the arrow
-            let angle = Math.atan2(
-               lastPoint.y - firstPoint.y,
-               lastPoint.x - firstPoint.x
-            );
+            // Draw the second arc: From mid horizontally to mid vertically aligned with last
+            this.context.arcTo(mid.x, last.y, last.x, last.y, radius);
 
-            // Draw the first side of the back arrowhead
-            this.context.moveTo(lastPoint.x, lastPoint.y);
-            this.context.lineTo(
-               lastPoint.x - headlen * Math.cos(angle - Math.PI / 6),
-               lastPoint.y - headlen * Math.sin(angle - Math.PI / 6)
-            );
-            this.context.stroke();
-            this.context.closePath();
+            // Draw final line: From the end of the second arc to the last point
+            this.context.lineTo(last.x, last.y);
 
-            // Draw the second side of the back arrowhead
-            this.context.beginPath();
-            this.context.moveTo(lastPoint.x, lastPoint.y);
-            this.context.lineTo(
-               lastPoint.x - headlen * Math.cos(angle + Math.PI / 6),
-               lastPoint.y - headlen * Math.sin(angle + Math.PI / 6)
-            );
-            this.context.stroke();
-            this.context.closePath();
-
-            // Draw the front arrowhead
-            angle = Math.atan2(
-               firstPoint.y - lastPoint.y,
-               firstPoint.x - lastPoint.x
-            );
-
-            // Draw the first side of the front arrowhead
-            this.context.beginPath();
-            this.context.moveTo(firstPoint.x, firstPoint.y);
-            this.context.lineTo(
-               firstPoint.x - headlen * Math.cos(angle - Math.PI / 6),
-               firstPoint.y - headlen * Math.sin(angle - Math.PI / 6)
-            );
-            this.context.stroke();
-            this.context.closePath();
-
-            // Draw the second side of the front arrowhead
-            this.context.beginPath();
-            this.context.moveTo(firstPoint.x, firstPoint.y);
-            this.context.lineTo(
-               firstPoint.x - headlen * Math.cos(angle + Math.PI / 6),
-               firstPoint.y - headlen * Math.sin(angle + Math.PI / 6)
-            );
-            this.context.stroke();
-            this.context.closePath();
+            if (arrowLeft) {
+               mid.x == first.x
+                  ? this.drawArrows(mid, first, headlen)
+                  : this.drawArrows({ x: mid.x, y: first.y }, first, headlen);
+            }
+            if (arrowRight) {
+               mid.x == first.x
+                  ? this.drawArrows(mid, last, headlen)
+                  : this.drawArrows({ x: mid.x, y: last.y }, last, headlen);
+            }
          } else {
+            this.context.moveTo(curvePoints[0].x, curvePoints[0].y);
+            const t = 0.8; // Weighting factor, 0.5 for halfway, closer to 1 for closer to cp2
             for (let i = 1; i < curvePoints.length - 1; i++) {
                const cp1 = curvePoints[i];
                const cp2 = curvePoints[i + 1];
-               const t = 0.8; // Weighting factor, 0.5 for halfway, closer to 1 for closer to cp2
                const midPointX = (1 - t) * cp1.x + t * cp2.x;
                const midPointY = (1 - t) * cp1.y + t * cp2.y;
                this.context.quadraticCurveTo(
@@ -515,8 +595,18 @@ export default class Shapes {
                   midPointY
                );
             }
+            const secondToLastPoint = curvePoints[curvePoints.length - 2];
             const lastPoint = curvePoints[curvePoints.length - 1];
-            this.context.lineTo(lastPoint.x, lastPoint.y);
+            const controlPointX =
+               (1 - t) * secondToLastPoint.x + t * lastPoint.x;
+            const controlPointY =
+               (1 - t) * secondToLastPoint.y + t * lastPoint.y;
+            this.context.quadraticCurveTo(
+               controlPointX,
+               controlPointY,
+               lastPoint.x,
+               lastPoint.y
+            );
          }
          this.context.stroke();
          this.context.closePath();
@@ -799,7 +889,7 @@ export default class Shapes {
                      index: i,
                   };
                }
-
+               config.currentActive = line;
                isResizing = true;
             }
          }
@@ -943,6 +1033,7 @@ export default class Shapes {
             arc.horizontelResizing = true; // Set the horizontal resizing flag
             isResizing = true;
             this.resizeElement = { direction: "horizontel", key };
+            config.currentActive = arc;
          }
 
          //vertical resizing
@@ -958,6 +1049,7 @@ export default class Shapes {
             arc.isActive = true;
             arc.verticalResizing = true; // set vertical resizing to true
             this.resizeElement = { direction: "vertical", key };
+            config.currentActive = arc;
             isResizing = true;
          }
 
@@ -987,6 +1079,7 @@ export default class Shapes {
             arc.isActive = true;
             arc.isResizing = true;
             this.resizeElement = { direction: "corners", key };
+            config.currentActive = arc;
             isResizing = true;
          }
       });
@@ -1004,6 +1097,7 @@ export default class Shapes {
             isResizing = true;
             // text.isResizing = true;
             this.resizeElement = { key };
+            config.currentActive = text;
          }
       });
 
@@ -1148,7 +1242,9 @@ export default class Shapes {
          line &&
          (!smallestRect || line.l.maxX - line.l.minX < smallestRect?.rect.width)
       ) {
-         if (line.l.pointTo && line.l.endTo) return;
+         line.l.isActive = true;
+         this.draw();
+         if (line.l.startTo && line.l.endTo) return;
          line.l.curvePoints.forEach((e) => {
             e.offsetX = mouseX - e.x;
             e.offsetY = mouseY - e.y;
@@ -2472,6 +2568,13 @@ export default class Shapes {
             });
          }
       } else if (image) {
+         this.updateGuides(
+            this.dragElement.key,
+            image.x,
+            image.y,
+            image.x + image.width,
+            image.y + image.height
+         );
          this.dragElement = null;
          this.breakPointsCtx.clearRect(
             0,
@@ -2479,6 +2582,7 @@ export default class Shapes {
             this.canvasBreakpoints.width,
             this.canvasBreakpoints.height
          );
+
          this.drawImage();
          if (image.pointTo.length > 0) this.draw();
          return;
@@ -2607,7 +2711,14 @@ export default class Shapes {
    }
 
    insertImage(imageFile) {
-      this.imageMap.set(Date.now(), imageFile);
+      const id = Date.now();
+      this.imageMap.set(id, imageFile);
+      breakPoints.set(id, {
+         minX: imageFile.x,
+         minY: imageFile.y,
+         maxX: imageFile.x + imageFile.width,
+         maxY: imageFile.y + imageFile.height,
+      });
       this.drawImage();
    }
 
@@ -3594,10 +3705,10 @@ export default class Shapes {
       }
    }
 
-   newShape(shape) {
-      this.rectMap.set(shape.id, shape);
-      this.draw();
-   }
+   //    newShape(shape) {
+   //       this.rectMap.set(shape.id, shape);
+   //       this.draw();
+   //    }
 
    newText(event) {
       if (event.target.tagName === "TEXTAREA") return;

@@ -27,7 +27,7 @@ export const thickness = [
 ];
 
 export const radius = ["0px", "10px"];
-export const lineType = ["curve", "staright"];
+export const lineType = ["curve", "elbow", "straight"];
 
 export const colors = [
    "#FF5733",
