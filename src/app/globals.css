@@ -89,6 +89,7 @@ h5.ce-header {
 
 .cdx-quote__text,
 .cdx-list__item,
+.cdx-checklist__item,
 .ce-paragraph {
    background: transparent;
    padding: 0px 12px;
@@ -97,6 +98,7 @@ h5.ce-header {
    padding: 3px;
    @apply text-lg;
 }
+
 .ce-header {
    @apply bg-background;
    padding: 0 10px;

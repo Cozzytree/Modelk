@@ -140,6 +140,9 @@ export default function Canvas() {
                height: 200,
                src: newImage,
                isActive: true,
+               type: "image",
+               pointTo: [],
+               radius: 2,
             });
             setImage(null);
          }
@@ -147,6 +150,8 @@ export default function Canvas() {
       };
 
       const zoomInOut = (e) => {
+         if (e.target.tagName !== "CANVAS") return;
+
          if (shape) {
             shape.canvasZoomInOutAndScroll(e, setScale);
          }
@@ -808,7 +813,6 @@ export default function Canvas() {
                shapeClassRef={shapeClassRef.current}
                currentActive={currentActive}
                setCurrent={setCurrentActive}
-               canvasRef={canvasRef}
             />
          )}
          <ZoomLabel scale={scale} />

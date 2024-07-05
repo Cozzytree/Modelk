@@ -5,7 +5,7 @@ import Canvas from "../_component/canvas.jsx";
 import Doc from "../_component/Doc.jsx";
 import { useEffect, useState } from "react";
 import { useGetProjectAssets } from "@/requests/project.ts";
-import { ReloadIcon } from "@radix-ui/react-icons";
+import { GearIcon, ReloadIcon } from "@radix-ui/react-icons";
 
 const boardView = [{ name: "Document" }, { name: "Both" }, { name: "Canvas" }];
 
@@ -70,8 +70,8 @@ export default function Workspace() {
 
       <div className="w-screen h-screen overflow-hidden">
          <div className="fixed top-0 left-0 w-screen flex justify-between items-center border-b py-1 bg-background border-b-zinc-800 z-[999] px-4">
-            <h1 className="text-lg font-semibold">Project_Name</h1>
-            <div className="">
+            <h1 className="text-sm font-semibold">Project_Name</h1>
+            <div className="h-fir p-[2px] gap-[2px] flex items-center justify-center divide-x-2 border border-zinc-800 rounded-sm">
                {boardView.map((view) => (
                   <Button
                      onClick={() => setWorksapceMode(view.name)}
@@ -80,7 +80,7 @@ export default function Workspace() {
                         view.name === workspaceMode
                            ? "bg-secondary"
                            : "bg-black"
-                     } text-md h-3 py-3`}
+                     } text-sm h-3 py-3`}
                      variant="ghost"
                      size="sm"
                   >
@@ -88,8 +88,18 @@ export default function Workspace() {
                   </Button>
                ))}
             </div>
-            <div>Settings</div>
+            <div>
+               <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs flex items-center gap-1"
+               >
+                  <GearIcon />
+                  Settings
+               </Button>
+            </div>
          </div>
+         
          <div
             className={`h-screen w-screen grid ${
                workspaceMode === "Both"

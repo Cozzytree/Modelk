@@ -442,7 +442,7 @@ export default class Shapes {
                this.context.lineTo(curvePoints[i].x, curvePoints[i].y);
             }
          } else if (lineType === "elbow") {
-            const headlen = 15;
+            const headlen = 10;
 
             // Draw the line
             this.context.lineTo(curvePoints[1].x, curvePoints[1].y);
@@ -540,11 +540,12 @@ export default class Shapes {
       this.renderCanvasCtx.scale(Scale.scale, Scale.scale);
 
       this.imageMap.forEach((image, key) => {
-         const { x, y, width, height, isActive, src } = image;
+         const { x, y, width, height, radius, isActive, src } = image;
 
          if (!this.cache.has(key)) {
             const img = new Image();
             img.src = src;
+            img.style.borderRadius = radius + "px";
             this.cache.set(key, img);
             img.onload = () => {
                this.drawImageOnCanvas(img, x, y, width, height, isActive);
@@ -655,7 +656,7 @@ export default class Shapes {
             isResizing = true;
             const img = new Image();
             img.src = image.src;
-
+            config.currentActive = image;
             this.resizeElement = {
                direction: "left-edge",
                key,
@@ -667,6 +668,7 @@ export default class Shapes {
             isResizing = true;
             const img = new Image();
             img.src = image.src;
+            config.currentActive = image;
 
             this.resizeElement = {
                direction: "right-edge",
@@ -690,6 +692,7 @@ export default class Shapes {
             isResizing = true;
             const img = new Image();
             img.src = image.src;
+            config.currentActive = image;
 
             this.resizeElement = {
                direction: "top-edge",
@@ -702,6 +705,8 @@ export default class Shapes {
             isResizing = true;
             const img = new Image();
             img.src = image.src;
+            config.currentActive = image;
+
             this.resizeElement = {
                direction: "bottom-edge",
                key,
@@ -746,6 +751,8 @@ export default class Shapes {
                isResizing = true;
                const img = new Image();
                img.src = image.src;
+               config.currentActive = image;
+
                this.resizeElement = {
                   key,
                   rectMaxX: x + width,
@@ -814,6 +821,8 @@ export default class Shapes {
             object.isActive = true;
             isResizing = true;
             this.isDraggingOrResizing = true;
+            config.currentActive = rect;
+
             this.resizeElement = {
                direction: "left-edge",
                key,
@@ -822,6 +831,8 @@ export default class Shapes {
          } else if (rightEdge && verticalBounds) {
             rect.isActive = true;
             isResizing = true;
+            config.currentActive = rect;
+
             this.resizeElement = {
                direction: "right-edge",
                key,
@@ -841,6 +852,8 @@ export default class Shapes {
          if (withinTopEdge && withinHorizontalBounds) {
             rect.isActive = true;
             isResizing = true;
+            config.currentActive = rect;
+
             this.resizeElement = {
                direction: "top-edge",
                key,
@@ -849,6 +862,8 @@ export default class Shapes {
          } else if (withinBottomEdge && withinHorizontalBounds) {
             rect.isActive = true;
             isResizing = true;
+            config.currentActive = rect;
+
             this.resizeElement = {
                direction: "bottom-edge",
                key,
@@ -890,6 +905,7 @@ export default class Shapes {
          ].forEach((any) => {
             if (any.cond) {
                isResizing = true;
+               config.currentActive = rect;
                this.resizeElement = {
                   key,
                   rectMaxX: x + width,
@@ -1020,12 +1036,15 @@ export default class Shapes {
       if (smallestImage?.key) {
          const img = new Image();
          img.src = smallestImage.image.src;
+         img.style.borderRadius = smallestImage.image.radius + "px";
+
          smallestImage.image.offsetX = mouseX - smallestImage.image.x;
          smallestImage.image.offsetY = mouseY - smallestImage.image.y;
          smallestImage.image.isActive = true;
          this.dragElement = { src: img, key: smallestImage.key };
 
          this.drawImage();
+         config.currentActive = smallestImage?.image;
          return;
       }
 
@@ -1196,6 +1215,9 @@ export default class Shapes {
                } else if (object.type === "sphere") {
                   start = this.circleMap.get(l.startTo);
                   end = this.circleMap.get(l.endTo);
+               } else if (object.type === "image") {
+                  start = this.imageMap.get(l.startTo);
+                  end = this.imageMap.get(l.endTo);
                }
 
                if (start && !arrowStartRect.includes(start)) {
@@ -1215,6 +1237,8 @@ export default class Shapes {
                   return this.textMap.get(pos);
                case "sphere":
                   return this.circleMap.get(pos);
+               case "image":
+                  return this.imageMap.get(pos);
                default:
                   break;
             }
@@ -1229,6 +1253,7 @@ export default class Shapes {
                            rect: r,
                            text: t,
                            sphere: s,
+                           image: i,
                         } = this.getShape(l.endTo);
 
                         const { curvePoints, lineType } = l;
@@ -1272,6 +1297,13 @@ export default class Shapes {
                            });
                            curvePoints[last].x = x;
                            curvePoints[last].y = y;
+                        } else if (i) {
+                           const { x, y } = this.getClosestPoints(i, {
+                              x: curvePoints[0].x,
+                              y: curvePoints[0].y,
+                           });
+                           curvePoints[last].x = x;
+                           curvePoints[last].y = y;
                         }
                      }
                   });
@@ -1289,6 +1321,7 @@ export default class Shapes {
                            rect: r,
                            text: t,
                            sphere: s,
+                           image: i,
                         } = this.getShape(l.startTo);
 
                         const { curvePoints } = l;
@@ -1303,10 +1336,10 @@ export default class Shapes {
                         } else {
                            const { x, y } = this.getClosestPoints(
                               {
-                                 x: object.x + object.width / 2,
+                                 x: object.x,
                                  y: object.y,
-                                 width: 5,
-                                 height: object.height,
+                                 width: object.width,
+                                 height: object.height / 2,
                               },
                               { x: curvePoints[0].x, y: curvePoints[0].y }
                            );
@@ -1327,6 +1360,12 @@ export default class Shapes {
                            this.updateCurvePoint(l, x, y, 0);
                         } else if (s) {
                            const { x, y } = this.getClosestPointOnSphere(s, {
+                              x: curvePoints[last].x,
+                              y: curvePoints[last].y,
+                           });
+                           this.updateCurvePoint(l, x, y, 0);
+                        } else if (i) {
+                           const { x, y } = this.getClosestPoints(i, {
                               x: curvePoints[last].x,
                               y: curvePoints[last].y,
                            });
@@ -1555,6 +1594,7 @@ export default class Shapes {
                   break;
             }
          }
+         this.updateLinesPointTo(imageResize);
          const { x, y, width, height, isActive } = imageResize;
          this.breakPointsCtx.clearRect(
             0,
@@ -1598,7 +1638,6 @@ export default class Shapes {
             height
          );
          this.breakPointsCtx.restore();
-         return;
       } else if (circleResize) {
          if (this.resizeElement.direction === "horizontel") {
             circleResize.isActive = true;
@@ -2095,6 +2134,8 @@ export default class Shapes {
       } else if (image) {
          image.x = mouseX - image.offsetX;
          image.y = mouseY - image.offsetY;
+
+         this.updateLinesPointTo(image);
          const { x, y, width, height, isActive } = image;
          this.breakPointsCtx.clearRect(
             0,
@@ -2129,6 +2170,7 @@ export default class Shapes {
             );
             this.breakPointsCtx.stroke();
          }
+
          this.breakPointsCtx.scale(Scale.scale, Scale.scale);
          this.breakPointsCtx.drawImage(
             this.dragElement?.src,
@@ -2138,7 +2180,6 @@ export default class Shapes {
             height
          );
          this.breakPointsCtx.restore();
-         return;
       }
       this.draw();
    }
@@ -2224,25 +2265,7 @@ export default class Shapes {
                }
             }
             this.rectMap.forEach((rect, rectKey) => {
-               const { x, y, width, height } = rect;
-               if (
-                  (mouseX >= x &&
-                     mouseX <= x + width &&
-                     mouseY >= y &&
-                     mouseY <= y + this.tolerance) ||
-                  (mouseX >= x &&
-                     mouseX <= x + this.tolerance &&
-                     mouseY >= y &&
-                     mouseY <= y + height) ||
-                  (mouseX >= x &&
-                     mouseX <= x + width &&
-                     mouseY >= y + height - this.tolerance &&
-                     mouseY <= y + height) ||
-                  (mouseX >= x + width - this.tolerance &&
-                     mouseX <= x + width &&
-                     mouseY >= y &&
-                     mouseY <= y + height)
-               ) {
+               if (this.squareLineParams(rect, mouseX, mouseY)) {
                   if (rect.pointTo.includes(key) || line.endTo === rectKey) {
                      return;
                   }
@@ -2283,6 +2306,18 @@ export default class Shapes {
                      return;
                   text.pointTo.push(key);
                   line.startTo = textKey;
+               }
+            });
+
+            this.imageMap.forEach((image, imageKey) => {
+               if (this.squareLineParams(image, mouseX, mouseY)) {
+                  if (image.pointTo.includes(key) || line.endTo === imageKey) {
+                     return;
+                  }
+
+                  image.pointTo.push(key);
+                  line.startTo = imageKey;
+                  console.log(image);
                }
             });
          } else if (this.resizeElement.direction === "resizeEnd") {
@@ -2331,30 +2366,14 @@ export default class Shapes {
             }
 
             this.rectMap.forEach((rect, rectKey) => {
-               const { x, y, width, height, pointTo } = rect;
-               if (
-                  (mouseX >= x &&
-                     mouseX <= x + width &&
-                     mouseY >= y &&
-                     mouseY <= y + this.tolerance) ||
-                  (mouseX >= x &&
-                     mouseX <= x + this.tolerance &&
-                     mouseY >= y &&
-                     mouseY <= y + height) ||
-                  (mouseX >= x &&
-                     mouseX <= x + width &&
-                     mouseY >= y + height - this.tolerance &&
-                     mouseY <= y + height) ||
-                  (mouseX >= x + width - this.tolerance &&
-                     mouseX <= x + width &&
-                     mouseY >= y &&
-                     mouseY <= y + height)
-               ) {
+               const { pointTo } = rect;
+               if (this.squareLineParams(rect, mouseX, mouseY)) {
                   if (line.startTo === rectKey || pointTo.includes(key)) return;
                   pointTo.push(key);
                   line.endTo = rectKey;
                }
             });
+
             this.circleMap.forEach((circle, circleKey) => {
                const { xRadius, yRadius, x, y, pointTo } = circle;
                const distance = Math.sqrt(
@@ -2371,6 +2390,7 @@ export default class Shapes {
                   line.endTo = circleKey;
                }
             });
+
             this.textMap.forEach((text, textKey) => {
                if (
                   line.curvePoints[length].x >= text.x &&
@@ -2384,7 +2404,17 @@ export default class Shapes {
                   line.endTo = textKey;
                }
             });
+
+            this.imageMap.forEach((img, imgKey) => {
+               if (this.squareLineParams(img, mouseX, mouseY)) {
+                  if (line.startTo === imgKey || img.pointTo.includes(key))
+                     return;
+                  img.pointTo.push(key);
+                  line.endTo = imgKey;
+               }
+            });
          }
+
          line.isActive = true;
          this.updateLineMinMax(this.resizeElement.key);
       } else if (sphere) {
@@ -2450,6 +2480,7 @@ export default class Shapes {
             this.canvasBreakpoints.height
          );
          this.drawImage();
+         if (image.pointTo.length > 0) this.draw();
          return;
       }
 
@@ -3009,7 +3040,8 @@ export default class Shapes {
       const rect = this.rectMap.get(key);
       const sphere = this.circleMap.get(key);
       const text = this.textMap.get(key);
-      return { rect, sphere, text };
+      const image = this.imageMap.get(key);
+      return { rect, sphere, text, image };
    }
 
    updateLineMinMax(key) {
@@ -3038,6 +3070,28 @@ export default class Shapes {
       });
    }
 
+   squareLineParams(obj, mouseX, mouseY) {
+      const { x, y, width, height } = obj;
+      return (
+         (mouseX >= x &&
+            mouseX <= x + width &&
+            mouseY >= y &&
+            mouseY <= y + this.tolerance) ||
+         (mouseX >= x &&
+            mouseX <= x + this.tolerance &&
+            mouseY >= y &&
+            mouseY <= y + height) ||
+         (mouseX >= x &&
+            mouseX <= x + width &&
+            mouseY >= y + height - this.tolerance &&
+            mouseY <= y + height) ||
+         (mouseX >= x + width - this.tolerance &&
+            mouseX <= x + width &&
+            mouseY >= y &&
+            mouseY <= y + height)
+      );
+   }
+
    lineConnectParams(mouseX, mouseY) {
       this.breakPointsCtx.clearRect(
          0,
@@ -3057,66 +3111,53 @@ export default class Shapes {
       this.breakPointsCtx.lineWidth = padding;
       this.breakPointsCtx.strokeStyle = "rgb(2, 211, 134)";
 
+      const draw = (obj) => {
+         const { x, y, width, height } = obj;
+         // Start from the top-left corner, slightly offset by padding
+         this.breakPointsCtx.moveTo(x - padding + 5, y - padding);
+
+         // Top-right corner
+         this.breakPointsCtx.arcTo(
+            x + width + padding,
+            y - padding,
+            x + width + padding,
+            y - padding + 5,
+            5
+         );
+
+         // Bottom-right corner
+         this.breakPointsCtx.arcTo(
+            x + width + padding,
+            y + height + padding,
+            x + width + padding - 5,
+            y + height + padding,
+            5
+         );
+
+         // Bottom-left corner
+         this.breakPointsCtx.arcTo(
+            x - padding,
+            y + height + padding,
+            x - padding,
+            y + height + padding - 5,
+            5
+         );
+
+         // Top-left corner to close the path
+         this.breakPointsCtx.arcTo(
+            x - padding,
+            y - padding,
+            x - padding + 5,
+            y - padding,
+            5
+         );
+
+         this.breakPointsCtx.closePath();
+      };
+
       this.rectMap.forEach((rect) => {
-         const { x, y, width, height } = rect;
-         if (
-            (mouseX >= x &&
-               mouseX <= x + width &&
-               mouseY >= y &&
-               mouseY <= y + this.tolerance) ||
-            (mouseX >= x &&
-               mouseX <= x + this.tolerance &&
-               mouseY >= y &&
-               mouseY <= y + height) ||
-            (mouseX >= x &&
-               mouseX <= x + width &&
-               mouseY >= y + height - this.tolerance &&
-               mouseY <= y + height) ||
-            (mouseX >= x + width - this.tolerance &&
-               mouseX <= x + width &&
-               mouseY >= y &&
-               mouseY <= y + height)
-         ) {
-            // Start from the top-left corner, slightly offset by padding
-            this.breakPointsCtx.moveTo(x - padding + 5, y - padding);
-
-            // Top-right corner
-            this.breakPointsCtx.arcTo(
-               x + width + padding,
-               y - padding,
-               x + width + padding,
-               y - padding + 5,
-               5
-            );
-
-            // Bottom-right corner
-            this.breakPointsCtx.arcTo(
-               x + width + padding,
-               y + height + padding,
-               x + width + padding - 5,
-               y + height + padding,
-               5
-            );
-
-            // Bottom-left corner
-            this.breakPointsCtx.arcTo(
-               x - padding,
-               y + height + padding,
-               x - padding,
-               y + height + padding - 5,
-               5
-            );
-
-            // Top-left corner to close the path
-            this.breakPointsCtx.arcTo(
-               x - padding,
-               y - padding,
-               x - padding + 5,
-               y - padding,
-               5
-            );
-
-            this.breakPointsCtx.closePath();
+         if (this.squareLineParams(rect, mouseX, mouseY)) {
+            draw(rect);
          } else {
             this.breakPointsCtx.clearRect(
                0,
@@ -3222,9 +3263,18 @@ export default class Shapes {
          }
       });
 
-      this.lineMap.forEach((image) => {
-        
-      })
+      this.imageMap.forEach((image) => {
+         if (this.squareLineParams(image, mouseX, mouseY)) {
+            draw(image);
+         } else {
+            this.breakPointsCtx.clearRect(
+               0,
+               0,
+               this.canvasBreakpoints.width,
+               this.canvasBreakpoints.height
+            );
+         }
+      });
 
       this.breakPointsCtx.stroke();
       this.breakPointsCtx.restore();
