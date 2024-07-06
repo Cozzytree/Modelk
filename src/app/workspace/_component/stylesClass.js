@@ -10,6 +10,7 @@ class DefaultStyles {
       this.id = Date.now();
       this.textSize = 20;
       this.text = [];
+      this.textPosition = "center"; // "center" || "left" || "right"
    }
 }
 

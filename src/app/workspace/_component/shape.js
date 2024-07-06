@@ -370,6 +370,7 @@ export default class Shapes {
             textSize,
             isActive,
             fillType,
+            textPosition,
          } = rect;
 
          drawDotsAndRect(
@@ -399,15 +400,25 @@ export default class Shapes {
          this.context.closePath();
 
          // Render text
-         this.renderText(text, x, y, textSize, height, width);
+         this.renderText(text, x, y, textSize, height, width, textPosition);
       });
 
       // Draw circles
       this.circleMap.forEach((sphere) => {
-         const x = sphere.x - sphere.xRadius;
-         const y = sphere.y - sphere.yRadius;
-         const width = 2 * sphere.xRadius;
-         const height = 2 * sphere.yRadius;
+         const {
+            xRadius,
+            yRadius,
+            text,
+            textPosition,
+            lineWidth,
+            fillStyle,
+            borderColor,
+            textSize,
+         } = sphere;
+         const x = sphere.x - xRadius;
+         const y = sphere.y - yRadius;
+         const width = 2 * xRadius;
+         const height = 2 * yRadius;
 
          drawDotsAndRect(
             x,
@@ -415,20 +426,20 @@ export default class Shapes {
             width,
             height,
             this.tolerance,
-            sphere.isActive,
+            isActive,
             this.activeColor
          );
 
          // Draw circle
          this.context.beginPath();
-         this.context.lineWidth = sphere.lineWidth;
-         this.context.fillStyle = sphere.fillStyle;
-         this.context.strokeStyle = sphere.borderColor;
+         this.context.lineWidth = lineWidth;
+         this.context.fillStyle = fillStyle;
+         this.context.strokeStyle = borderColor;
          this.context.ellipse(
             sphere.x,
             sphere.y,
-            sphere.xRadius,
-            sphere.yRadius,
+            xRadius,
+            yRadius,
             0,
             0,
             2 * Math.PI
@@ -438,7 +449,7 @@ export default class Shapes {
          this.context.closePath();
 
          // Render text
-         this.renderText(sphere.text, x, y, sphere.textSize, height, width);
+         this.renderText(text, x, y, textSize, height, width, textPosition);
       });
 
       // Draw text blocks
@@ -505,6 +516,13 @@ export default class Shapes {
             isActive,
             arrowLeft,
             arrowRight,
+            text,
+            minX,
+            maxX,
+            minY,
+            maxY,
+            textSize,
+            textPosition,
          } = line;
 
          this.context.beginPath();
@@ -607,7 +625,48 @@ export default class Shapes {
                lastPoint.x,
                lastPoint.y
             );
+
+            //arrows
+            if (arrowLeft) {
+               this.drawArrows(
+                  {
+                     x: curvePoints[1].x,
+                     y: curvePoints[1].y,
+                  },
+                  {
+                     x: curvePoints[0].x,
+                     y: curvePoints[0].y,
+                  },
+                  headlen
+               );
+            }
+
+            if (arrowRight) {
+               this.drawArrows(
+                  {
+                     x: curvePoints[curvePoints.length - 2].x,
+                     y: curvePoints[curvePoints.length - 2].y,
+                  },
+                  {
+                     x: curvePoints[curvePoints.length - 1].x,
+                     y: curvePoints[curvePoints.length - 1].y,
+                  },
+                  headlen
+               );
+            }
          }
+
+         //render text
+         this.renderText(
+            text,
+            minX,
+            minY,
+            textSize,
+            maxY - minY,
+            maxX - minX,
+            textPosition
+         );
+
          this.context.stroke();
          this.context.closePath();
       });
@@ -1242,9 +1301,13 @@ export default class Shapes {
          line &&
          (!smallestRect || line.l.maxX - line.l.minX < smallestRect?.rect.width)
       ) {
-         line.l.isActive = true;
-         this.draw();
-         if (line.l.startTo && line.l.endTo) return;
+         if (line.l.startTo && line.l.endTo) {
+            line.l.isActive = true;
+            this.draw();
+            config.currentActive = line;
+            return;
+         }
+
          line.l.curvePoints.forEach((e) => {
             e.offsetX = mouseX - e.x;
             e.offsetY = mouseY - e.y;
@@ -1435,7 +1498,7 @@ export default class Shapes {
                                  x: object.x,
                                  y: object.y,
                                  width: object.width,
-                                 height: object.height / 2,
+                                 height: object.height,
                               },
                               { x: curvePoints[0].x, y: curvePoints[0].y }
                            );
@@ -3678,7 +3741,7 @@ export default class Shapes {
       }
    }
 
-   renderText(textArray, x, y, textSize, height, width) {
+   renderText(textArray, x, y, textSize, height, width, position = "left") {
       // Calculate the total height of the text block
       let totalTextHeight = textArray.length * textSize;
 
@@ -3695,7 +3758,21 @@ export default class Shapes {
          const metrics = this.context.measureText(textArray[i]);
 
          // Calculate the x-coordinate to center the text horizontally
-         const midPoint = x + (width - metrics.width) * 0.5;
+         let midPoint;
+
+         switch (position) {
+            case "center":
+               midPoint = x + (width - metrics.width) * 0.5;
+               break;
+            case "left":
+               midPoint = x;
+               break;
+            case "right":
+               midPoint = x + (width - metrics.width);
+               break;
+            default:
+               break;
+         }
 
          // Render the text
          this.context.fillText(textArray[i], midPoint, startY);

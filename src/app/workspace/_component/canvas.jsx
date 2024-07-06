@@ -42,6 +42,11 @@ const height = window.innerHeight;
 
 function drawCurve(line, tempPoint, canvas, context) {
    context.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas before re-drawing
+
+   context.save();
+   context.translate(-scrollBar.scrollPositionX, -scrollBar.scrollPositionY);
+   context.scale(Scale.scale, Scale.scale);
+
    context.beginPath();
    context.strokeStyle = "white";
    context.lineWidth = 1;
@@ -74,6 +79,7 @@ function drawCurve(line, tempPoint, canvas, context) {
 
    context.stroke();
    context.closePath();
+   context.restore();
 }
 
 export default function Canvas() {

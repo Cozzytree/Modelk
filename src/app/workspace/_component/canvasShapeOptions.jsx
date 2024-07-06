@@ -1,4 +1,4 @@
-import ColorOptions from "./colorOptions.tsx";
+import ColorOptions from "./colorOptions.jsx";
 import { Button } from "@/components/ui/button";
 import {
    Menubar,
@@ -9,14 +9,19 @@ import {
    MenubarSubTrigger,
    MenubarTrigger,
 } from "@/components/ui/menubar";
-import { Toggle } from "@/components/ui/toggle.tsx";
-import { config, colors, thickness, lineType, fontsizes } from "@/lib/utils.ts";
+import { config, thickness, lineType, fontsizes } from "@/lib/utils.ts";
 import {
    ArrowLeftIcon,
    ArrowRightIcon,
    ArrowTopRightIcon,
+   BoxIcon,
    PlusIcon,
    SquareIcon,
+   TextAlignCenterIcon,
+   TextAlignJustifyIcon,
+   TextAlignLeftIcon,
+   TextAlignRightIcon,
+   WidthIcon,
 } from "@radix-ui/react-icons";
 import { useEffect, useState } from "react";
 
@@ -77,6 +82,14 @@ export default function CanvasShapeOptions({
       }
    };
 
+   const alignText = (allign) => {
+      if (config.currentActive) {
+         config.currentActive.textPosition = allign;
+         if (shapeClassRef) shapeClassRef.draw();
+         setCurrent(config.currentActive);
+      }
+   };
+
    return (
       <>
          <div className="absolute bottom-5 left-[50%] z-[999] translate-x-[-50%] flex items-center divide-x-2 border border-zinc-800 gap-1">
@@ -107,101 +120,99 @@ export default function CanvasShapeOptions({
 
             <Menubar>
                <MenubarMenu className="p-1">
-                  <MenubarTrigger className="w-full h-full p-0 border border-accent">
-                     <div
-                        className="w-[40px] h-full border-[2px] border-zinc-600/50 rounded-sm"
+                  <MenubarTrigger className="w-full h-full">
+                     <BoxIcon
                         style={{
                            background:
                               currentActive.fillStyle ||
                               currentActive.borderColor,
                         }}
-                     ></div>
+                     />
                   </MenubarTrigger>
                   <MenubarContent className="grid grid-cols-4 w-fit gap-[3px]">
-                     {colors.map((color) => (
-                        <ColorOptions
-                           color={color}
-                           key={color}
-                           onClick={() => {
-                              handleFillStyle(color);
-                           }}
-                        />
-                     ))}
-                     <div className="w-[30px] h-[30px] rounded-sm border border-zinc-300 shadow-sm shadow-zinc-700 cursor-pointer relative">
-                        <div
-                           className="absolute top-[50%] left-0 w-full h-[2px] border border-zinc-200 rotate-[50deg]"
-                           onClick={() => {
-                              handleFillStyle("#00000000");
-                           }}
-                        ></div>
-                     </div>
+                     <ColorOptions onClick={handleFillStyle} />
                   </MenubarContent>
                </MenubarMenu>
 
                {/* {line thickness} */}
                {currentActive.type !== "text" && (
-                  <MenubarMenu>
-                     <MenubarTrigger className="h-full text-xs font-bold">
-                        Weight
-                     </MenubarTrigger>
-                     <MenubarContent className="w-[150px] space-y-1 px-2">
-                        {currentActive?.type !== "line" && (
-                           <MenubarSub>
-                              <MenubarSubTrigger className="w-full h-full border">
-                                 <div
-                                    className="w-[40px] h-full border-[2px] border-zinc-600/50 rounded-sm"
-                                    style={{
-                                       background: currentActive.borderColor,
-                                    }}
-                                 ></div>
-                              </MenubarSubTrigger>
-                              <MenubarSubContent className="grid grid-cols-4 w-fit gap-[3px]">
-                                 {colors.map((color) => (
-                                    <ColorOptions
-                                       color={color}
-                                       key={color}
-                                       onClick={() => {
-                                          lineColor(color);
-                                       }}
-                                    />
-                                 ))}
-                                 <div className="w-[30px] h-[30px] rounded-sm border border-zinc-300 shadow-sm shadow-zinc-700 cursor-pointer relative">
+                  <>
+                     <MenubarMenu>
+                        <MenubarTrigger className="w-full h-full">
+                           <TextAlignJustifyIcon />
+                        </MenubarTrigger>
+                        <MenubarContent className="flex gap-2 items-center">
+                           <TextAlignLeftIcon
+                              onClick={() => alignText("left")}
+                              width={"30px"}
+                              height={"30px"}
+                              className=" hover:bg-accent transition-all duration-150 p-1 rounded-sm"
+                              cursor={"pointer"}
+                           />
+                           <TextAlignCenterIcon
+                              onClick={() => alignText("center")}
+                              className=" hover:bg-accent transition-all duration-150 p-1 rounded-sm"
+                              width={"30px"}
+                              height={"30px"}
+                              cursor={"pointer"}
+                           />
+                           <TextAlignRightIcon
+                              onClick={() => alignText("right")}
+                              className=" hover:bg-accent transition-all duration-150 p-1 rounded-sm"
+                              width={"30px"}
+                              height={"30px"}
+                              cursor={"pointer"}
+                           />
+                        </MenubarContent>
+                     </MenubarMenu>
+
+                     <MenubarMenu>
+                        <MenubarTrigger className="h-full">
+                           <WidthIcon />
+                        </MenubarTrigger>
+                        <MenubarContent className="w-[150px] space-y-1 px-2">
+                           {currentActive?.type !== "line" && (
+                              <MenubarSub>
+                                 <MenubarSubTrigger className="w-full h-full border">
                                     <div
-                                       className="absolute top-[50%] left-0 w-full h-[2px] border border-zinc-200 rotate-[50deg]"
-                                       onClick={() => {
-                                          lineColor("#00000000");
+                                       className="w-[40px] h-full border-[2px] border-zinc-600/50 rounded-sm"
+                                       style={{
+                                          background: currentActive.borderColor,
                                        }}
                                     ></div>
-                                 </div>
-                              </MenubarSubContent>
-                           </MenubarSub>
-                        )}
-                        {thickness.map((thick) => (
-                           <div
-                              onClick={() => {
-                                 if (config.currentActive) {
-                                    config.currentActive.lineWidth = thick.q;
-                                    setCurrent(config.currentActive);
-                                    if (shapeClassRef) shapeClassRef.draw();
-                                 }
-                              }}
-                              key={thick.size}
-                              className={`grid grid-cols-[0.6fr_1fr] items-center hover:bg-secondary transition-all duration-100 px-[5px] rounded-sm ${
-                                 currentActive?.lineWidth === thick.q &&
-                                 "bg-secondary"
-                              }`}
-                           >
-                              <h2 className="text-[18px] font-bold">
-                                 {thick.size}
-                              </h2>
+                                 </MenubarSubTrigger>
+                                 <MenubarSubContent className="grid grid-cols-4 w-fit gap-[3px]">
+                                    <ColorOptions onClick={lineColor} />
+                                 </MenubarSubContent>
+                              </MenubarSub>
+                           )}
+                           {thickness.map((thick) => (
                               <div
-                                 style={{ height: `${thick.q}px` }}
-                                 className={` bg-zinc-200`}
-                              ></div>
-                           </div>
-                        ))}
-                     </MenubarContent>
-                  </MenubarMenu>
+                                 onClick={() => {
+                                    if (config.currentActive) {
+                                       config.currentActive.lineWidth = thick.q;
+                                       setCurrent(config.currentActive);
+                                       if (shapeClassRef) shapeClassRef.draw();
+                                    }
+                                 }}
+                                 key={thick.size}
+                                 className={`grid grid-cols-[0.6fr_1fr] items-center hover:bg-secondary transition-all duration-100 px-[5px] rounded-sm ${
+                                    currentActive?.lineWidth === thick.q &&
+                                    "bg-secondary"
+                                 }`}
+                              >
+                                 <h2 className="text-[18px] font-bold">
+                                    {thick.size}
+                                 </h2>
+                                 <div
+                                    style={{ height: `${thick.q}px` }}
+                                    className={` bg-zinc-200`}
+                                 ></div>
+                              </div>
+                           ))}
+                        </MenubarContent>
+                     </MenubarMenu>
+                  </>
                )}
 
                {/* {font size} */}
