@@ -15,7 +15,6 @@ import {
    ArrowRightIcon,
    ArrowTopRightIcon,
    BoxIcon,
-   PlusIcon,
    SquareIcon,
    TextAlignCenterIcon,
    TextAlignJustifyIcon,
@@ -99,9 +98,9 @@ export default function CanvasShapeOptions({
                      variant="ghost"
                      size="icon"
                      onClick={() => setInputText((o) => !o)}
-                     className="p-2 h-fit"
+                     className="p-2 h-fit font-extrabold"
                   >
-                     <PlusIcon />
+                     T
                   </Button>
                   {inputText && (
                      <textarea
@@ -217,8 +216,8 @@ export default function CanvasShapeOptions({
 
                {/* {font size} */}
                <MenubarMenu>
-                  <MenubarTrigger className="h-full text-xs font-bold">
-                     Size
+                  <MenubarTrigger className="h-full w-full text-xs flex gap-1 items-center">
+                     <strong>T</strong> size
                   </MenubarTrigger>
                   <MenubarContent className="w-fit">
                      {fontsizes.map((font) => (

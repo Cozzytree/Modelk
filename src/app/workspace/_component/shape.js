@@ -1,157 +1,216 @@
 import { config, Scale, scrollBar } from "../../../lib/utils.ts";
 import { Circle, Figure, Line, Rect, Text } from "./stylesClass.js";
 
-const imageMap = new Map();
-const rectMap = new Map();
-const circleMap = new Map();
-const textMap = new Map();
-const lineMap = new Map();
-const breakPoints = new Map();
-const figureMap = new Map();
+class RevFor {
+   constructor() {
+      this.recycleBin = [];
+   }
+
+   insert(value) {
+      if (!value || !value.length) return;
+      if (this.getLength() >= 10) {
+         this.recycleBin.shift();
+         this.recycleBin.push(value);
+      } else {
+         this.recycleBin.push(value);
+      }
+   }
+
+   getLastDeleted() {
+      if (!this.getLength()) return;
+      return this.recycleBin.pop();
+   }
+
+   getLength() {
+      return this.recycleBin.length;
+   }
+
+   getbin() {
+      return this.recycleBin;
+   }
+}
+
+export const recycleAndUse = new RevFor();
 
 export default class Shapes {
-   constructor(canvas, canvasBreakpoints, renderCanvas) {
+   constructor(canvas, canvasbreakPoints, renderCanvas) {
       this.canvas = canvas;
-      this.canvasBreakpoints = canvasBreakpoints;
+      this.canvasbreakPoints = canvasbreakPoints;
       this.renderCanvas = renderCanvas;
       this.activeColor = "#2165ee";
       this.tolerance = 6;
       this.resizeElement = null;
       this.dragElement = null;
       this.context = this.canvas.getContext("2d");
-      this.breakPointsCtx = this.canvasBreakpoints.getContext("2d");
+      this.breakPointsCtx = this.canvasbreakPoints.getContext("2d");
       this.renderCanvasCtx = this.renderCanvas.getContext("2d");
-      this.rectMap = rectMap;
-      this.circleMap = circleMap;
-      this.textMap = textMap;
-      this.lineMap = lineMap;
-      this.imageMap = imageMap;
-      this.figureMap = figureMap;
-      this.breakpoints = breakPoints;
+      this.rectMap = new Map();
+      this.circleMap = new Map();
+      this.textMap = new Map();
+      this.lineMap = new Map();
+      this.imageMap = new Map();
+      this.figureMap = new Map();
+      this.breakPoints = new Map();
       this.shapeToRender = null;
       this.cache = new Map();
+      this.massiveSelection = {
+         isDown: false,
+         startX: null,
+         startY: null,
+         isSelectedDown: false,
+         isSelected: false,
+         isSelectedMinX: Infinity,
+         isSelectedMinY: Infinity,
+         isSelectedMaxX: -Infinity,
+         isSelectedMaxY: -Infinity,
+      };
+   }
 
-      document.addEventListener("keydown", (e) => {
-         // select all
-         if (e.ctrlKey && e.key === "a") {
-            e.preventDefault();
-            this.rectMap.forEach((rect) => {
-               rect.isActive = true;
-            });
-            this.circleMap.forEach((arc) => {
-               arc.isActive = true;
-            });
-            this.textMap.forEach((text) => {
-               text.isActive = true;
-            });
-            this.lineMap.forEach((line) => {
-               line.isActive = true;
-            });
+   deleteAndSeletAll(e) {
+      // select all
+      if (e.ctrlKey && e.key === "a") {
+         e.preventDefault();
+         this.rectMap.forEach((rect) => {
+            rect.isActive = true;
+         });
+         this.circleMap.forEach((arc) => {
+            arc.isActive = true;
+         });
+         this.textMap.forEach((text) => {
+            text.isActive = true;
+         });
+         this.lineMap.forEach((line) => {
+            line.isActive = true;
+         });
 
-            this.imageMap.forEach((image) => {
-               image.isActive = true;
-            });
+         this.imageMap.forEach((image) => {
+            image.isActive = true;
+         });
 
-            this.draw();
-            this.drawImage();
-         }
-      });
-
-      document.addEventListener("keydown", (e) => {
-         if (e.key === "Delete") {
-            //remove selected square
-            this.rectMap.forEach((rect, key) => {
-               if (rect.isActive) {
-                  rect.pointTo.forEach((p) => {
-                     let line = this.lineMap.get(p);
-                     if (line?.startTo === key && !line.isActive) {
-                        line.startTo = null;
-                     }
-                     if (line?.endTo === key && !line.isActive) {
-                        line.endTo === null;
-                     }
-                     console.log(line, key);
-                  });
-                  this.rectMap.delete(key);
-                  this.breakpoints.delete(key);
-               }
-            });
-
-            this.lineMap.forEach((line, key) => {
-               if (line.isActive) {
-                  if (line.startTo) {
-                     const { rect, text, sphere, image } = this.getShape(
-                        line.startTo
-                     );
-                     if (rect) {
-                        rect.pointTo.filter((r) => r !== key);
-                     }
-                     if (text) {
-                        text.pointTo.filter((r) => r !== key);
-                     }
-                     if (sphere) {
-                        sphere.pointTo.filter((r) => r !== key);
-                     }
-
-                     if (image) {
-                        image.pointTo.filter((i) => i !== key);
-                     }
-                  } else if (line.endTo) {
-                     const { rect, text, sphere, image } = this.getShape(
-                        line.endTo
-                     );
-
-                     if (rect) {
-                        rect.pointTo.filter((r) => r !== key);
-                     }
-                     if (text) {
-                        text.pointTo.filter((r) => r !== key);
-                     }
-                     if (sphere) {
-                        sphere.pointTo.filter((r) => r !== key);
-                     }
-                     if (image) {
-                        image.pointTo.filter((i) => i !== key);
-                     }
+         this.draw();
+         this.drawImage();
+      } else if (e.key === "Delete") {
+         let total = [];
+         //remove selected square
+         this.rectMap.forEach((rect, key) => {
+            if (rect.isActive) {
+               rect.pointTo.forEach((p) => {
+                  let line = this.lineMap.get(p);
+                  if (line?.startTo === key && !line.isActive) {
+                     line.startTo = null;
                   }
-                  this.lineMap.delete(key);
-               }
-            });
+                  if (line?.endTo === key && !line.isActive) {
+                     line.endTo === null;
+                  }
+               });
+               const bp = this.breakPoints.get(key);
+               total.push({ s: rect, bp });
+               this.rectMap.delete(key);
+               this.breakPoints.delete(key);
+            }
+         });
 
-            //remove selected arcs
-            this.circleMap.forEach((arc, key) => {
-               if (arc.isActive) {
-                  arc.pointTo.forEach((p) => {
-                     let line = this.lineMap.get(p);
-                     if (line.startTo === key && !line.isActive) {
-                        line.startTo = null;
-                     }
-                     if (line.endTo === key && !line.isActive) {
-                        line.endTo === null;
-                     }
-                  });
-                  this.circleMap.delete(key);
-                  this.breakpoints.delete(key);
-               }
-            });
+         this.lineMap.forEach((line, key) => {
+            if (line.isActive) {
+               if (line.startTo) {
+                  const { rect, text, sphere, image } = this.getShape(
+                     line.startTo
+                  );
+                  if (rect) {
+                     rect.pointTo.filter((r) => r !== key);
+                  }
+                  if (text) {
+                     text.pointTo.filter((r) => r !== key);
+                  }
+                  if (sphere) {
+                     sphere.pointTo.filter((r) => r !== key);
+                  }
 
-            this.textMap.forEach((text, key) => {
-               if (text.isActive) {
-                  text.pointTo.forEach((p) => {
-                     let line = this.lineMap.get(p);
-                     if (line.startTo === key && !line.isActive) {
-                        line.startTo = null;
-                     }
-                     if (line.endTo === key && !line.isActive) {
-                        line.endTo === null;
-                     }
-                  });
-                  this.textMap.delete(key);
+                  if (image) {
+                     image.pointTo.filter((i) => i !== key);
+                  }
+               } else if (line.endTo) {
+                  const { rect, text, sphere, image } = this.getShape(
+                     line.endTo
+                  );
+
+                  if (rect) {
+                     rect.pointTo.filter((r) => r !== key);
+                  }
+                  if (text) {
+                     text.pointTo.filter((r) => r !== key);
+                  }
+                  if (sphere) {
+                     sphere.pointTo.filter((r) => r !== key);
+                  }
+                  if (image) {
+                     image.pointTo.filter((i) => i !== key);
+                  }
                }
-            });
-            this.draw();
-         }
-      });
+               total.push({ s: line, bp: null });
+               total.push(line);
+            }
+         });
+
+         //remove selected arcs
+         this.circleMap.forEach((arc, key) => {
+            if (arc.isActive) {
+               arc.pointTo.forEach((p) => {
+                  let line = this.lineMap.get(p);
+                  if (line.startTo === key && !line.isActive) {
+                     line.startTo = null;
+                  }
+                  if (line.endTo === key && !line.isActive) {
+                     line.endTo === null;
+                  }
+               });
+               const bp = this.breakPoints.get(key);
+               total.push({ s: arc, bp });
+               this.circleMap.delete(key);
+               this.breakPoints.delete(key);
+            }
+         });
+
+         this.textMap.forEach((text, key) => {
+            if (text.isActive) {
+               text.pointTo.forEach((p) => {
+                  let line = this.lineMap.get(p);
+                  if (line.startTo === key && !line.isActive) {
+                     line.startTo = null;
+                  }
+                  if (line.endTo === key && !line.isActive) {
+                     line.endTo === null;
+                  }
+               });
+               total.push({ s: text, bp: null });
+               this.textMap.delete(key);
+            }
+         });
+
+         //remove image
+         this.imageMap.forEach((image, key) => {
+            if (image.isActive) {
+               image.pointTo.forEach((p) => {
+                  let line = this.lineMap.get(p);
+
+                  if (line?.startTo === key && !line.isActive) {
+                     line.startTo = null;
+                  }
+                  if (line?.endTo === key && !line.isActive) {
+                     line.endTo === null;
+                  }
+
+                  const bp = this.breakPoints.get(key);
+                  total.push({ s: image, bp });
+                  this.imageMap.delete(key);
+                  this.breakPoints.delete(key);
+               });
+            }
+         });
+
+         recycleAndUse.insert(total);
+         this.draw();
+      }
    }
 
    canvasClick(e) {
@@ -164,15 +223,15 @@ export default class Shapes {
       const { x: clickX, y: clickY } = this.getTransformedMouseCoords(e);
 
       // Reset all shapes to inactive
-      const allShapes = [
-         ...this.rectMap.values(),
-         ...this.circleMap.values(),
-         ...this.textMap.values(),
-         ...this.lineMap.values(),
-      ];
-      allShapes.forEach((shape) => {
-         shape.isActive = false;
-      });
+      //   const allShapes = [
+      //      ...this.rectMap.values(),
+      //      ...this.circleMap.values(),
+      //      ...this.textMap.values(),
+      //      ...this.lineMap.values(),
+      //   ];
+      //   allShapes.forEach((shape) => {
+      //      shape.isActive = false;
+      //   });
 
       let circle = null;
       let square = null;
@@ -414,6 +473,7 @@ export default class Shapes {
             fillStyle,
             borderColor,
             textSize,
+            isActive,
          } = sphere;
          const x = sphere.x - xRadius;
          const y = sphere.y - yRadius;
@@ -782,12 +842,69 @@ export default class Shapes {
    mouseDownDragAndResize(e) {
       if (config.mode === "pencil" || config.mode === "handsFree") return;
 
-      if (e.altKey) return;
+      if (e.altKey || e.ctrlKey) return;
+      const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
+
+      // check if multiple selected exist
+      const { isSelectedMinX, isSelectedMinY, isSelectedMaxX, isSelectedMaxY } =
+         this.massiveSelection;
+
+      if (
+         this.massiveSelection.isSelected &&
+         mouseX > isSelectedMinX &&
+         mouseX < isSelectedMaxX &&
+         mouseY > isSelectedMinY &&
+         mouseY < isSelectedMaxY
+      ) {
+         this.rectMap.forEach((rect) => {
+            rect.offsetX = rect.x - mouseX;
+            rect.offsetY = rect.y - mouseY;
+         });
+
+         this.massiveSelection.isSelectedDown = true;
+         this.breakPointsCtx.clearRect(
+            0,
+            0,
+            this.canvasbreakPoints.width,
+            this.canvasbreakPoints.height
+         );
+
+         this.breakPointsCtx.save();
+         this.breakPointsCtx.scale(Scale.scale, Scale.scale);
+         this.breakPointsCtx.translate(
+            -scrollBar.scrollPositionX,
+            -scrollBar.scrollPositionY
+         );
+
+         this.breakPointsCtx.beginPath();
+         this.breakPointsCtx.strokeStyle = this.activeColor;
+         this.breakPointsCtx.rect(
+            isSelectedMinX,
+            isSelectedMinY,
+            isSelectedMaxX - isSelectedMinY,
+            isSelectedMaxY - isSelectedMinY
+         );
+         this.breakPointsCtx.stroke();
+         this.breakPointsCtx.closePath();
+         this.breakPointsCtx.restore();
+
+         this.massiveSelection.offsetX =
+            this.massiveSelection.isSelectedMinX - mouseX;
+         this.massiveSelection.offsetY =
+            this.massiveSelection.isSelectedMinY - mouseY;
+         return;
+      } else {
+         this.massiveSelection.isSelected = false;
+         this.massiveSelection.isSelectedDown = false;
+         this.massiveSelection.isSelectedMinX = Infinity;
+         this.massiveSelection.isSelectedMinY = Infinity;
+         this.massiveSelection.isSelectedMaxX = -Infinity;
+         this.massiveSelection.isSelectedMaxY = -Infinity;
+      }
 
       config.currentActive = null;
       let isResizing = false;
       //   this.canvasClick(e);
-      const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
 
       //image resize
       this.imageMap.forEach((image, key) => {
@@ -967,7 +1084,7 @@ export default class Shapes {
             mouseY <= y + height - this.tolerance;
 
          if (leftEdge && verticalBounds) {
-            object.isActive = true;
+            rect.isActive = true;
             isResizing = true;
             this.isDraggingOrResizing = true;
             config.currentActive = rect;
@@ -1154,7 +1271,6 @@ export default class Shapes {
             mouseY <= text.y + text.height + this.tolerance
          ) {
             isResizing = true;
-            // text.isResizing = true;
             this.resizeElement = { key };
             config.currentActive = text;
          }
@@ -1196,8 +1312,9 @@ export default class Shapes {
          smallestImage.image.isActive = true;
          this.dragElement = { src: img, key: smallestImage.key };
 
-         this.drawImage();
          config.currentActive = smallestImage?.image;
+         this.draw();
+         this.drawImage();
          return;
       }
 
@@ -1304,7 +1421,7 @@ export default class Shapes {
          if (line.l.startTo && line.l.endTo) {
             line.l.isActive = true;
             this.draw();
-            config.currentActive = line;
+            config.currentActive = line.l;
             return;
          }
 
@@ -1319,6 +1436,11 @@ export default class Shapes {
          setDragging(smallestText.text);
          this.dragElement = smallestText.key;
          config.currentActive = smallestText.text;
+      }
+      if (!this.dragElement && !this.resizeElement) {
+         this.massiveSelection.isDown = true;
+         this.massiveSelection.startX = mouseX;
+         this.massiveSelection.startY = mouseY;
       }
 
       this.draw();
@@ -1540,9 +1662,101 @@ export default class Shapes {
 
    mouseMove(e) {
       if (config.mode === "pencil") return;
+      const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
+
+      if (this.massiveSelection.isSelectedDown) {
+         this.massiveSelection.isSelectedMinX =
+            mouseX + this.massiveSelection.offsetX;
+         this.massiveSelection.isSelectedMinY =
+            mouseY + this.massiveSelection.offsetY;
+
+         const { isSelectedMaxX, isSelectedMaxY } = this.massiveSelection;
+
+         this.rectMap.forEach((rect) => {
+            if (rect.isActive) {
+               const { offsetX, offsetY } = rect;
+               rect.x = mouseX + offsetX;
+               rect.y = mouseY + offsetY;
+            }
+         });
+
+         this.draw();
+
+         this.breakPointsCtx.clearRect(
+            0,
+            0,
+            this.canvasbreakPoints.width,
+            this.canvasbreakPoints.height
+         );
+
+         this.breakPointsCtx.save();
+         this.breakPointsCtx.scale(Scale.scale, Scale.scale);
+         this.breakPointsCtx.translate(
+            -scrollBar.scrollPositionX,
+            -scrollBar.scrollPositionY
+         );
+
+         this.breakPointsCtx.beginPath();
+         this.breakPointsCtx.strokeStyle = this.activeColor;
+         this.breakPointsCtx.rect(
+            this.massiveSelection.isSelectedMinX,
+            this.massiveSelection.isSelectedMinY,
+            isSelectedMaxX - this.massiveSelection.isSelectedMinY,
+            isSelectedMaxY - this.massiveSelection.isSelectedMinY
+         );
+         this.breakPointsCtx.stroke();
+         this.breakPointsCtx.closePath();
+         this.breakPointsCtx.restore();
+
+         return;
+      }
+
+      if (this.massiveSelection.isDown) {
+         const { startX, startY } = this.massiveSelection;
+         let x, y, width, height;
+         if (startX < mouseX) {
+            x = startX;
+            width = mouseX - startX;
+         } else {
+            x = mouseX;
+            width = startX - mouseX;
+         }
+
+         if (startY < mouseY) {
+            y = startY;
+            height = mouseY - startY;
+         } else {
+            y = mouseY;
+            height = startY - mouseY;
+         }
+
+         // Clear the entire canvas
+         this.breakPointsCtx.clearRect(
+            0,
+            0,
+            this.canvasbreakPoints.width,
+            this.canvasbreakPoints.height
+         );
+
+         this.breakPointsCtx.save();
+
+         // Apply transformations
+         this.breakPointsCtx.translate(
+            -scrollBar.scrollPositionX,
+            -scrollBar.scrollPositionY
+         );
+         this.breakPointsCtx.scale(Scale.scale, Scale.scale);
+
+         // Set fill style and draw the rectangle
+         this.breakPointsCtx.fillStyle = "#00f7ff17";
+         this.breakPointsCtx.beginPath(); // Begin a new path to avoid unwanted drawing
+         this.breakPointsCtx.rect(x, y, width, height);
+         this.breakPointsCtx.fill();
+
+         this.breakPointsCtx.restore();
+      }
 
       if (!this.resizeElement && !this.dragElement) return;
-      const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
 
       let rectResize = this.rectMap.get(this.resizeElement?.key);
       let circleResize = this.circleMap.get(this.resizeElement?.key);
@@ -1758,8 +1972,8 @@ export default class Shapes {
          this.breakPointsCtx.clearRect(
             0,
             0,
-            this.canvasBreakpoints.width,
-            this.canvasBreakpoints.height
+            this.canvasbreakPoints.width,
+            this.canvasbreakPoints.height
          );
 
          this.breakPointsCtx.save();
@@ -2299,8 +2513,8 @@ export default class Shapes {
          this.breakPointsCtx.clearRect(
             0,
             0,
-            this.canvasBreakpoints.width,
-            this.canvasBreakpoints.height
+            this.canvasbreakPoints.width,
+            this.canvasbreakPoints.height
          );
 
          this.breakPointsCtx.save();
@@ -2346,8 +2560,76 @@ export default class Shapes {
    mouseUp(e) {
       if (config.mode === "pencil" || config.mode === "handsFree") return;
 
-      this.canvas.removeEventListener("mousemove", this.mouseMove.bind(this));
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
+
+      if (this.massiveSelection.isDown) {
+         this.massiveSelection.isDown = false;
+         this.massiveSelection.isSelectedMinX = Infinity;
+         this.massiveSelection.isSelectedMinY = Infinity;
+         this.massiveSelection.isSelectedMaxX = -Infinity;
+         this.massiveSelection.isSelectedMaxY = -Infinity;
+         const { startX, startY } = this.massiveSelection;
+
+         let minX = Math.min(mouseX, startX);
+         let maxX = Math.max(mouseX, startX);
+         let minY = Math.min(mouseY, startY);
+         let maxY = Math.max(mouseY, startY);
+
+         this.rectMap.forEach((rect) => {
+            const rectMinX = rect.x;
+            const rectMaxX = rect.x + rect.width;
+            const rectMinY = rect.y;
+            const rectMaxY = rect.y + rect.height;
+
+            if (
+               rectMinX > minX &&
+               rectMaxX < maxX &&
+               rectMinY > minY &&
+               rectMaxY < maxY
+            ) {
+               if (!this.massiveSelection.isSelected) {
+                  this.massiveSelection.isSelected = true;
+               }
+               if (rectMaxX > this.massiveSelection.isSelectedMaxX) {
+                  this.massiveSelection.isSelectedMaxX = rectMaxX;
+               }
+               if (rectMinX < this.massiveSelection.isSelectedMinX) {
+                  this.massiveSelection.isSelectedMinX = rectMinX;
+               }
+               if (rectMaxY > this.massiveSelection.isSelectedMaxY) {
+                  this.massiveSelection.isSelectedMaxY = rectMaxY;
+               }
+               if (rectMinY < this.massiveSelection.isSelectedMinY) {
+                  this.massiveSelection.isSelectedMinY = rectMinY;
+               }
+               rect.isActive = true;
+            }
+         });
+
+         this.breakPointsCtx.clearRect(
+            0,
+            0,
+            this.canvasbreakPoints.width,
+            this.canvasbreakPoints.height
+         );
+         this.draw();
+      }
+
+      if (this.massiveSelection.isSelectedDown) {
+         this.massiveSelection.isSelectedDown = false;
+      }
+
+      if (this.massiveSelection.isSelected) {
+         return;
+      }
+
+      if (!this.resizeElement && !this.dragElement) return;
+      this.breakPointsCtx.clearRect(
+         0,
+         0,
+         this.canvasbreakPoints.width,
+         this.canvasbreakPoints.height
+      );
 
       const rect = this.rectMap.get(this.resizeElement?.key);
       const line = this.lineMap.get(this.resizeElement?.key);
@@ -2372,8 +2654,8 @@ export default class Shapes {
          this.breakPointsCtx.clearRect(
             0,
             0,
-            this.canvasBreakpoints.width,
-            this.canvasBreakpoints.height
+            this.canvasbreakPoints.width,
+            this.canvasbreakPoints.height
          );
          this.drawImage();
          this.resizeElement = null;
@@ -2642,8 +2924,8 @@ export default class Shapes {
          this.breakPointsCtx.clearRect(
             0,
             0,
-            this.canvasBreakpoints.width,
-            this.canvasBreakpoints.height
+            this.canvasbreakPoints.width,
+            this.canvasbreakPoints.height
          );
 
          this.drawImage();
@@ -2651,13 +2933,6 @@ export default class Shapes {
          return;
       }
 
-      this.breakPointsCtx.clearRect(
-         0,
-         0,
-         this.canvasBreakpoints.width,
-         this.canvasBreakpoints.height
-      );
-      if (!this.resizeElement && !this.dragElement) return;
       this.resizeElement = null;
       this.dragElement = null;
       this.draw();
@@ -2669,8 +2944,8 @@ export default class Shapes {
       this.breakPointsCtx.clearRect(
          0,
          0,
-         this.canvasBreakpoints.width,
-         this.canvasBreakpoints.height
+         this.canvasbreakPoints.width,
+         this.canvasbreakPoints.height
       );
 
       this.breakPointsCtx.save();
@@ -2702,13 +2977,13 @@ export default class Shapes {
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
       if (config.mode === "rect") {
          const newRect = new Rect(mouseX, mouseY, 100, 100, [], 15, true);
-         rectMap.set(newRect.id, newRect);
+         this.rectMap.set(newRect.id, newRect);
          // change modes
          setMode("free");
          config.mode = "free";
 
          // add breakpoint
-         breakPoints.set(newRect.id, {
+         this.breakPoints.set(newRect.id, {
             minX: newRect.x,
             minY: newRect.y,
             maxX: newRect.x + newRect.width,
@@ -2721,14 +2996,14 @@ export default class Shapes {
       } else if (config.mode === "sphere") {
          const newSphere = new Circle(mouseX, mouseY, 50, 50);
 
-         circleMap.set(newSphere.id, newSphere);
+         this.circleMap.set(newSphere.id, newSphere);
 
          // change modes
          setMode("free");
          config.mode = "free";
 
          // add breakpoint
-         breakPoints.set(newSphere.id, {
+         this.breakPoints.set(newSphere.id, {
             minX: newSphere.x - newSphere.xRadius,
             minY: newSphere.y - newSphere.yRadius,
             maxX: newSphere.x + newSphere.xRadius,
@@ -2752,7 +3027,7 @@ export default class Shapes {
             ],
             true
          );
-         lineMap.set(newArr.id, newArr);
+         this.lineMap.set(newArr.id, newArr);
          config.mode = "free";
          setMode(config.mode);
          config.currentActive = newArr;
@@ -2768,6 +3043,7 @@ export default class Shapes {
 
          this.draw();
       }
+
       if (config.currentActive !== currentActive) {
          setCurrentActive(config.currentActive);
       }
@@ -2776,7 +3052,7 @@ export default class Shapes {
    insertImage(imageFile) {
       const id = Date.now();
       this.imageMap.set(id, imageFile);
-      breakPoints.set(id, {
+      this.breakPoints.set(id, {
          minX: imageFile.x,
          minY: imageFile.y,
          maxX: imageFile.x + imageFile.width,
@@ -3094,8 +3370,8 @@ export default class Shapes {
       this.breakPointsCtx.clearRect(
          0,
          0,
-         this.canvasBreakpoints.width,
-         this.canvasBreakpoints.height
+         this.canvasbreakPoints.width,
+         this.canvasbreakPoints.height
       );
 
       this.breakPointsCtx.save();
@@ -3111,7 +3387,7 @@ export default class Shapes {
       let guideDrawn = false;
       this.breakPointsCtx.beginPath();
 
-      for (let [pointKey, point] of this.breakpoints) {
+      for (let [pointKey, point] of this.breakPoints) {
          if (key !== pointKey) {
             if (Math.abs(point.minX - x) <= this.tolerance) {
                object.x =
@@ -3202,7 +3478,7 @@ export default class Shapes {
    }
 
    updateGuides(key, x, y, width, height) {
-      const adjust = this.breakpoints.get(key);
+      const adjust = this.breakPoints.get(key);
       if (!adjust) return;
       adjust.minX = x;
       adjust.minY = y;
@@ -3270,8 +3546,8 @@ export default class Shapes {
       this.breakPointsCtx.clearRect(
          0,
          0,
-         this.canvasBreakpoints.width,
-         this.canvasBreakpoints.height
+         this.canvasbreakPoints.width,
+         this.canvasbreakPoints.height
       );
 
       this.breakPointsCtx.save();
@@ -3336,8 +3612,8 @@ export default class Shapes {
             this.breakPointsCtx.clearRect(
                0,
                0,
-               this.canvasBreakpoints.width,
-               this.canvasBreakpoints.height
+               this.canvasbreakPoints.width,
+               this.canvasbreakPoints.height
             );
          }
       });
@@ -3368,8 +3644,8 @@ export default class Shapes {
             this.breakPointsCtx.clearRect(
                0,
                0,
-               this.canvasBreakpoints.width,
-               this.canvasBreakpoints.height
+               this.canvasbreakPoints.width,
+               this.canvasbreakPoints.height
             );
          }
       });
@@ -3444,8 +3720,8 @@ export default class Shapes {
             this.breakPointsCtx.clearRect(
                0,
                0,
-               this.canvasBreakpoints.width,
-               this.canvasBreakpoints.height
+               this.canvasbreakPoints.width,
+               this.canvasbreakPoints.height
             );
          }
       });
@@ -3550,6 +3826,7 @@ export default class Shapes {
    }
 
    getCurrentShape(current) {
+      current.isActive = false;
       switch (current.type) {
          case "rect":
             const newShape = new Rect(
@@ -3558,9 +3835,10 @@ export default class Shapes {
                current.width,
                current.height,
                current.text,
-               current.textSize
+               current.textSize,
+               true
             );
-            rectMap.set(newShape.id, newShape);
+            this.rectMap.set(newShape.id, newShape);
             return newShape;
          case "sphere":
             const newSphere = new Circle(
@@ -3569,9 +3847,10 @@ export default class Shapes {
                current.xRadius,
                current.yRadius,
                current.text,
-               current.textSize
+               current.textSize,
+               true
             );
-            circleMap.set(newSphere.id, newSphere);
+            this.circleMap.set(newSphere.id, newSphere);
             return newSphere;
          case "text":
             const newText = new Text(
@@ -3583,7 +3862,7 @@ export default class Shapes {
                true
             );
             newText.height = newText.content.length * newText.textSize;
-            textMap.set(newText.id, newText);
+            this.textMap.set(newText.id, newText);
             return newText;
          default:
             break;
@@ -3606,14 +3885,14 @@ export default class Shapes {
 
             const mouseUpHandler = () => {
                if (newShape.type === "rect") {
-                  breakPoints.set(newShape.id, {
+                  this.breakPoints.set(newShape.id, {
                      minX: newShape.x,
                      maxX: newShape.x + newShape.width,
                      minY: newShape.y,
                      maxX: newShape.y + newShape.height,
                   });
                } else if (newShape.type === "sphere") {
-                  breakPoints.set(newShape.id, {
+                  this.breakPoints.set(newShape.id, {
                      minX: newShape.x - newShape.xRadius,
                      maxX: newShape.x + newShape.xRadius,
                      minY: newShape.y - newShape.yRadius,
@@ -3630,7 +3909,6 @@ export default class Shapes {
          }
       } else if (config.mode === "handsFree") {
          let { x, y } = this.getTransformedMouseCoords(e);
-         const MAX_SCROLL_CHANGE = 2;
          const handlermove = (event) => {
             const { x: moveX, y: moveY } =
                this.getTransformedMouseCoords(event);
@@ -3659,6 +3937,12 @@ export default class Shapes {
          };
          this.canvas.addEventListener("mousemove", handlermove);
          this.canvas.addEventListener("mouseup", handlerUp);
+      } else if (e.ctrlKey) {
+         const current = this.canvasClick(e);
+         if (!current) return;
+
+         current.isActive = true;
+         this.draw();
       }
    }
 
@@ -3677,8 +3961,8 @@ export default class Shapes {
                   rect.textSize,
                   true
                );
-               rectMap.set(newRect.id, newRect);
-               breakPoints.set(newRect.id, {
+               this.rectMap.set(newRect.id, newRect);
+               this.breakPoints.set(newRect.id, {
                   minX: rect.x,
                   minY: rect.y,
                   maxX: rect.x + rect.width,
@@ -3698,8 +3982,8 @@ export default class Shapes {
                   sphere.textSize,
                   false
                );
-               circleMap.set(newSphere.id, newSphere);
-               breakPoints.set(newSphere.id, {
+               this.circleMap.set(newSphere.id, newSphere);
+               this.breakPoints.set(newSphere.id, {
                   minX: newSphere.x - newSphere.xRadius,
                   minY: newSphere.y - newSphere.yRadius,
                   maxX: newSphere.x + newSphere.xRadius,
@@ -3717,7 +4001,7 @@ export default class Shapes {
                   text.content,
                   true
                );
-               textMap.set(newText.id, newText);
+               this.textMap.set(newText.id, newText);
                text.isActive = false;
             }
          });
@@ -3732,8 +4016,7 @@ export default class Shapes {
                   line.curvePoints,
                   true
                );
-               lineMap.set(newLine.id, newLine);
-               console.log(lineMap);
+               this.lineMap.set(newLine.id, newLine);
                Line.isActive = false;
             }
          });
@@ -3782,10 +4065,46 @@ export default class Shapes {
       }
    }
 
-   //    newShape(shape) {
-   //       this.rectMap.set(shape.id, shape);
-   //       this.draw();
-   //    }
+   redoLastDelete(arr = []) {
+      if (!arr.length) return;
+
+      arr.forEach((a) => {
+         switch (a.s.type) {
+            case "rect":
+               this.rectMap.set(a.s.id, a.s);
+               if (a.bp) this.breakPoints.set(a.s.id, a.bp);
+               break;
+            case "sphere":
+               this.circleMap.set(a.s.id, a.s);
+               if (a.bp) this.breakPoints.set(a.s.id, a.bp);
+               break;
+            case "line":
+               this.lineMap.set(a.s.id, a.s);
+               //    if (a.bp) this.breakPoints.set(a.s.id, s.bp);
+               break;
+            case "image":
+               this.imageMap.set(a.s.id, a.s);
+               if (a.bp) this.breakPoints.set(a.s.id, a.bp);
+               break;
+            case "text":
+               this.textMap.set(a.s.id, a.s);
+               //    if (a.bp) this.breakPoints.set(a.s.id, s.bp);
+               break;
+            default:
+               break;
+         }
+      });
+   }
+
+   redoEvent(e) {
+      if (e.ctrlKey && e.key === "z") {
+         const last = recycleAndUse.getLastDeleted();
+         this.redoLastDelete(last);
+         this.draw();
+         this.drawImage();
+         return last;
+      }
+   }
 
    newText(event) {
       if (event.target.tagName === "TEXTAREA") return;

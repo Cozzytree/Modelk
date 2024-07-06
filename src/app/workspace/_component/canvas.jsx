@@ -18,7 +18,7 @@ import { useParams } from "next/navigation.js";
 import { useEffect, useRef, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button.tsx";
 import { config, Scale, scrollBar } from "@/lib/utils.ts";
-import { Rect, Circle, Line, Text, Figure } from "../_component/stylesClass.js";
+import { Line } from "../_component/stylesClass.js";
 import { useNewRect, useNewSphere } from "@/requests/shapeRequests.ts";
 import {
    Tooltip,
@@ -89,15 +89,6 @@ export default function Canvas() {
    const params = useParams();
 
    const [newImage, setImage] = useState(null);
-   // maps
-   const [imageMap, setImageMap] = useState(new Map());
-   const [rectMap, setRectMap] = useState(new Map());
-   const [circleMap, setCircleMap] = useState(new Map());
-   const [textMap, setTextMap] = useState(new Map());
-   const [lineMap, setLineMap] = useState(new Map());
-   const [breakPoints, setBreakPoints] = useState(new Map());
-   const [figure] = useState(new Map());
-   const [pencil, setPencil] = useState(new Map());
 
    const [mode, setMode] = useState("free");
    const [currentActive, setCurrentActive] = useState(null);
@@ -126,7 +117,6 @@ export default function Canvas() {
       shape.initialize();
       return () => {
          shape.cleanup();
-         canvas.removeEventListener("click", shape.insertNewAsset);
       };
    }, []);
 
@@ -163,12 +153,19 @@ export default function Canvas() {
          }
       };
 
+      const keyDownHandler = (e) => {
+         const v = shape.redoEvent(e);
+         shape.deleteAndSeletAll(e);
+      };
+
+      document.addEventListener("keydown", keyDownHandler);
       canvas.addEventListener("click", handler);
       window.addEventListener("wheel", zoomInOut, {
          passive: false,
       });
 
       return () => {
+         document.removeEventListener("keydown", keyDownHandler);
          canvas.removeEventListener("click", handler);
          window.removeEventListener("wheel", zoomInOut);
       };
@@ -271,7 +268,7 @@ export default function Canvas() {
                            }
 
                            if (!line && !isDrawing) {
-                              line = new Line();
+                              line = new Line("curve");
                               line.curvePoints.push({ x: x, y: y });
                               isDrawing = true;
                               canvas.addEventListener("mousemove", onMouseMove);
