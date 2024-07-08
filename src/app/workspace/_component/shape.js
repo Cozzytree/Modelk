@@ -362,7 +362,7 @@ export default class Shapes {
       this.context.closePath();
    }
 
-   draw() {
+   draw(showDots = true) {
       // Clear the canvas
       this.context.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
@@ -394,17 +394,20 @@ export default class Shapes {
       ) => {
          if (isActive) {
             // Draw dots
-            this.dots(
-               { x: x - tolerance, y: y - tolerance },
-               { x: x + width + tolerance, y: y - tolerance },
-               { x: x + width + tolerance, y: y + height + tolerance },
-               { x: x - tolerance, y: y + height + tolerance },
-               { context: this.context }
-            );
+            if (!this.massiveSelection.isSelected)
+               this.dots(
+                  { x: x - tolerance, y: y - tolerance },
+                  { x: x + width + tolerance, y: y - tolerance },
+                  { x: x + width + tolerance, y: y + height + tolerance },
+                  { x: x - tolerance, y: y + height + tolerance },
+                  { context: this.context }
+               );
 
             // Draw active rectangle
             this.context.beginPath();
-            this.context.strokeStyle = activeColor;
+            this.context.strokeStyle = this.massiveSelection.isSelected
+               ? "white"
+               : activeColor;
             this.context.rect(
                x - tolerance,
                y - tolerance,
@@ -863,6 +866,18 @@ export default class Shapes {
          this.circleMap.forEach((circle) => {
             circle.offsetX = circle.x - mouseX;
             circle.offsetY = circle.y - mouseY;
+         });
+
+         this.textMap.forEach((text) => {
+            text.offsetX = text.x - mouseX;
+            text.offsetY = text.y - mouseY;
+         });
+
+         this.lineMap.forEach((line) => {
+            line.curvePoints.forEach((p) => {
+               p.offsetX = p.x - mouseX;
+               p.offsetY = p.y - mouseY;
+            });
          });
 
          this.massiveSelection.isSelectedDown = true;
@@ -1425,7 +1440,7 @@ export default class Shapes {
       }
 
       // for massSelection
-      if (!this.dragElement && !this.resizeElement) {
+      if (!this.dragElement && !this.resizeElement && config.mode === "free") {
          this.massiveSelection.isDown = true;
          this.massiveSelection.startX = mouseX;
          this.massiveSelection.startY = mouseY;
@@ -1674,14 +1689,29 @@ export default class Shapes {
             }
          });
 
+         this.textMap.forEach((text) => {
+            if (text.isActive) {
+               const { offsetX, offsetY } = text;
+               text.x = mouseX + offsetX;
+               text.y = mouseY + offsetY;
+            }
+         });
+
+         this.lineMap.forEach((line) => {
+            line.curvePoints.forEach((p) => {
+               p.x = mouseX + p.offsetX;
+               p.y = mouseY + p.offsetY;
+            });
+         });
+
          this.massiveSelectionRect(
-            this.massiveSelection.isSelectedMinX,
-            this.massiveSelection.isSelectedMinY,
-            this.massiveSelection.width,
-            this.massiveSelection.height
+            this.massiveSelection.isSelectedMinX - this.tolerance,
+            this.massiveSelection.isSelectedMinY - this.tolerance,
+            this.massiveSelection.width + 2 * this.tolerance,
+            this.massiveSelection.height + 2 * this.tolerance
          );
 
-         this.draw();
+         this.draw(false);
          return;
       }
 
@@ -2555,18 +2585,8 @@ export default class Shapes {
                if (!this.massiveSelection.isSelected) {
                   this.massiveSelection.isSelected = true;
                }
-               if (x + width > this.massiveSelection.isSelectedMaxX) {
-                  this.massiveSelection.isSelectedMaxX = x + width;
-               }
-               if (x < this.massiveSelection.isSelectedMinX) {
-                  this.massiveSelection.isSelectedMinX = x;
-               }
-               if (y < this.massiveSelection.isSelectedMinY) {
-                  this.massiveSelection.isSelectedMinY = y;
-               }
-               if (y + height > this.massiveSelection.isSelectedMaxY) {
-                  this.massiveSelection.isSelectedMaxY = y + height;
-               }
+               this.adjustMassiveSelectionXandY(x, y, width, height);
+
                rect.isActive = true;
             }
          });
@@ -2579,34 +2599,46 @@ export default class Shapes {
                y - yRadius > minY &&
                y + yRadius < maxY
             ) {
-               if (x + xRadius > this.massiveSelection.isSelectedMaxX) {
-                  this.massiveSelection.isSelectedMaxX = x + xRadius;
-               }
-               if (x - xRadius < this.massiveSelection.isSelectedMinX) {
-                  this.massiveSelection.isSelectedMinX = x - xRadius;
-               }
-               if (y - yRadius < this.massiveSelection.isSelectedMinY) {
-                  this.massiveSelection.isSelectedMinY = y - yRadius;
-               }
-               if (y + yRadius > this.massiveSelection.isSelectedMaxY) {
-                  this.massiveSelection.isSelectedMaxY = y + yRadius;
-               }
+               this.adjustMassiveSelectionXandY(
+                  x - xRadius,
+                  y - yRadius,
+                  2 * xRadius,
+                  2 * yRadius
+               );
                circle.isActive = true;
+            }
+         });
+
+         this.textMap.forEach((text) => {
+            const { x, y, width, height } = text;
+            if (x > minX && x + width < maxX && y > minY && y + height < maxY) {
+               this.adjustMassiveSelectionXandY(x, y, width, height);
+               text.isActive = true;
+            }
+         });
+
+         this.lineMap.forEach((line) => {
+            const { minX: x, minY: y, maxX: width, maxY: height } = line;
+            if (x > minX && width < maxX && y > minY && height < maxY) {
+               this.adjustMassiveSelectionXandY(x, y, width - x, height - y);
+               line.isActive = true;
             }
          });
 
          // Only draw the selection rectangle if at least one rectangle is selected
 
          this.massiveSelectionRect(
-            this.massiveSelection.isSelectedMinX,
-            this.massiveSelection.isSelectedMinY,
+            this.massiveSelection.isSelectedMinX - this.tolerance,
+            this.massiveSelection.isSelectedMinY - this.tolerance,
             this.massiveSelection.isSelectedMaxX -
-               this.massiveSelection.isSelectedMinX,
+               this.massiveSelection.isSelectedMinX +
+               2 * this.tolerance,
             this.massiveSelection.isSelectedMaxY -
-               this.massiveSelection.isSelectedMinY
+               this.massiveSelection.isSelectedMinY +
+               2 * this.tolerance
          );
 
-         this.draw();
+         this.draw(false);
       }
 
       // variable to control mouse down for selected
@@ -2938,6 +2970,21 @@ export default class Shapes {
       //   this.drawImage();
    }
 
+   adjustMassiveSelectionXandY(x, y, width, height) {
+      if (x + width > this.massiveSelection.isSelectedMaxX) {
+         this.massiveSelection.isSelectedMaxX = x + width;
+      }
+      if (x < this.massiveSelection.isSelectedMinX) {
+         this.massiveSelection.isSelectedMinX = x;
+      }
+      if (y < this.massiveSelection.isSelectedMinY) {
+         this.massiveSelection.isSelectedMinY = y;
+      }
+      if (y + height > this.massiveSelection.isSelectedMaxY) {
+         this.massiveSelection.isSelectedMaxY = y + height;
+      }
+   }
+
    reEvaluateMassiveSelection() {
       this.massiveSelection.isDown = false;
       this.massiveSelection.isSelectedMinX = Infinity;
@@ -2945,28 +2992,29 @@ export default class Shapes {
       this.massiveSelection.isSelectedMaxX = -Infinity;
       this.massiveSelection.isSelectedMaxY = -Infinity;
 
-      this.rectMap.forEach((rect) => {
+      this.rectMap.forEach((rect, key) => {
          if (rect.isActive) {
+            const { x, y, width, height } = rect;
             if (!this.massiveSelection.isSelected) {
                this.massiveSelection.isSelected = true;
             }
-            if (rect.x + rect.width > this.massiveSelection.isSelectedMaxX) {
-               this.massiveSelection.isSelectedMaxX = rect.x + rect.width;
+            if (x + width > this.massiveSelection.isSelectedMaxX) {
+               this.massiveSelection.isSelectedMaxX = x + width;
             }
-            if (rect.x < this.massiveSelection.isSelectedMinX) {
-               this.massiveSelection.isSelectedMinX = rect.x;
+            if (x < this.massiveSelection.isSelectedMinX) {
+               this.massiveSelection.isSelectedMinX = x;
             }
-            if (rect.y < this.massiveSelection.isSelectedMinY) {
-               this.massiveSelection.isSelectedMinY = rect.y;
+            if (y < this.massiveSelection.isSelectedMinY) {
+               this.massiveSelection.isSelectedMinY = y;
             }
-            if (rect.y + rect.height > this.massiveSelection.isSelectedMaxY) {
-               this.massiveSelection.isSelectedMaxY = rect.y + rect.height;
+            if (y + height > this.massiveSelection.isSelectedMaxY) {
+               this.massiveSelection.isSelectedMaxY = y + height;
             }
-            rect.isActive = true;
+            this.updateGuides(key, x, y, x + width, y + height);
          }
       });
 
-      this.circleMap.forEach((circle) => {
+      this.circleMap.forEach((circle, key) => {
          const { x, y, xRadius, yRadius, isActive } = circle;
          if (isActive) {
             if (x + xRadius > this.massiveSelection.isSelectedMaxX) {
@@ -2980,6 +3028,13 @@ export default class Shapes {
             }
             if (y + yRadius > this.massiveSelection.isSelectedMaxY) {
                this.massiveSelection.isSelectedMaxY = y + yRadius;
+               this.updateGuides(
+                  key,
+                  x - xRadius,
+                  y - yRadius,
+                  x + xRadius,
+                  y + yRadius
+               );
             }
          }
       });
@@ -2987,15 +3042,17 @@ export default class Shapes {
       // Only draw the selection rectangle if at least one rectangle is selected
 
       this.massiveSelectionRect(
-         this.massiveSelection.isSelectedMinX,
-         this.massiveSelection.isSelectedMinY,
+         this.massiveSelection.isSelectedMinX - this.tolerance,
+         this.massiveSelection.isSelectedMinY - this.tolerance,
          this.massiveSelection.isSelectedMaxX -
-            this.massiveSelection.isSelectedMinX,
+            this.massiveSelection.isSelectedMinX +
+            2 * this.tolerance,
          this.massiveSelection.isSelectedMaxY -
-            this.massiveSelection.isSelectedMinY
+            this.massiveSelection.isSelectedMinY +
+            2 * this.tolerance
       );
 
-      this.draw();
+      this.draw(false);
    }
 
    massiveSelectionRect(x, y, width, height) {
