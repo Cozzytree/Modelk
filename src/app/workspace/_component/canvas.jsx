@@ -38,7 +38,7 @@ const buttons = [
 ];
 
 const width = window.innerWidth;
-const height = window.innerHeight;
+const height = 1200;
 
 function drawCurve(line, tempPoint, canvas, context) {
    context.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas before re-drawing

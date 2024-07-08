@@ -63,6 +63,8 @@ export default class Shapes {
          isSelectedMinY: Infinity,
          isSelectedMaxX: -Infinity,
          isSelectedMaxY: -Infinity,
+         width: null,
+         height: null,
       };
    }
 
@@ -846,52 +848,36 @@ export default class Shapes {
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
 
       // check if multiple selected exist
-      const { isSelectedMinX, isSelectedMinY, isSelectedMaxX, isSelectedMaxY } =
-         this.massiveSelection;
-
       if (
          this.massiveSelection.isSelected &&
-         mouseX > isSelectedMinX &&
-         mouseX < isSelectedMaxX &&
-         mouseY > isSelectedMinY &&
-         mouseY < isSelectedMaxY
+         mouseX > this.massiveSelection.isSelectedMinX &&
+         mouseX < this.massiveSelection.isSelectedMaxX &&
+         mouseY > this.massiveSelection.isSelectedMinY &&
+         mouseY < this.massiveSelection.isSelectedMaxY
       ) {
          this.rectMap.forEach((rect) => {
             rect.offsetX = rect.x - mouseX;
             rect.offsetY = rect.y - mouseY;
          });
 
+         this.circleMap.forEach((circle) => {
+            circle.offsetX = circle.x - mouseX;
+            circle.offsetY = circle.y - mouseY;
+         });
+
          this.massiveSelection.isSelectedDown = true;
-         this.breakPointsCtx.clearRect(
-            0,
-            0,
-            this.canvasbreakPoints.width,
-            this.canvasbreakPoints.height
-         );
 
-         this.breakPointsCtx.save();
-         this.breakPointsCtx.scale(Scale.scale, Scale.scale);
-         this.breakPointsCtx.translate(
-            -scrollBar.scrollPositionX,
-            -scrollBar.scrollPositionY
-         );
-
-         this.breakPointsCtx.beginPath();
-         this.breakPointsCtx.strokeStyle = this.activeColor;
-         this.breakPointsCtx.rect(
-            isSelectedMinX,
-            isSelectedMinY,
-            isSelectedMaxX - isSelectedMinY,
-            isSelectedMaxY - isSelectedMinY
-         );
-         this.breakPointsCtx.stroke();
-         this.breakPointsCtx.closePath();
-         this.breakPointsCtx.restore();
-
+         //calculatin offset and width
          this.massiveSelection.offsetX =
             this.massiveSelection.isSelectedMinX - mouseX;
          this.massiveSelection.offsetY =
             this.massiveSelection.isSelectedMinY - mouseY;
+         this.massiveSelection.width =
+            this.massiveSelection.isSelectedMaxX -
+            this.massiveSelection.isSelectedMinX;
+         this.massiveSelection.height =
+            this.massiveSelection.isSelectedMaxY -
+            this.massiveSelection.isSelectedMinY;
          return;
       } else {
          this.massiveSelection.isSelected = false;
@@ -904,7 +890,6 @@ export default class Shapes {
 
       config.currentActive = null;
       let isResizing = false;
-      //   this.canvasClick(e);
 
       //image resize
       this.imageMap.forEach((image, key) => {
@@ -1302,22 +1287,6 @@ export default class Shapes {
          }
       });
 
-      if (smallestImage?.key) {
-         const img = new Image();
-         img.src = smallestImage.image.src;
-         img.style.borderRadius = smallestImage.image.radius + "px";
-
-         smallestImage.image.offsetX = mouseX - smallestImage.image.x;
-         smallestImage.image.offsetY = mouseY - smallestImage.image.y;
-         smallestImage.image.isActive = true;
-         this.dragElement = { src: img, key: smallestImage.key };
-
-         config.currentActive = smallestImage?.image;
-         this.draw();
-         this.drawImage();
-         return;
-      }
-
       const checkRect = (rect, key) => {
          if (rect.isActive) rect.isActive = false;
          if (
@@ -1387,6 +1356,23 @@ export default class Shapes {
       this.textMap.forEach(checkText);
       this.lineMap.forEach(simpleLine);
 
+      // giving priority to image over shapes
+      if (smallestImage?.key) {
+         const img = new Image();
+         img.src = smallestImage.image.src;
+         img.style.borderRadius = smallestImage.image.radius + "px";
+
+         smallestImage.image.offsetX = mouseX - smallestImage.image.x;
+         smallestImage.image.offsetY = mouseY - smallestImage.image.y;
+         smallestImage.image.isActive = true;
+         this.dragElement = { src: img, key: smallestImage.key };
+
+         config.currentActive = smallestImage?.image;
+         this.draw();
+         this.drawImage();
+         return;
+      }
+
       const setDragging = (obj) => {
          obj.isActive = true;
          obj.offsetX = mouseX - obj.x;
@@ -1437,6 +1423,8 @@ export default class Shapes {
          this.dragElement = smallestText.key;
          config.currentActive = smallestText.text;
       }
+
+      // for massSelection
       if (!this.dragElement && !this.resizeElement) {
          this.massiveSelection.isDown = true;
          this.massiveSelection.startX = mouseX;
@@ -1670,8 +1658,6 @@ export default class Shapes {
          this.massiveSelection.isSelectedMinY =
             mouseY + this.massiveSelection.offsetY;
 
-         const { isSelectedMaxX, isSelectedMaxY } = this.massiveSelection;
-
          this.rectMap.forEach((rect) => {
             if (rect.isActive) {
                const { offsetX, offsetY } = rect;
@@ -1680,34 +1666,22 @@ export default class Shapes {
             }
          });
 
-         this.draw();
+         this.circleMap.forEach((circle) => {
+            if (circle.isActive) {
+               const { offsetX, offsetY } = circle;
+               circle.x = mouseX + offsetX;
+               circle.y = mouseY + offsetY;
+            }
+         });
 
-         this.breakPointsCtx.clearRect(
-            0,
-            0,
-            this.canvasbreakPoints.width,
-            this.canvasbreakPoints.height
-         );
-
-         this.breakPointsCtx.save();
-         this.breakPointsCtx.scale(Scale.scale, Scale.scale);
-         this.breakPointsCtx.translate(
-            -scrollBar.scrollPositionX,
-            -scrollBar.scrollPositionY
-         );
-
-         this.breakPointsCtx.beginPath();
-         this.breakPointsCtx.strokeStyle = this.activeColor;
-         this.breakPointsCtx.rect(
+         this.massiveSelectionRect(
             this.massiveSelection.isSelectedMinX,
             this.massiveSelection.isSelectedMinY,
-            isSelectedMaxX - this.massiveSelection.isSelectedMinY,
-            isSelectedMaxY - this.massiveSelection.isSelectedMinY
+            this.massiveSelection.width,
+            this.massiveSelection.height
          );
-         this.breakPointsCtx.stroke();
-         this.breakPointsCtx.closePath();
-         this.breakPointsCtx.restore();
 
+         this.draw();
          return;
       }
 
@@ -2576,50 +2550,75 @@ export default class Shapes {
          let maxY = Math.max(mouseY, startY);
 
          this.rectMap.forEach((rect) => {
-            const rectMinX = rect.x;
-            const rectMaxX = rect.x + rect.width;
-            const rectMinY = rect.y;
-            const rectMaxY = rect.y + rect.height;
-
-            if (
-               rectMinX > minX &&
-               rectMaxX < maxX &&
-               rectMinY > minY &&
-               rectMaxY < maxY
-            ) {
+            const { x, height, y, width } = rect;
+            if (x > minX && x + width < maxX && y > minY && y + height < maxY) {
                if (!this.massiveSelection.isSelected) {
                   this.massiveSelection.isSelected = true;
                }
-               if (rectMaxX > this.massiveSelection.isSelectedMaxX) {
-                  this.massiveSelection.isSelectedMaxX = rectMaxX;
+               if (x + width > this.massiveSelection.isSelectedMaxX) {
+                  this.massiveSelection.isSelectedMaxX = x + width;
                }
-               if (rectMinX < this.massiveSelection.isSelectedMinX) {
-                  this.massiveSelection.isSelectedMinX = rectMinX;
+               if (x < this.massiveSelection.isSelectedMinX) {
+                  this.massiveSelection.isSelectedMinX = x;
                }
-               if (rectMaxY > this.massiveSelection.isSelectedMaxY) {
-                  this.massiveSelection.isSelectedMaxY = rectMaxY;
+               if (y < this.massiveSelection.isSelectedMinY) {
+                  this.massiveSelection.isSelectedMinY = y;
                }
-               if (rectMinY < this.massiveSelection.isSelectedMinY) {
-                  this.massiveSelection.isSelectedMinY = rectMinY;
+               if (y + height > this.massiveSelection.isSelectedMaxY) {
+                  this.massiveSelection.isSelectedMaxY = y + height;
                }
                rect.isActive = true;
             }
          });
 
-         this.breakPointsCtx.clearRect(
-            0,
-            0,
-            this.canvasbreakPoints.width,
-            this.canvasbreakPoints.height
+         this.circleMap.forEach((circle) => {
+            const { x, y, xRadius, yRadius } = circle;
+            if (
+               x - xRadius > minX &&
+               x + xRadius < maxX &&
+               y - yRadius > minY &&
+               y + yRadius < maxY
+            ) {
+               if (x + xRadius > this.massiveSelection.isSelectedMaxX) {
+                  this.massiveSelection.isSelectedMaxX = x + xRadius;
+               }
+               if (x - xRadius < this.massiveSelection.isSelectedMinX) {
+                  this.massiveSelection.isSelectedMinX = x - xRadius;
+               }
+               if (y - yRadius < this.massiveSelection.isSelectedMinY) {
+                  this.massiveSelection.isSelectedMinY = y - yRadius;
+               }
+               if (y + yRadius > this.massiveSelection.isSelectedMaxY) {
+                  this.massiveSelection.isSelectedMaxY = y + yRadius;
+               }
+               circle.isActive = true;
+            }
+         });
+
+         // Only draw the selection rectangle if at least one rectangle is selected
+
+         this.massiveSelectionRect(
+            this.massiveSelection.isSelectedMinX,
+            this.massiveSelection.isSelectedMinY,
+            this.massiveSelection.isSelectedMaxX -
+               this.massiveSelection.isSelectedMinX,
+            this.massiveSelection.isSelectedMaxY -
+               this.massiveSelection.isSelectedMinY
          );
+
          this.draw();
       }
 
+      // variable to control mouse down for selected
       if (this.massiveSelection.isSelectedDown) {
          this.massiveSelection.isSelectedDown = false;
+         this.massiveSelection.isDown = false;
       }
 
+      // massive is selected
       if (this.massiveSelection.isSelected) {
+         this.reEvaluateMassiveSelection();
+
          return;
       }
 
@@ -2937,6 +2936,91 @@ export default class Shapes {
       this.dragElement = null;
       this.draw();
       //   this.drawImage();
+   }
+
+   reEvaluateMassiveSelection() {
+      this.massiveSelection.isDown = false;
+      this.massiveSelection.isSelectedMinX = Infinity;
+      this.massiveSelection.isSelectedMinY = Infinity;
+      this.massiveSelection.isSelectedMaxX = -Infinity;
+      this.massiveSelection.isSelectedMaxY = -Infinity;
+
+      this.rectMap.forEach((rect) => {
+         if (rect.isActive) {
+            if (!this.massiveSelection.isSelected) {
+               this.massiveSelection.isSelected = true;
+            }
+            if (rect.x + rect.width > this.massiveSelection.isSelectedMaxX) {
+               this.massiveSelection.isSelectedMaxX = rect.x + rect.width;
+            }
+            if (rect.x < this.massiveSelection.isSelectedMinX) {
+               this.massiveSelection.isSelectedMinX = rect.x;
+            }
+            if (rect.y < this.massiveSelection.isSelectedMinY) {
+               this.massiveSelection.isSelectedMinY = rect.y;
+            }
+            if (rect.y + rect.height > this.massiveSelection.isSelectedMaxY) {
+               this.massiveSelection.isSelectedMaxY = rect.y + rect.height;
+            }
+            rect.isActive = true;
+         }
+      });
+
+      this.circleMap.forEach((circle) => {
+         const { x, y, xRadius, yRadius, isActive } = circle;
+         if (isActive) {
+            if (x + xRadius > this.massiveSelection.isSelectedMaxX) {
+               this.massiveSelection.isSelectedMaxX = x + xRadius;
+            }
+            if (x - xRadius < this.massiveSelection.isSelectedMinX) {
+               this.massiveSelection.isSelectedMinX = x - xRadius;
+            }
+            if (y - yRadius < this.massiveSelection.isSelectedMinY) {
+               this.massiveSelection.isSelectedMinY = y - yRadius;
+            }
+            if (y + yRadius > this.massiveSelection.isSelectedMaxY) {
+               this.massiveSelection.isSelectedMaxY = y + yRadius;
+            }
+         }
+      });
+
+      // Only draw the selection rectangle if at least one rectangle is selected
+
+      this.massiveSelectionRect(
+         this.massiveSelection.isSelectedMinX,
+         this.massiveSelection.isSelectedMinY,
+         this.massiveSelection.isSelectedMaxX -
+            this.massiveSelection.isSelectedMinX,
+         this.massiveSelection.isSelectedMaxY -
+            this.massiveSelection.isSelectedMinY
+      );
+
+      this.draw();
+   }
+
+   massiveSelectionRect(x, y, width, height) {
+      this.breakPointsCtx.clearRect(
+         0,
+         0,
+         this.canvasbreakPoints.width,
+         this.canvasbreakPoints.height
+      );
+
+      this.breakPointsCtx.save();
+      this.breakPointsCtx.scale(Scale.scale, Scale.scale);
+      this.breakPointsCtx.translate(
+         -scrollBar.scrollPositionX,
+         -scrollBar.scrollPositionY
+      );
+
+      this.breakPointsCtx.beginPath();
+      this.breakPointsCtx.fillStyle = "#00f7ff17";
+      this.breakPointsCtx.strokeStyle = this.activeColor;
+      this.breakPointsCtx.rect(x, y, width, height);
+      this.breakPointsCtx.stroke();
+      this.breakPointsCtx.fill();
+      this.breakPointsCtx.closePath();
+      this.breakPointsCtx.restore();
    }
 
    renderImageMove(object) {
