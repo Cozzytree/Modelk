@@ -78,7 +78,7 @@ export default function Workspace() {
                      key={view.name}
                      className={`${
                         view.name === workspaceMode
-                           ? "bg-secondary text-secondary-foreground"
+                           ? "bg-secondary/80 text-secondary-foreground"
                            : "bg-muted"
                      } text-xs h-3 py-3`}
                      variant="ghost"
@@ -123,8 +123,10 @@ export default function Workspace() {
                   workspaceMode === "Document" ? "hidden" : "block"
                } h-screen`}
             >
-               {/* <Canvas shapes={projectData?.data[0]?.projectShapes} /> */}
-               <Canvas />
+               <main className="w-full h-full">
+                  {/* <Canvas shapes={projectData?.data[0]?.projectShapes} /> */}
+                  <Canvas />
+               </main>
             </div>
          </div>
       </div>

@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/tooltip.tsx";
 
 const buttons = [
-   { icon: <HandIcon />, label: "handsFree" },
+   { icon: <HandIcon width={"100%"} />, label: "handsFree" },
    { icon: <CursorArrowIcon />, label: "free" },
    { icon: <BoxIcon />, label: "rect" },
    { icon: <CircleIcon />, label: "sphere" },
@@ -282,22 +282,26 @@ export default function Canvas() {
       <>
          <canvas
             ref={breakPointsRef}
-            className="absolute top-0 left-0"
+            className="absolute top-0 left-0 z-[1]"
          ></canvas>
          <canvas
             ref={renderCanvasRef}
-            className="absolute top-0 left-0"
+            className="absolute top-0 left-0 z-[]"
          ></canvas>
-         <canvas ref={canvasRef} className="absolute top-0 left-0"></canvas>
+         <canvas
+            ref={canvasRef}
+            className="absolute top-0 left-0 z-[1]"
+         ></canvas>
 
          <TooltipProvider>
-            <div className="absolute top-[8%] left-2 border p-[2px] border-zinc-800 flex flex-col items-center rounded-sm gap-[2px]">
+            <div className="absolute top-[8%] left-2 border p-[2px] border-zinc-800 flex flex-col items-center rounded-sm gap-[2px] z-[2]">
                {buttons.map((button, i) => (
                   <Tooltip key={i}>
                      <TooltipTrigger
                         asChild
                         className={`${
-                           button.label === mode ? "bg-accent" : ""
+                           button.label === mode &&
+                           "bg-secondary/70 text-primary-foreground"
                         } ${buttonVariants({
                            variant: "ghost",
                            size: "icon",
@@ -319,7 +323,8 @@ export default function Canvas() {
                   <TooltipTrigger
                      asChild
                      className={`${
-                        mode === "pencil" ? "bg-accent" : ""
+                        mode === "pencil" &&
+                        "bg-secondary/70 text-primary-foreground"
                      } ${buttonVariants({
                         variant: "ghost",
                         size: "icon",
@@ -339,7 +344,8 @@ export default function Canvas() {
                <Tooltip>
                   <TooltipTrigger
                      className={`${
-                        config.mode === "line" && "bg-accent"
+                        config.mode === "line" &&
+                        "bg-secondary/70 text-primary-foreground"
                      }  ${buttonVariants({
                         variant: "ghost",
                         size: "icon",
@@ -433,7 +439,8 @@ export default function Canvas() {
                <Tooltip>
                   <TooltipTrigger
                      className={`${
-                        config.mode === "image" && "bg-accent"
+                        config.mode === "image" &&
+                        "bg-secondary/70 text-primary-foreground"
                      } ${buttonVariants({
                         variant: "ghost",
                         size: "icon",

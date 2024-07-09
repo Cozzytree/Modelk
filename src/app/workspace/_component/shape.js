@@ -38,6 +38,7 @@ export default class Shapes {
       this.canvasbreakPoints = canvasbreakPoints;
       this.renderCanvas = renderCanvas;
       //   this.activeColor = "#2165ee";
+      this.canvasDiv = document.getElementById("canvas-div");
       this.activeColor = "hsl(95,78%,49%)";
       this.tolerance = 6;
       this.resizeElement = null;
@@ -657,7 +658,7 @@ export default class Shapes {
             this.context.strokeStyle = borderColor;
          }
 
-         const headlen = 10;
+         const headlen = 12;
 
          if (lineType === "straight") {
             this.context.moveTo(curvePoints[0].x, curvePoints[0].y);
@@ -796,6 +797,61 @@ export default class Shapes {
 
          this.context.stroke();
          this.context.closePath();
+      });
+
+      // figures
+      this.figureMap.forEach((figure) => {
+         const { id, y, x, title, width, height, radius, isActive } = figure;
+         let ele = document.querySelector(`[data-containerId="${id}"]`);
+
+         if (!ele) {
+            // If the element does not exist, create a new one
+            ele = document.createElement("div");
+            ele.setAttribute("data-containerId", id);
+            ele.classList.add("z-[2]", "text-xs", "text-zinc-400");
+            this.canvasDiv.append(ele);
+         }
+
+         // Update the content and position of the element
+         ele.textContent = title;
+         ele.style.position = "absolute";
+         ele.style.top = y - 30 - scrollBar.scrollPositionY + "px";
+         ele.style.left = x - scrollBar.scrollPositionX + "px";
+
+         if (isActive) {
+            this.dots(
+               { x: x - this.tolerance, y: y - this.tolerance },
+               { x: x + width + this.tolerance, y: y - this.tolerance },
+               {
+                  x: x + width + this.tolerance,
+                  y: y + height + this.tolerance,
+               },
+               { x: x - this.tolerance, y: y + height + this.tolerance },
+               { x: x - this.tolerance, y: y - this.tolerance },
+               { context: this.context }
+            );
+
+            this.context.strokeStyle = this.activeColor;
+            this.context.globalAlpha = 0.7;
+            this.context.rect(
+               x - this.tolerance,
+               y - this.tolerance,
+               width + 2 * this.tolerance,
+               height + 2 * this.tolerance
+            );
+            this.context.stroke();
+         }
+
+         this.context.beginPath();
+         this.context.strokeStyle = "grey";
+         this.context.lineWidth = 0.9;
+         this.context.moveTo(x + radius, y);
+         this.context.arcTo(x + width, y, x + width, y + height, radius);
+         this.context.arcTo(x + width, y + height, x, y + height, radius);
+         this.context.arcTo(x, y + height, x, y, radius);
+         this.context.arcTo(x, y, x + width, y, radius);
+         this.context.stroke();
+         this.context.beginPath();
       });
 
       this.context.restore();
@@ -1150,6 +1206,124 @@ export default class Shapes {
       });
       if (isResizing) return;
 
+      for (const [key, fig] of this.figureMap) {
+         const { x, y, width, height, isActive } = fig;
+         if (!isActive) continue;
+
+         // left right
+         const leftEdge = mouseX >= x - this.tolerance && mouseX <= x;
+         const rightEdge =
+            mouseX >= x + width && mouseX <= x + width + this.tolerance;
+         const verticalBounds =
+            mouseY >= y + this.tolerance &&
+            mouseY <= y + height - this.tolerance;
+
+         if (leftEdge && verticalBounds) {
+            fig.isActive = true;
+            isResizing = true;
+            this.isDraggingOrResizing = true;
+            config.currentActive = fig;
+
+            this.resizeElement = {
+               direction: "left-edge",
+               key,
+               x: x + width,
+            };
+         } else if (rightEdge && verticalBounds) {
+            fig.isActive = true;
+            isResizing = true;
+            config.currentActive = fig;
+
+            this.resizeElement = {
+               direction: "right-edge",
+               key,
+               x: x,
+            };
+         }
+
+         //  // top - bottom
+         const withinTopEdge =
+            mouseY >= y - this.tolerance && mouseY <= y + this.tolerance;
+         const withinBottomEdge =
+            mouseY >= y + height - this.tolerance &&
+            mouseY <= y + height + this.tolerance;
+         const withinHorizontalBounds =
+            mouseX > x + this.tolerance && mouseX < x + width - this.tolerance;
+
+         if (withinTopEdge && withinHorizontalBounds) {
+            fig.isActive = true;
+            isResizing = true;
+            config.currentActive = fig;
+
+            this.resizeElement = {
+               direction: "top-edge",
+               key,
+               y: y + height,
+            };
+         } else if (withinBottomEdge && withinHorizontalBounds) {
+            fig.isActive = true;
+            isResizing = true;
+            config.currentActive = fig;
+
+            this.resizeElement = {
+               direction: "bottom-edge",
+               key,
+               y: y,
+            };
+         }
+
+         // Check for corners resize
+         const withinTopLeftCorner =
+            mouseX >= x - this.tolerance &&
+            mouseX <= x + this.tolerance &&
+            mouseY >= y - this.tolerance &&
+            mouseY <= y + this.tolerance;
+
+         const withinTopRightCorner =
+            mouseX >= x + width - this.tolerance &&
+            mouseX <= x + width + this.tolerance &&
+            mouseY >= y - this.tolerance &&
+            mouseY <= y + this.tolerance;
+
+         const withinBottomLeftCorner =
+            mouseX >= x - this.tolerance &&
+            mouseX <= x + this.tolerance &&
+            mouseY >= y + height - this.tolerance &&
+            mouseY <= y + height + this.tolerance;
+
+         const withinBottomRightCorner =
+            mouseX >= x + width - this.tolerance &&
+            mouseX <= x + width + this.tolerance &&
+            mouseY >= y + height - this.tolerance &&
+            mouseY <= y + height + this.tolerance;
+
+         // resize corners
+         [
+            { cond: withinBottomLeftCorner, d: "bottom-left" },
+            { cond: withinBottomRightCorner, d: "bottom-right" },
+            { cond: withinTopLeftCorner, d: "top-left" },
+            { cond: withinTopRightCorner, d: "top-right" },
+         ].forEach((any) => {
+            if (any.cond) {
+               isResizing = true;
+               config.currentActive = fig;
+               this.resizeElement = {
+                  key,
+                  rectMaxX: x + width,
+                  rectMaxY: y + height,
+                  direction: any.d,
+                  x: x,
+                  y: y,
+                  width: width,
+                  height: height,
+               };
+               return;
+            }
+         });
+      }
+
+      if (isResizing) return;
+
       // line resize
       this.lineMap.forEach((line, key) => {
          let points = line.curvePoints;
@@ -1197,29 +1371,6 @@ export default class Shapes {
             mouseY >= y + this.tolerance &&
             mouseY <= y + height - this.tolerance;
 
-         if (leftEdge && verticalBounds) {
-            rect.isActive = true;
-            isResizing = true;
-            this.isDraggingOrResizing = true;
-            config.currentActive = rect;
-
-            this.resizeElement = {
-               direction: "left-edge",
-               key,
-               x: x + width,
-            };
-         } else if (rightEdge && verticalBounds) {
-            rect.isActive = true;
-            isResizing = true;
-            config.currentActive = rect;
-
-            this.resizeElement = {
-               direction: "right-edge",
-               key,
-               x: x,
-            };
-         }
-
          //  // top - bottom
          const withinTopEdge =
             mouseY >= y - this.tolerance && mouseY <= y + this.tolerance;
@@ -1228,28 +1379,6 @@ export default class Shapes {
             mouseY <= y + height + this.tolerance;
          const withinHorizontalBounds =
             mouseX > x + this.tolerance && mouseX < x + width - this.tolerance;
-
-         if (withinTopEdge && withinHorizontalBounds) {
-            rect.isActive = true;
-            isResizing = true;
-            config.currentActive = rect;
-
-            this.resizeElement = {
-               direction: "top-edge",
-               key,
-               y: y + height,
-            };
-         } else if (withinBottomEdge && withinHorizontalBounds) {
-            rect.isActive = true;
-            isResizing = true;
-            config.currentActive = rect;
-
-            this.resizeElement = {
-               direction: "bottom-edge",
-               key,
-               y: y,
-            };
-         }
 
          // Check for corners resize
          const withinTopLeftCorner =
@@ -1277,6 +1406,51 @@ export default class Shapes {
             mouseY <= y + height + this.tolerance;
 
          // resize corners
+         if (leftEdge && verticalBounds) {
+            rect.isActive = true;
+            isResizing = true;
+            this.isDraggingOrResizing = true;
+            config.currentActive = rect;
+
+            this.resizeElement = {
+               direction: "left-edge",
+               key,
+               x: x + width,
+            };
+         } else if (rightEdge && verticalBounds) {
+            rect.isActive = true;
+            isResizing = true;
+            config.currentActive = rect;
+
+            this.resizeElement = {
+               direction: "right-edge",
+               key,
+               x: x,
+            };
+         } else if (withinTopEdge && withinHorizontalBounds) {
+            rect.isActive = true;
+            isResizing = true;
+            config.currentActive = rect;
+
+            this.resizeElement = {
+               direction: "top-edge",
+               key,
+               y: y + height,
+            };
+         } else if (withinBottomEdge && withinHorizontalBounds) {
+            rect.isActive = true;
+            isResizing = true;
+            config.currentActive = rect;
+
+            this.resizeElement = {
+               direction: "bottom-edge",
+               key,
+               y: y,
+            };
+         } else {
+            rect.isActive = false;
+         }
+
          [
             { cond: withinBottomLeftCorner, d: "bottom-left" },
             { cond: withinBottomRightCorner, d: "bottom-right" },
@@ -1284,6 +1458,7 @@ export default class Shapes {
             { cond: withinTopRightCorner, d: "top-right" },
          ].forEach((any) => {
             if (any.cond) {
+               rect.isActive = true;
                isResizing = true;
                config.currentActive = rect;
                this.resizeElement = {
@@ -1398,6 +1573,7 @@ export default class Shapes {
       let line = null;
       let smallestImage = null;
       let smallestPencil = null;
+      let smallestFig = null;
 
       //   image drag params
       const imageDrag = (image, key) => {
@@ -1502,6 +1678,21 @@ export default class Shapes {
       this.imageMap.forEach(imageDrag);
       this.pencilMap.forEach(pencilDrag);
 
+      for (const [key, fig] of this.figureMap) {
+         const { isActive, x, y, width, height } = fig;
+         if (!isActive) continue;
+         if (
+            mouseX >= x &&
+            mouseX < x + width &&
+            mouseY > y &&
+            mouseY < y + width
+         ) {
+            if (smallestFig === null || smallestFig.width > width) {
+               smallestFig = { fig, key };
+            }
+         }
+      }
+
       // giving priority to image over shapes
       if (smallestImage?.key) {
          const img = new Image();
@@ -1590,6 +1781,23 @@ export default class Shapes {
          });
          this.dragElement = smallestPencil.key;
          config.currentActive = smallestPencil.pencil;
+      } else if (
+         smallestFig?.key &&
+         (!smallestRect || smallestRect.rect.width > smallestFig.fig.width)
+      ) {
+         this.dragElement = smallestFig.key;
+         config.currentActive = smallestFig.fig;
+         smallestFig.fig.offsetX = mouseX - smallestFig.fig.x;
+         smallestFig.fig.offsetY = mouseY - smallestFig.fig.y;
+
+         this.rectMap.forEach((rect) => {
+            if (rect.containerId === smallestFig.key) {
+               rect.offsetX = mouseX - rect.x;
+               rect.offsetY = mouseY - rect.y;
+            }
+         });
+         this.draw();
+         return;
       }
 
       // for massSelection
@@ -1602,6 +1810,30 @@ export default class Shapes {
 
       this.draw();
       this.drawImage();
+   }
+
+   mouseDownForFif(e) {
+      const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
+      for (const [key, value] of this.figureMap) {
+         const { id, isActive, x, y, width, height } = value;
+         const element = document.querySelector(`[data-containerId="${id}"]`);
+
+         // Check if the click happened inside any of the elements
+         if (element.contains(e.target)) {
+            value.isActive = true;
+         } else if (
+            isActive &&
+            mouseX >= x - this.tolerance &&
+            mouseX <= x + width + this.tolerance &&
+            mouseY >= y - this.tolerance &&
+            mouseY <= y + height + this.tolerance
+         ) {
+            value.isActive = true;
+         } else value.isActive = false;
+      }
+
+      // Re-render the figures
+      this.draw();
    }
 
    updateCurvePoint = (object, x, y, index) => {
@@ -1918,215 +2150,121 @@ export default class Shapes {
 
       if (!this.resizeElement && !this.dragElement) return;
 
+      const squareResize = (shape) => {
+         if (this.resizeElement.direction === "left-edge") {
+            const { x } = this.resizeElement;
+            if (mouseX < x) {
+               shape.x = mouseX;
+               shape.width = x - mouseX;
+            } else if (mouseX > x) {
+               shape.x = x;
+               shape.width = mouseX - x;
+            }
+         } else if (this.resizeElement.direction === "right-edge") {
+            const { x } = this.resizeElement;
+            if (mouseX > x) {
+               shape.width = mouseX - x;
+            } else if (mouseX < x) {
+               shape.x = mouseX;
+               shape.width = x - mouseX;
+            }
+         } else if (this.resizeElement.direction === "top-edge") {
+            const { y } = this.resizeElement;
+            if (mouseY < y) {
+               shape.y = mouseY;
+               shape.height = y - mouseY;
+            } else if (mouseY > y) {
+               shape.y = y;
+               shape.height = mouseY - y;
+            }
+         } else if (this.resizeElement.direction === "bottom-edge") {
+            const { y } = this.resizeElement;
+            if (mouseY > y) {
+               shape.height = mouseY - y;
+            } else if (mouseY < y) {
+               shape.y = mouseY;
+               shape.height = y - mouseY;
+            }
+         } else {
+            const direction = this.resizeElement.direction;
+            let { rectMaxX, rectMaxY, x, y, height, width } =
+               this.resizeElement;
+
+            switch (direction) {
+               case "top-left":
+                  shape.x = Math.min(mouseX, rectMaxX);
+                  shape.y = Math.min(mouseY, rectMaxY);
+                  shape.width = Math.abs(rectMaxX - mouseX);
+                  shape.height = Math.abs(rectMaxY - mouseY);
+                  break;
+
+               case "top-right":
+                  if (mouseX > x) {
+                     shape.width = mouseX - x;
+                  } else if (mouseX < x) {
+                     shape.x = mouseX;
+                     shape.width = x - mouseX;
+                  }
+                  if (mouseY < y + height) {
+                     shape.y = mouseY;
+                     shape.height = y + height - mouseY;
+                  } else if (mouseY > height + y) {
+                     shape.y = y + height;
+                     shape.height = mouseY - shape.y;
+                  }
+
+                  break;
+
+               case "bottom-left":
+                  if (mouseX < x + width) {
+                     shape.x = mouseX;
+                     shape.width = x + width - mouseX;
+                  } else if (mouseX > x + width) {
+                     shape.x = x + width;
+                     shape.width = mouseX - shape.x;
+                  }
+
+                  if (mouseY > y) {
+                     shape.height = mouseY - y;
+                  } else if (mouseY < y) {
+                     shape.height = y - mouseY;
+                     shape.y = mouseY;
+                  }
+
+                  break;
+
+               case "bottom-right":
+                  if (mouseX > x) shape.width = mouseX - shape.x;
+                  else if (mouseX < x) {
+                     shape.x = mouseX;
+                     shape.width = x - mouseX;
+                  }
+                  if (mouseY > y) shape.height = mouseY - shape.y;
+                  else if (mouseY < y) {
+                     shape.y = mouseY;
+                     shape.height = y - mouseY;
+                  }
+
+                  break;
+
+               default:
+                  break;
+            }
+         }
+      };
+
       let rectResize = this.rectMap.get(this.resizeElement?.key);
       let circleResize = this.circleMap.get(this.resizeElement?.key);
       let textResize = this.textMap.get(this.resizeElement?.key);
       let lineResize = this.lineMap.get(this.resizeElement?.key);
       let imageResize = this.imageMap.get(this.resizeElement?.key);
+      let figResize = this.figureMap.get(this.resizeElement?.key);
 
       if (rectResize) {
-         if (this.resizeElement.direction === "left-edge") {
-            const { x } = this.resizeElement;
-            if (mouseX < x) {
-               rectResize.x = mouseX;
-               rectResize.width = x - mouseX;
-            } else if (mouseX > x) {
-               rectResize.x = x;
-               rectResize.width = mouseX - x;
-            }
-         } else if (this.resizeElement.direction === "right-edge") {
-            const { x } = this.resizeElement;
-            if (mouseX > x) {
-               rectResize.width = mouseX - x;
-            } else if (mouseX < x) {
-               rectResize.x = mouseX;
-               rectResize.width = x - mouseX;
-            }
-         } else if (this.resizeElement.direction === "top-edge") {
-            const { y } = this.resizeElement;
-            if (mouseY < y) {
-               rectResize.y = mouseY;
-               rectResize.height = y - mouseY;
-            } else if (mouseY > y) {
-               rectResize.y = y;
-               rectResize.height = mouseY - y;
-            }
-         } else if (this.resizeElement.direction === "bottom-edge") {
-            const { y } = this.resizeElement;
-            if (mouseY > y) {
-               rectResize.height = mouseY - y;
-            } else if (mouseY < y) {
-               rectResize.y = mouseY;
-               rectResize.height = y - mouseY;
-            }
-         } else {
-            const direction = this.resizeElement.direction;
-            let { rectMaxX, rectMaxY, x, y, height, width } =
-               this.resizeElement;
-
-            switch (direction) {
-               case "top-left":
-                  rectResize.x = Math.min(mouseX, rectMaxX);
-                  rectResize.y = Math.min(mouseY, rectMaxY);
-                  rectResize.width = Math.abs(rectMaxX - mouseX);
-                  rectResize.height = Math.abs(rectMaxY - mouseY);
-                  break;
-
-               case "top-right":
-                  if (mouseX > x) {
-                     rectResize.width = mouseX - x;
-                  } else if (mouseX < x) {
-                     rectResize.x = mouseX;
-                     rectResize.width = x - mouseX;
-                  }
-                  if (mouseY < y + height) {
-                     rectResize.y = mouseY;
-                     rectResize.height = y + height - mouseY;
-                  } else if (mouseY > height + y) {
-                     rectResize.y = y + height;
-                     rectResize.height = mouseY - rectResize.y;
-                  }
-
-                  break;
-
-               case "bottom-left":
-                  if (mouseX < x + width) {
-                     rectResize.x = mouseX;
-                     rectResize.width = x + width - mouseX;
-                  } else if (mouseX > x + width) {
-                     rectResize.x = x + width;
-                     rectResize.width = mouseX - rectResize.x;
-                  }
-
-                  if (mouseY > y) {
-                     rectResize.height = mouseY - y;
-                  } else if (mouseY < y) {
-                     rectResize.height = y - mouseY;
-                     rectResize.y = mouseY;
-                  }
-
-                  break;
-
-               case "bottom-right":
-                  if (mouseX > x) rectResize.width = mouseX - rectResize.x;
-                  else if (mouseX < x) {
-                     rectResize.x = mouseX;
-                     rectResize.width = x - mouseX;
-                  }
-                  if (mouseY > y) rectResize.height = mouseY - rectResize.y;
-                  else if (mouseY < y) {
-                     rectResize.y = mouseY;
-                     rectResize.height = y - mouseY;
-                  }
-
-                  break;
-
-               default:
-                  break;
-            }
-         }
+         squareResize(rectResize);
          this.updateLinesPointTo(rectResize);
       } else if (imageResize) {
-         if (this.resizeElement.direction === "left-edge") {
-            const { x } = this.resizeElement;
-            if (mouseX < x) {
-               imageResize.x = mouseX;
-               imageResize.width = x - mouseX;
-            } else if (mouseX > x) {
-               imageResize.x = x;
-               imageResize.width = mouseX - x;
-            }
-         } else if (this.resizeElement.direction === "right-edge") {
-            const { x } = this.resizeElement;
-            if (mouseX > x) {
-               imageResize.width = mouseX - x;
-            } else if (mouseX < x) {
-               imageResize.x = mouseX;
-               imageResize.width = x - mouseX;
-            }
-         } else if (this.resizeElement.direction === "top-edge") {
-            const { y } = this.resizeElement;
-            if (mouseY < y) {
-               imageResize.y = mouseY;
-               imageResize.height = y - mouseY;
-            } else if (mouseY > y) {
-               imageResize.y = y;
-               imageResize.height = mouseY - y;
-            }
-         } else if (this.resizeElement.direction === "bottom-edge") {
-            const { y } = this.resizeElement;
-            if (mouseY > y) {
-               imageResize.height = mouseY - y;
-            } else if (mouseY < y) {
-               imageResize.y = mouseY;
-               imageResize.height = y - mouseY;
-            }
-         } else {
-            const direction = this.resizeElement.direction;
-            let { rectMaxX, rectMaxY, x, y, height, width } =
-               this.resizeElement;
-
-            switch (direction) {
-               case "top-left":
-                  imageResize.x = Math.min(mouseX, rectMaxX);
-                  imageResize.y = Math.min(mouseY, rectMaxY);
-                  imageResize.width = Math.abs(rectMaxX - mouseX);
-                  imageResize.height = Math.abs(rectMaxY - mouseY);
-                  break;
-
-               case "top-right":
-                  if (mouseX > x) {
-                     imageResize.width = mouseX - x;
-                  } else if (mouseX < x) {
-                     imageResize.x = mouseX;
-                     imageResize.width = x - mouseX;
-                  }
-                  if (mouseY < y + height) {
-                     imageResize.y = mouseY;
-                     imageResize.height = y + height - mouseY;
-                  } else if (mouseY > height + y) {
-                     imageResize.y = y + height;
-                     imageResize.height = mouseY - imageResize.y;
-                  }
-
-                  break;
-
-               case "bottom-left":
-                  if (mouseX < x + width) {
-                     imageResize.x = mouseX;
-                     imageResize.width = x + width - mouseX;
-                  } else if (mouseX > x + width) {
-                     imageResize.x = x + width;
-                     imageResize.width = mouseX - imageResize.x;
-                  }
-
-                  if (mouseY > y) {
-                     imageResize.height = mouseY - y;
-                  } else if (mouseY < y) {
-                     imageResize.height = y - mouseY;
-                     imageResize.y = mouseY;
-                  }
-
-                  break;
-
-               case "bottom-right":
-                  if (mouseX > x) imageResize.width = mouseX - imageResize.x;
-                  else if (mouseX < x) {
-                     imageResize.x = mouseX;
-                     imageResize.width = x - mouseX;
-                  }
-                  if (mouseY > y) imageResize.height = mouseY - imageResize.y;
-                  else if (mouseY < y) {
-                     imageResize.y = mouseY;
-                     imageResize.height = y - mouseY;
-                  }
-
-                  break;
-
-               default:
-                  break;
-            }
-         }
+         squareResize(imageResize);
          this.updateLinesPointTo(imageResize);
          const { x, y, width, height, isActive } = imageResize;
          this.breakPointsCtx.clearRect(
@@ -2224,6 +2362,20 @@ export default class Shapes {
             this.lineConnectParams(mouseX, mouseY);
             this.updateLineMinMax(this.resizeElement?.key);
          }
+      } else if (figResize) {
+         squareResize(figResize);
+         for (const [_, rect] of this.rectMap) {
+            if (
+               rect.x > figResize.x &&
+               rect.x + rect.width < figResize.x + figResize.width &&
+               rect.y > figResize.y &&
+               rect.t + rect.height < figResize.y + figResize.height
+            ) {
+               rect.containerId = this.resizeElement?.key;
+            } else {
+               rect.containerId = null;
+            }
+         }
       }
 
       if (this.resizeElement?.key) {
@@ -2237,6 +2389,7 @@ export default class Shapes {
       let line = this.lineMap.get(this.dragElement);
       let image = this.imageMap.get(this.dragElement?.key);
       let pencilDrag = this.pencilMap.get(this.dragElement);
+      let figDrag = this.figureMap.get(this.dragElement);
 
       if (rect) {
          rect.isActive = true;
@@ -2734,6 +2887,16 @@ export default class Shapes {
             pencilDrag
          );
          return;
+      } else if (figDrag) {
+         figDrag.x = mouseX - figDrag.offsetX;
+         figDrag.y = mouseY - figDrag.offsetY;
+
+         this.rectMap.forEach((rect) => {
+            if (rect.containerId === this.dragElement) {
+               rect.x = mouseX - rect.offsetX;
+               rect.y = mouseY - rect.offsetY;
+            }
+         });
       }
       this.draw();
    }
@@ -2843,6 +3006,7 @@ export default class Shapes {
       const line = this.lineMap.get(this.resizeElement?.key);
       const sphere = this.circleMap.get(this.resizeElement?.key);
       const imageResize = this.imageMap.get(this.resizeElement?.key);
+      const figResize = this.figureMap.get(this.resizeElement?.key);
 
       if (rect) {
          rect.isActive = true;
@@ -3077,6 +3241,18 @@ export default class Shapes {
                sphere.y + sphere.yRadius
             );
          }
+      } else if (figResize) {
+         const { x, y, width, height } = figResize;
+         this.rectMap.forEach((rect) => {
+            if (
+               rect.x > x &&
+               rect.x + rect.width < x + width &&
+               rect.y > y &&
+               rect.y + rect.height < y + height
+            ) {
+               rect.containerId = this.resizeElement.key;
+            }
+         });
       }
 
       const rectDrag = this.rectMap.get(this.dragElement);
@@ -3093,6 +3269,19 @@ export default class Shapes {
             rectDrag.x + rectDrag.width,
             rectDrag.y + rectDrag.height
          );
+         if (rectDrag.containerId) {
+            const container = this.figureMap.get(rectDrag.containerId);
+            if (container) {
+               if (
+                  rectDrag.x < container.x ||
+                  rectDrag.x + rectDrag.width > container.x + container.width ||
+                  rectDrag.y < container.y ||
+                  rectDrag.y + rectDrag.height > container.y + container.height
+               ) {
+                  rectDrag.containerId = null;
+               }
+            }
+         }
          if (rectDrag.pointTo?.length > 0) {
             rectDrag.pointTo.forEach((l) => {
                this.updateLineMinMax(l);
@@ -3360,14 +3549,20 @@ export default class Shapes {
 
          this.draw();
       } else if (config.mode === "figure") {
-         const newFigure = new Figure(mouseX, mouseY, "Figure", 100, 100);
+         const newFigure = new Figure(
+            mouseX - scrollBar.scrollPositionX,
+            mouseY - scrollBar.scrollPositionY,
+            "Figure",
+            100,
+            100
+         );
+         newFigure.isActive = false;
          this.figureMap.set(newFigure.id, newFigure);
-         renderFigure();
+         //  this.renderFigure();
+         this.draw();
          config.mode = "free";
          setMode(config.mode);
          config.currentActive = newFigure;
-
-         this.draw();
       }
 
       if (config.mode === "handsFree") return;
@@ -4211,7 +4406,7 @@ export default class Shapes {
    }
 
    duplicate(e) {
-      if (e.altKey && config.mode !== "handsFree") {
+      if (e.altKey && config.mode === "free") {
          const current = this.canvasClick(e);
 
          if (current) {
@@ -4494,7 +4689,13 @@ export default class Shapes {
 
    initialize() {
       this.canvas.addEventListener("mouseup", this.mouseUp.bind(this));
-      this.canvas.addEventListener("mousemove", this.mouseMove.bind(this));
+      this.canvas.addEventListener("mousemove", (e) => {
+         this.mouseMove(e);
+      });
+      this.canvasDiv.addEventListener(
+         "mousedown",
+         this.mouseDownForFif.bind(this)
+      );
       this.canvas.addEventListener("mousedown", (e) => {
          this.mouseDownDragAndResize(e);
          this.duplicate(e);
@@ -4508,6 +4709,10 @@ export default class Shapes {
    cleanup() {
       this.canvas.removeEventListener("mouseup", this.mouseUp.bind(this));
       this.canvas.removeEventListener("mousemove", this.mouseMove.bind(this));
+      this.canvasDiv.removeEventListener(
+         "mousedown",
+         this.mouseDownForFif.bind(this)
+      );
       this.canvas.removeEventListener("mousedown", (e) => {
          this.mouseDownDragAndResize(e);
          this.duplicate(e);
