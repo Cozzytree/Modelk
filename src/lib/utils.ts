@@ -5,8 +5,6 @@ export function cn(...inputs: ClassValue[]) {
    return twMerge(clsx(inputs));
 }
 
-
-
 export const config = {
    mode: "free",
    docMode: "both",
@@ -54,6 +52,21 @@ export const scrollBar = {
    startY: 0,
    startX: 0,
 };
+
+export const shapeProps = {
+   fonts: [
+      "Arial",
+      "Verdana",
+      "Times New Roman",
+      "Courier New",
+      "serif",
+      "sans-serif",
+   ],
+   fontWeight: ["normal", "bold", "bolder", "lighter"],
+   fontVarient: ["normal", "small-caps"],
+};
+
+Object.freeze(shapeProps);
 
 export const Scale = {
    scale: 1,

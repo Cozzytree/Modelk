@@ -236,6 +236,11 @@ export default function Canvas() {
          draw.minY = minY;
          draw.maxY = maxY;
 
+         minX = Infinity;
+         maxX = -Infinity;
+         minY = Infinity;
+         maxY = -Infinity;
+
          // set new drawing
          shape.pencilMap.set(draw.id, draw);
          canvas.removeEventListener("mousemove", canvasmousemove);

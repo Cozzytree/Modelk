@@ -9,12 +9,24 @@ import {
    MenubarSubTrigger,
    MenubarTrigger,
 } from "@/components/ui/menubar";
-import { config, thickness, lineType, fontsizes } from "@/lib/utils.ts";
+import {
+   config,
+   thickness,
+   lineType,
+   fontsizes,
+   shapeProps,
+} from "@/lib/utils.ts";
 import {
    ArrowLeftIcon,
    ArrowRightIcon,
    ArrowTopRightIcon,
    BoxIcon,
+   FontBoldIcon,
+   FontFamilyIcon,
+   FontSizeIcon,
+   FontStyleIcon,
+   LetterCaseLowercaseIcon,
+   LetterCaseUppercaseIcon,
    SquareIcon,
    TextAlignCenterIcon,
    TextAlignJustifyIcon,
@@ -87,6 +99,22 @@ export default function CanvasShapeOptions({
          config.currentActive.textPosition = allign;
          if (shapeClassRef) shapeClassRef.draw();
          setCurrent(config.currentActive);
+      }
+   };
+
+   const changeFont = (font) => {
+      if (config.currentActive) {
+         config.currentActive.font = font;
+         setCurrent(config.currentActive);
+         if (shapeClassRef) shapeClassRef.draw();
+      }
+   };
+
+   const changeFontWeight = (weight) => {
+      if (config.currentActive) {
+         config.currentActive.fontWeight = weight;
+         setCurrent(config.currentActive);
+         if (shapeClassRef) shapeClassRef.draw();
       }
    };
 
@@ -221,22 +249,104 @@ export default function CanvasShapeOptions({
 
                {/* {font size} */}
                <MenubarMenu>
-                  <MenubarTrigger className="h-full w-full text-xs flex gap-1 items-center">
-                     <strong>T</strong> size
+                  <MenubarTrigger className="h-full w-full">
+                     <FontSizeIcon />
                   </MenubarTrigger>
                   <MenubarContent className="w-fit">
                      {fontsizes.map((font) => (
                         <div
                            onClick={() => changeFontSizes(font.q)}
                            key={font.size}
-                           className={`text-center text-xs cursor-pointer hover:bg-secondary transition-all duration-150 p-1 rounded-md ${
+                           className={`text-center text-xs cursor-pointer hover:bg-secondary hover:text-secondary-foreground transition-all duration-150 p-1 rounded-md ${
                               currentActive?.textSize == font.q &&
-                              "bg-secondary"
+                              "bg-secondary text-secondary-foreground"
                            }`}
                         >
                            {font.size}
                         </div>
                      ))}
+                  </MenubarContent>
+               </MenubarMenu>
+
+               {/* font stye */}
+               <MenubarMenu>
+                  <MenubarTrigger className="h-full w-full">
+                     <FontFamilyIcon />
+                  </MenubarTrigger>
+                  <MenubarContent className="w-fit">
+                     <ul className="flex flex-col items-center justify-center divide-y-2">
+                        {shapeProps.fonts.map((font) => (
+                           <li
+                              onClick={() => changeFont(font)}
+                              key={font}
+                              className={`${
+                                 font === currentActive?.font &&
+                                 "bg-secondary text-secondary-foreground"
+                              } w-full rounded-sm p-[4px] text-xs hover:bg-secondary hover:text-secondary-foreground transition-all duration-150`}
+                           >
+                              {font}
+                           </li>
+                        ))}
+                     </ul>
+                  </MenubarContent>
+               </MenubarMenu>
+
+               {/* font weight */}
+               <MenubarMenu>
+                  <MenubarTrigger className="w-full h-full">
+                     <FontBoldIcon />
+                  </MenubarTrigger>
+                  <MenubarContent>
+                     <ul className="flex flex-col items-center divide-y-2">
+                        {shapeProps.fontWeight.map((weight) => (
+                           <li
+                              onClick={() => changeFontWeight(weight)}
+                              className={`${
+                                 weight === currentActive?.fontWeight &&
+                                 "bg-secondary text-secondary-foreground"
+                              } w-full hover:bg-secondary hover:text-secondary-foreground transition-all text-xs duration-150 rounded-sm p-[4px]`}
+                              key={weight}
+                           >
+                              {weight}
+                           </li>
+                        ))}
+                     </ul>
+                  </MenubarContent>
+               </MenubarMenu>
+
+               {/* font varient */}
+               <MenubarMenu>
+                  <MenubarTrigger className="h-full w-full">
+                     <FontStyleIcon />
+                  </MenubarTrigger>
+                  <MenubarContent>
+                     <ul className="flex flex-col items-center divide-y-2">
+                        {shapeProps.fontVarient.map((varient) => (
+                           <li
+                              className="w-full hover:bg-secondary hover:text-secondary-foreground transition-all duration-150 rounded-sm p-[4px]"
+                              key={varient}
+                              onClick={() => {
+                                 if (config.currentActive) {
+                                    config.currentActive.fontVarient = varient;
+                                    setCurrent(config.currentActive);
+                                    if (shapeClassRef) shapeClassRef.draw();
+                                 }
+                              }}
+                           >
+                              {varient === "normal" ? (
+                                 <LetterCaseLowercaseIcon
+                                    width={"20px"}
+                                    height={"30px"}
+                                 />
+                              ) : (
+                                 <LetterCaseUppercaseIcon
+                                    width={"20px"}
+                                    height={"30px"}
+                                 />
+                              )}
+                           </li>
+                        ))}
+                     </ul>
                   </MenubarContent>
                </MenubarMenu>
 

@@ -212,8 +212,16 @@ export default class Shapes {
             }
          });
 
+         this.pencilMap.forEach((pencil, key) => {
+            if (pencil.isActive) {
+               this.pencilMap.delete(key);
+               total.push({ s: pencil, bp: null });
+            }
+         });
+
          recycleAndUse.insert(total);
          this.draw();
+         this.drawImage();
       }
    }
 
@@ -381,6 +389,8 @@ export default class Shapes {
       //   this.context.translate(centerX, centerY);
       //   this.context.translate(-centerX, -centerY);
       this.context.scale(Scale.scale, Scale.scale);
+      // Enable anti-aliasing
+      this.context.imageSmoothingEnabled = true;
 
       this.context.lineWidth = this.lineWidth;
       this.context.strokeStyle = "rgb(2, 211, 134)";
@@ -435,6 +445,9 @@ export default class Shapes {
             isActive,
             fillType,
             textPosition,
+            fontVarient,
+            font,
+            fontWeight,
          } = rect;
 
          drawDotsAndRect(
@@ -464,7 +477,18 @@ export default class Shapes {
          this.context.closePath();
 
          // Render text
-         this.renderText(text, x, y, textSize, height, width, textPosition);
+         this.renderText(
+            text,
+            x,
+            y,
+            textSize,
+            height,
+            width,
+            textPosition,
+            fontWeight,
+            fontVarient,
+            font
+         );
       });
 
       // Draw circles
@@ -479,6 +503,9 @@ export default class Shapes {
             borderColor,
             textSize,
             isActive,
+            fontWeight,
+            fontVarient,
+            font,
          } = sphere;
          const x = sphere.x - xRadius;
          const y = sphere.y - yRadius;
@@ -514,7 +541,18 @@ export default class Shapes {
          this.context.closePath();
 
          // Render text
-         this.renderText(text, x, y, textSize, height, width, textPosition);
+         this.renderText(
+            text,
+            x,
+            y,
+            textSize,
+            height,
+            width,
+            textPosition,
+            fontWeight,
+            fontVarient,
+            font
+         );
       });
 
       // Draw text blocks
@@ -529,11 +567,15 @@ export default class Shapes {
             fillStyle,
             content,
             isActive,
+            fontWeight,
+            fontVarient,
          } = t;
 
          // Set the font size and style before measuring the text
          this.context.fillStyle = fillStyle;
-         this.context.font = `${textSize}px ${font || "Arial"}`;
+         this.context.font = `${fontVarient} ${fontWeight} ${textSize}px ${
+            font || "Arial"
+         }`;
 
          let maxWidth = 0;
          content.forEach((c) => {
@@ -588,6 +630,9 @@ export default class Shapes {
             maxY,
             textSize,
             textPosition,
+            fontVarient,
+            fontWeight,
+            font,
          } = line;
 
          this.context.beginPath();
@@ -743,7 +788,10 @@ export default class Shapes {
             textSize,
             maxY - minY,
             maxX - minX,
-            textPosition
+            textPosition,
+            fontWeight,
+            fontVarient,
+            font
          );
 
          this.context.stroke();
@@ -811,9 +859,26 @@ export default class Shapes {
          this.renderCanvasCtx.moveTo(points[0].x, points[0].y);
          this.renderCanvasCtx.lineCap = "round";
          this.renderCanvasCtx.lineJoin = "round";
-         for (let i = 1; i < points.length; i++) {
-            this.renderCanvasCtx.lineTo(points[i].x, points[i].y);
+         let i = 1;
+         for (i = 1; i < points.length - 2; i++) {
+            const c = (points[i].x + points[i + 1].x) / 2;
+            const d = (points[i].y + points[i + 1].y) / 2;
+
+            this.renderCanvasCtx.quadraticCurveTo(
+               points[i].x,
+               points[i].y,
+               c,
+               d
+            );
+            // this.renderCanvasCtx.lineTo(points[i].x, points[i].y);
          }
+
+         this.renderCanvasCtx.quadraticCurveTo(
+            points[i].x,
+            points[i].y,
+            points[i + 1].x,
+            points[i + 1].y
+         );
 
          this.renderCanvasCtx.stroke();
          this.renderCanvasCtx.closePath();
@@ -1281,24 +1346,24 @@ export default class Shapes {
          //full resize
          if (
             // Top-left corner
-            (mouseX >= forXless &&
-               mouseX < forXless + this.tolerance &&
-               mouseY > forYless - this.tolerance &&
-               mouseY <= forYless) ||
+            (mouseX >= forXless - this.tolerance &&
+               mouseX <= forXless + this.tolerance &&
+               mouseY >= forYless - this.tolerance &&
+               mouseY <= forYless + this.tolerance) ||
             // Top-right corner
-            (mouseX >= forXmore &&
-               mouseX < forXmore + this.tolerance &&
-               mouseY > forYless - this.tolerance &&
-               mouseY <= forYless) ||
+            (mouseX >= forXmore - this.tolerance &&
+               mouseX <= forXmore + this.tolerance &&
+               mouseY >= forYless - this.tolerance &&
+               mouseY <= forYless + this.tolerance) ||
             // Bottom-left corner
             (mouseX >= forXless - this.tolerance &&
-               mouseX <= forXless &&
-               mouseY >= forYmore &&
+               mouseX <= forXless + this.tolerance &&
+               mouseY >= forYmore - this.tolerance &&
                mouseY <= forYmore + this.tolerance) ||
             // Bottom-right corner
-            (mouseX >= forXmore &&
+            (mouseX >= forXmore - this.tolerance &&
                mouseX <= forXmore + this.tolerance &&
-               mouseY >= forYmore &&
+               mouseY >= forYmore - this.tolerance &&
                mouseY <= forYmore + this.tolerance)
          ) {
             arc.isActive = true;
@@ -1332,9 +1397,10 @@ export default class Shapes {
       let smallestText = null;
       let line = null;
       let smallestImage = null;
+      let smallestPencil = null;
 
       //   image drag params
-      this.imageMap.forEach((image, key) => {
+      const imageDrag = (image, key) => {
          const { x, y, width, height } = image;
          if (
             mouseX > x &&
@@ -1349,7 +1415,7 @@ export default class Shapes {
          if (image.isActive) {
             image.isActive = false;
          }
-      });
+      };
 
       const checkRect = (rect, key) => {
          if (rect.isActive) rect.isActive = false;
@@ -1415,10 +1481,26 @@ export default class Shapes {
          }
       };
 
+      const pencilDrag = (pencil, key) => {
+         const { minX, maxX, minY, maxY } = pencil;
+         if (mouseX > minX && mouseX < maxX && mouseY > minY && mouseY < maxY) {
+            if (
+               smallestPencil == null ||
+               smallestPencil.maxX - smallestPencil.minY > maxX - minX
+            ) {
+               smallestPencil = { pencil, key };
+            }
+         } else {
+            pencil.isActive = false;
+         }
+      };
+
       this.rectMap.forEach(checkRect);
       this.circleMap.forEach(checkCircle);
       this.textMap.forEach(checkText);
       this.lineMap.forEach(simpleLine);
+      this.imageMap.forEach(imageDrag);
+      this.pencilMap.forEach(pencilDrag);
 
       // giving priority to image over shapes
       if (smallestImage?.key) {
@@ -1486,6 +1568,28 @@ export default class Shapes {
          setDragging(smallestText.text);
          this.dragElement = smallestText.key;
          config.currentActive = smallestText.text;
+      } else if (
+         smallestPencil &&
+         (!smallestRect ||
+            smallestRect.rect.width >
+               smallestPencil.pencil.maxX - smallestPencil.pencil.minX) &&
+         (!smallestCircle ||
+            smallestCircle.circle.xRadius * 2 >
+               smallestPencil.pencil.maxX - smallestPencil.pencil.minX)
+      ) {
+         const { minX, maxX, minY, maxY } = smallestPencil.pencil;
+         smallestPencil.pencil.isActive = true;
+         smallestPencil.pencil.offsetX = minX - mouseX;
+         smallestPencil.pencil.offsetY = minY - mouseY;
+         smallestPencil.pencil.width = maxX - minX;
+         smallestPencil.pencil.height = maxY - minY;
+
+         smallestPencil.pencil.points.forEach((point) => {
+            point.offsetX = point.x - mouseX;
+            point.offsetY = point.y - mouseY;
+         });
+         this.dragElement = smallestPencil.key;
+         config.currentActive = smallestPencil.pencil;
       }
 
       // for massSelection
@@ -1493,6 +1597,7 @@ export default class Shapes {
          this.massiveSelection.isDown = true;
          this.massiveSelection.startX = mouseX;
          this.massiveSelection.startY = mouseY;
+         return;
       }
 
       this.draw();
@@ -1716,6 +1821,7 @@ export default class Shapes {
       if (config.mode === "pencil") return;
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
 
+      // massive is selected and selected is down
       if (this.massiveSelection.isSelectedDown) {
          this.massiveSelection.isSelectedMinX =
             mouseX + this.massiveSelection.offsetX;
@@ -1764,6 +1870,7 @@ export default class Shapes {
          return;
       }
 
+      // start massive selection
       if (this.massiveSelection.isDown) {
          const { startX, startY } = this.massiveSelection;
          let x, y, width, height;
@@ -2129,6 +2236,7 @@ export default class Shapes {
       let text = this.textMap.get(this.dragElement);
       let line = this.lineMap.get(this.dragElement);
       let image = this.imageMap.get(this.dragElement?.key);
+      let pencilDrag = this.pencilMap.get(this.dragElement);
 
       if (rect) {
          rect.isActive = true;
@@ -2606,6 +2714,26 @@ export default class Shapes {
             height
          );
          this.breakPointsCtx.restore();
+      } else if (pencilDrag) {
+         pencilDrag.minX = mouseX + pencilDrag.offsetX;
+         pencilDrag.minY = mouseY + pencilDrag.offsetY;
+         pencilDrag.maxY = pencilDrag.minY + pencilDrag.height;
+         pencilDrag.maxX = pencilDrag.minX + pencilDrag.width;
+
+         pencilDrag.points.forEach((point) => {
+            point.x = mouseX + point.offsetX;
+            point.y = mouseY + point.offsetY;
+         });
+         this.drawImage();
+         this.showGuides(
+            pencilDrag.minX,
+            pencilDrag.minY,
+            pencilDrag.maxX - pencilDrag.minX,
+            pencilDrag.maxY - pencilDrag.minY,
+            this.dragElement,
+            pencilDrag
+         );
+         return;
       }
       this.draw();
    }
@@ -3192,7 +3320,7 @@ export default class Shapes {
          config.currentActive = newRect;
          this.draw();
       } else if (config.mode === "sphere") {
-         const newSphere = new Circle(mouseX, mouseY, 50, 50);
+         const newSphere = new Circle(mouseX, mouseY, 50, 50, [], 15, true);
 
          this.circleMap.set(newSphere.id, newSphere);
 
@@ -3242,7 +3370,7 @@ export default class Shapes {
          this.draw();
       }
 
-      if (config.mode === "free" || config.mode === "handsFree") return;
+      if (config.mode === "handsFree") return;
 
       if (config.currentActive !== currentActive) {
          setCurrentActive(config.currentActive);
@@ -4237,7 +4365,18 @@ export default class Shapes {
       }
    }
 
-   renderText(textArray, x, y, textSize, height, width, position = "left") {
+   renderText(
+      textArray,
+      x,
+      y,
+      textSize,
+      height,
+      width,
+      position = "left",
+      fontWeight,
+      fontVarient,
+      font
+   ) {
       // Calculate the total height of the text block
       let totalTextHeight = textArray.length * textSize;
 
@@ -4246,7 +4385,7 @@ export default class Shapes {
 
       // Set the text properties
       this.context.fillStyle = "white";
-      this.context.font = `${textSize}px Arial`;
+      this.context.font = `${fontVarient} ${fontWeight} ${textSize}px ${font}`;
 
       // Iterate through the text array and render each line
       for (let i = 0; i < textArray.length; i++) {
@@ -4303,6 +4442,8 @@ export default class Shapes {
                this.textMap.set(a.s.id, a.s);
                //    if (a.bp) this.breakPoints.set(a.s.id, s.bp);
                break;
+            case "pencil":
+               this.pencilMap.set(a.s.id, a.s);
             default:
                break;
          }

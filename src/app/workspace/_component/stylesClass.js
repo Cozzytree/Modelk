@@ -11,6 +11,9 @@ class DefaultStyles {
       this.textSize = 20;
       this.text = [];
       this.textPosition = "center"; // "center" || "left" || "right"
+      this.font = "Arial";
+      this.fontWeight = "normal";
+      this.fontVarient = "normal";
    }
 }
 
@@ -72,7 +75,16 @@ export class Line extends DefaultStyles {
 }
 
 export class Text extends DefaultStyles {
-   constructor(x, y, size, content = [], font, isActive, height, width) {
+   constructor(
+      x,
+      y,
+      size = 20,
+      content = [],
+      font = "Arial",
+      isActive,
+      height,
+      width
+   ) {
       super();
       this.content = content;
       this.pointTo = [];
@@ -81,7 +93,7 @@ export class Text extends DefaultStyles {
       this.x = x;
       this.y = y;
       this.font = font;
-      this.textSize = size || this.textSize;
+      this.textSize = size;
       this.isActive = isActive;
       this.height = height;
       this.width = width;
@@ -109,6 +121,7 @@ export class Pencil extends DefaultStyles {
       maxY = null
    ) {
       super();
+      this.type = "pencil";
       this.points = points;
       this.minX = minX;
       this.maxX = maxX;
