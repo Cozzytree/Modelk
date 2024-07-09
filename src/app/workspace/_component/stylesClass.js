@@ -100,6 +100,23 @@ export class Figure extends DefaultStyles {
    }
 }
 
+export class Pencil extends DefaultStyles {
+   constructor(
+      points = [],
+      minX = null,
+      minY = null,
+      maxX = null,
+      maxY = null
+   ) {
+      super();
+      this.points = points;
+      this.minX = minX;
+      this.maxX = maxX;
+      this.minY = minY;
+      this.maxY = maxY;
+   }
+}
+
 // save as image option
 // const canvas = document.getElementById("myCanvas");
 // const saveButton = document.getElementById("saveButton");

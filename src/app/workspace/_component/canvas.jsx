@@ -18,7 +18,7 @@ import { useParams } from "next/navigation.js";
 import { useEffect, useRef, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button.tsx";
 import { config, Scale, scrollBar } from "@/lib/utils.ts";
-import { Line } from "../_component/stylesClass.js";
+import { Line, Pencil } from "../_component/stylesClass.js";
 import { useNewRect, useNewSphere } from "@/requests/shapeRequests.ts";
 import {
    Tooltip,
@@ -34,7 +34,6 @@ const buttons = [
    { icon: <CircleIcon />, label: "sphere" },
    { icon: <ArrowBottomRightIcon />, label: "arrowLine" },
    { icon: <TextIcon />, label: "text" },
-   { icon: <Pencil1Icon />, label: "pencil" },
 ];
 
 const width = window.innerWidth;
@@ -82,6 +81,42 @@ function drawCurve(line, tempPoint, canvas, context) {
    context.restore();
 }
 
+function pencilDraw(x, y, context, lastPoint) {
+   // Line width and style settings
+   context.save();
+   context.scale(Scale.scale, Scale.scale);
+   context.translate(-scrollBar.scrollPositionX, -scrollBar.scrollPositionY);
+   context.lineWidth = 1.6;
+   context.strokeStyle = "white";
+   context.lineCap = "round";
+   context.lineJoin = "round";
+
+   // Linear interpolation function
+   function lerp(start, end, amt) {
+      return (1 - amt) * start + amt * end;
+   }
+
+   // Number of interpolation steps
+   const steps = 10;
+
+   for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const interpolatedX = lerp(lastPoint.x, x, t);
+      const interpolatedY = lerp(lastPoint.y, y, t);
+
+      context.beginPath();
+      context.moveTo(lastPoint.x, lastPoint.y);
+      context.lineTo(interpolatedX, interpolatedY);
+      context.stroke();
+      context.closePath();
+
+      // Update lastPoint for next iteration
+      lastPoint.x = interpolatedX;
+      lastPoint.y = interpolatedY;
+   }
+   context.restore();
+}
+
 export default function Canvas() {
    // shapes
    //   const { mutate: createNewRect, isPending } = useNewRect();
@@ -123,9 +158,21 @@ export default function Canvas() {
    useEffect(() => {
       const canvas = canvasRef.current;
       const shape = shapeClassRef.current;
+
+      let isDrawing = false;
+      let draw = null;
+      let tempPoint = null;
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      const renderCanvas = breakPointsRef.current;
+      const context = renderCanvas.getContext("2d");
+
       const handler = (e) => {
          if (config.mode === "pencil") return;
-         if (!shape) return;
+
+         if (!shape) GSP_NO_RETURNED_VALU;
 
          if (newImage) {
             const { x, y } = shape.getTransformedMouseCoords(e);
@@ -142,7 +189,58 @@ export default function Canvas() {
             });
             setImage(null);
          }
+
          shape.insertNewAsset(e, setMode, setCurrentActive, currentActive);
+      };
+
+      const canvasmousedown = (e) => {
+         if (config.mode !== "pencil") return;
+         const { x, y } = shape.getTransformedMouseCoords(e);
+         draw = new Pencil();
+         draw.points.push({ x, y });
+         isDrawing = true;
+         canvas.addEventListener("mousemove", (e) => {
+            if (!isDrawing) return;
+
+            const { x, y } = shape.getTransformedMouseCoords(e);
+            canvasmousemove(x, y);
+         });
+         context.strokeStyle = "white";
+         context.stroke();
+         tempPoint = { x, y };
+      };
+
+      const canvasmousemove = (x, y) => {
+         if (x < minX) {
+            minX = x;
+         }
+         if (x > maxX) {
+            maxX = x;
+         }
+         if (y < minY) {
+            minY = y;
+         }
+         if (y > maxY) {
+            maxY = y;
+         }
+         pencilDraw(x, y, context, tempPoint);
+         draw.points.push(tempPoint);
+         tempPoint = { x, y };
+      };
+
+      const mouseUp = () => {
+         if (config.mode !== "pencil") return;
+         isDrawing = false;
+         draw.minX = minX;
+         draw.maxX = maxX;
+         draw.minY = minY;
+         draw.maxY = maxY;
+
+         // set new drawing
+         shape.pencilMap.set(draw.id, draw);
+         canvas.removeEventListener("mousemove", canvasmousemove);
+         context.clearRect(0, 0, renderCanvas.width, renderCanvas.height);
+         shape.drawImage();
       };
 
       const zoomInOut = (e) => {
@@ -160,6 +258,8 @@ export default function Canvas() {
 
       document.addEventListener("keydown", keyDownHandler);
       canvas.addEventListener("click", handler);
+      canvas.addEventListener("mousedown", canvasmousedown);
+      canvas.addEventListener("mouseup", mouseUp);
       window.addEventListener("wheel", zoomInOut, {
          passive: false,
       });
@@ -167,6 +267,8 @@ export default function Canvas() {
       return () => {
          document.removeEventListener("keydown", keyDownHandler);
          canvas.removeEventListener("click", handler);
+         canvas.removeEventListener("mousedown", canvasmousedown);
+         canvas.removeEventListener("mouseup", mouseUp);
          window.removeEventListener("wheel", zoomInOut);
       };
    }, [currentActive, newImage]);
@@ -182,6 +284,7 @@ export default function Canvas() {
             className="absolute top-0 left-0"
          ></canvas>
          <canvas ref={canvasRef} className="absolute top-0 left-0"></canvas>
+
          <TooltipProvider>
             <div className="absolute top-[8%] left-2 border p-[2px] border-zinc-800 flex flex-col items-center rounded-sm gap-[2px]">
                {buttons.map((button, i) => (
@@ -201,15 +304,33 @@ export default function Canvas() {
                      >
                         {button.icon}
                      </TooltipTrigger>
-                     <TooltipContent
-                        side="right"
-                        sideOffset={6}
-                        className=" bg-secondary text-foreground"
-                     >
+                     <TooltipContent side="right" sideOffset={6}>
                         {button.label}
                      </TooltipContent>
                   </Tooltip>
                ))}
+
+               <Tooltip>
+                  <TooltipTrigger
+                     asChild
+                     className={`${
+                        mode === "pencil" ? "bg-accent" : ""
+                     } ${buttonVariants({
+                        variant: "ghost",
+                        size: "icon",
+                     })} text-xs p-[10px] w-fit h-fit`}
+                     onClick={() => {
+                        config.mode = "pencil";
+                        setMode(config.mode);
+                     }}
+                  >
+                     <Pencil1Icon />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={6}>
+                     Pencil
+                  </TooltipContent>
+               </Tooltip>
+
                <Tooltip>
                   <TooltipTrigger
                      className={`${
@@ -219,14 +340,7 @@ export default function Canvas() {
                         size: "icon",
                      })} text-xs p-[10px] w-full h-fit`}
                      onClick={() => {
-                        if (
-                           config.mode === "handsFree" ||
-                           config.mode === "rect" ||
-                           config.mode === "sphere" ||
-                           config.mode === "text"
-                        )
-                           return;
-
+                        console.log(mode);
                         //change mode
                         config.mode = "line";
                         setMode(config.mode);
@@ -253,6 +367,7 @@ export default function Canvas() {
                         };
 
                         const onCanvasClick = (e) => {
+                           if (config.mode !== "line") return;
                            const { x, y } = shape.getTransformedMouseCoords(e);
                            if (x < minX) {
                               minX = x;
@@ -305,11 +420,7 @@ export default function Canvas() {
                   >
                      <div className="w-[2px] h-[20px] bg-white rotate-[142deg]"></div>
                   </TooltipTrigger>
-                  <TooltipContent
-                     side="right"
-                     sideOffset={6}
-                     className=" bg-secondary text-foreground"
-                  >
+                  <TooltipContent side="right" sideOffset={6}>
                      Line
                   </TooltipContent>
                </Tooltip>
@@ -349,11 +460,7 @@ export default function Canvas() {
                         className="hidden"
                      />
                   </TooltipTrigger>
-                  <TooltipContent
-                     side="right"
-                     sideOffset={6}
-                     className=" bg-secondary text-foreground"
-                  >
+                  <TooltipContent side="right" sideOffset={6}>
                      Image
                   </TooltipContent>
                </Tooltip>

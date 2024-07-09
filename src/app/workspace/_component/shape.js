@@ -37,7 +37,8 @@ export default class Shapes {
       this.canvas = canvas;
       this.canvasbreakPoints = canvasbreakPoints;
       this.renderCanvas = renderCanvas;
-      this.activeColor = "#2165ee";
+      //   this.activeColor = "#2165ee";
+      this.activeColor = "hsl(95,78%,49%)";
       this.tolerance = 6;
       this.resizeElement = null;
       this.dragElement = null;
@@ -51,6 +52,7 @@ export default class Shapes {
       this.imageMap = new Map();
       this.figureMap = new Map();
       this.breakPoints = new Map();
+      this.pencilMap = new Map();
       this.shapeToRender = null;
       this.cache = new Map();
       this.massiveSelection = {
@@ -362,7 +364,7 @@ export default class Shapes {
       this.context.closePath();
    }
 
-   draw(showDots = true) {
+   draw() {
       // Clear the canvas
       this.context.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
@@ -405,9 +407,7 @@ export default class Shapes {
 
             // Draw active rectangle
             this.context.beginPath();
-            this.context.strokeStyle = this.massiveSelection.isSelected
-               ? "white"
-               : activeColor;
+            this.context.strokeStyle = this.activeColor;
             this.context.rect(
                x - tolerance,
                y - tolerance,
@@ -594,6 +594,18 @@ export default class Shapes {
          this.context.lineWidth = lineWidth;
 
          if (isActive) {
+            if (lineType === "curve") {
+               this.context.beginPath();
+               this.context.lineWidth = 0.8;
+               this.context.strokeStyle = "red";
+               this.context.moveTo(curvePoints[0].x, curvePoints[0].y);
+               for (let i = 1; i < curvePoints.length; i++) {
+                  this.context.lineTo(curvePoints[i].x, curvePoints[i].y);
+               }
+               this.context.stroke();
+               this.context.closePath();
+            }
+
             this.context.strokeStyle = this.activeColor;
             this.dots(...curvePoints, { context: this.context });
          } else {
@@ -666,6 +678,7 @@ export default class Shapes {
          } else {
             this.context.moveTo(curvePoints[0].x, curvePoints[0].y);
             const t = 0.8; // Weighting factor, 0.5 for halfway, closer to 1 for closer to cp2
+
             for (let i = 1; i < curvePoints.length - 1; i++) {
                const cp1 = curvePoints[i];
                const cp2 = curvePoints[i + 1];
@@ -684,6 +697,7 @@ export default class Shapes {
                (1 - t) * secondToLastPoint.x + t * lastPoint.x;
             const controlPointY =
                (1 - t) * secondToLastPoint.y + t * lastPoint.y;
+
             this.context.quadraticCurveTo(
                controlPointX,
                controlPointY,
@@ -768,6 +782,41 @@ export default class Shapes {
             const img = this.cache.get(key);
             this.drawImageOnCanvas(img, x, y, width, height, isActive);
          }
+      });
+
+      this.pencilMap.forEach((pencil) => {
+         const { points, isActive, minX, minY, maxX, maxY } = pencil;
+         if (isActive) {
+            this.dots(
+               { x: minX - this.tolerance, y: minY - this.tolerance },
+               { x: maxX + this.tolerance, y: minY - this.tolerance },
+               { x: maxX + this.tolerance, y: maxY + this.tolerance },
+               { x: minX - this.tolerance, y: maxY + this.tolerance },
+               { context: this.renderCanvasCtx }
+            );
+            this.renderCanvasCtx.beginPath();
+            this.renderCanvasCtx.strokeStyle = this.activeColor;
+            this.renderCanvasCtx.rect(
+               minX - this.tolerance,
+               minY - this.tolerance,
+               maxX - minX + 2 * this.tolerance,
+               maxY - minY + 2 * this.tolerance
+            );
+            this.renderCanvasCtx.stroke();
+            this.renderCanvasCtx.closePath();
+         }
+         this.renderCanvasCtx.beginPath();
+         this.renderCanvasCtx.strokeStyle = pencil.borderColor;
+         this.renderCanvasCtx.lineWidth = pencil.lineWidth;
+         this.renderCanvasCtx.moveTo(points[0].x, points[0].y);
+         this.renderCanvasCtx.lineCap = "round";
+         this.renderCanvasCtx.lineJoin = "round";
+         for (let i = 1; i < points.length; i++) {
+            this.renderCanvasCtx.lineTo(points[i].x, points[i].y);
+         }
+
+         this.renderCanvasCtx.stroke();
+         this.renderCanvasCtx.closePath();
       });
 
       this.renderCanvasCtx.restore();
@@ -3070,6 +3119,14 @@ export default class Shapes {
          -scrollBar.scrollPositionY
       );
 
+      this.dots(
+         { x: x, y: y },
+         { x: x + width, y: y },
+         { x: x + width, y: y + height },
+         { x: x, y: y + height },
+         { context: this.breakPointsCtx }
+      );
+
       this.breakPointsCtx.beginPath();
       this.breakPointsCtx.fillStyle = "#00f7ff17";
       this.breakPointsCtx.strokeStyle = this.activeColor;
@@ -3184,6 +3241,8 @@ export default class Shapes {
 
          this.draw();
       }
+
+      if (config.mode === "free" || config.mode === "handsFree") return;
 
       if (config.currentActive !== currentActive) {
          setCurrentActive(config.currentActive);
@@ -3521,7 +3580,7 @@ export default class Shapes {
          -scrollBar.scrollPositionY
       );
       this.breakPointsCtx.scale(Scale.scale, Scale.scale);
-      this.breakPointsCtx.lineWidth = 1;
+      this.breakPointsCtx.lineWidth = 0.8;
       this.breakPointsCtx.strokeStyle = "red";
 
       // Variable to track if a guide is drawn
@@ -3963,6 +4022,19 @@ export default class Shapes {
          }
          this.draw();
          this.drawImage();
+
+         if (this.massiveSelection.isSelected) {
+            this.massiveSelectionRect(
+               this.massiveSelection.isSelectedMinX - this.tolerance,
+               this.massiveSelection.isSelectedMinY - this.tolerance,
+               this.massiveSelection.isSelectedMaxX -
+                  this.massiveSelection.isSelectedMinX +
+                  2 * this.tolerance,
+               this.massiveSelection.isSelectedMaxY -
+                  this.massiveSelection.isSelectedMinY +
+                  2 * this.tolerance
+            );
+         }
       }
    }
 

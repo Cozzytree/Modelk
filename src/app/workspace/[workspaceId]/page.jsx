@@ -78,9 +78,9 @@ export default function Workspace() {
                      key={view.name}
                      className={`${
                         view.name === workspaceMode
-                           ? "bg-secondary"
-                           : "bg-black"
-                     } text-sm h-3 py-3`}
+                           ? "bg-secondary text-secondary-foreground"
+                           : "bg-muted"
+                     } text-xs h-3 py-3`}
                      variant="ghost"
                      size="sm"
                   >
@@ -103,7 +103,7 @@ export default function Workspace() {
          <div
             className={`h-screen w-screen grid ${
                workspaceMode === "Both"
-                  ? "grid-cols-[0.5fr_1fr]"
+                  ? "grid-cols-[0.6fr_1fr]"
                   : "grid-cols-1"
             } overflow-hidden divide-x`}
          >

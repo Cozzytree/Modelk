@@ -22,7 +22,7 @@ import {
    TextAlignRightIcon,
    WidthIcon,
 } from "@radix-ui/react-icons";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function CanvasShapeOptions({
    currentActive,
@@ -31,13 +31,14 @@ export default function CanvasShapeOptions({
 }) {
    const [inputText, setInputText] = useState(false);
    const [textContent, setTextContent] = useState("");
+   const inputTextRef = useRef(null);
 
    useEffect(() => {
       let text = "";
       if (!currentActive.text) return;
 
       currentActive.text.forEach((t) => {
-         text += t + "\n";
+         if (t.length) text += t + "\n";
       });
 
       setTextContent(text);
@@ -97,13 +98,17 @@ export default function CanvasShapeOptions({
                   <Button
                      variant="ghost"
                      size="icon"
-                     onClick={() => setInputText((o) => !o)}
+                     onClick={() => {
+                        setInputText((o) => !o);
+                        inputTextRef.current && inputTextRef.current.focus();
+                     }}
                      className="p-2 h-fit font-extrabold"
                   >
                      T
                   </Button>
                   {inputText && (
                      <textarea
+                        ref={inputTextRef}
                         placeholder="text"
                         className="text-xs absolute -top-[150%] left-0 p-1 bg-transparent outline-none focus:outline-none w-fit h-[5ch]"
                         defaultValue={textContent}
@@ -195,7 +200,7 @@ export default function CanvasShapeOptions({
                                     }
                                  }}
                                  key={thick.size}
-                                 className={`grid grid-cols-[0.6fr_1fr] items-center hover:bg-secondary transition-all duration-100 px-[5px] rounded-sm ${
+                                 className={`grid grid-cols-[0.6fr_1fr] items-center hover:bg-secondary hover:text-secondary-foreground transition-all duration-100 px-[5px] rounded-sm ${
                                     currentActive?.lineWidth === thick.q &&
                                     "bg-secondary"
                                  }`}
@@ -205,7 +210,7 @@ export default function CanvasShapeOptions({
                                  </h2>
                                  <div
                                     style={{ height: `${thick.q}px` }}
-                                    className={` bg-zinc-200`}
+                                    className={`bg-zinc-200`}
                                  ></div>
                               </div>
                            ))}
