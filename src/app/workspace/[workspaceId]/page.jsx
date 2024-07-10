@@ -10,7 +10,7 @@ import { GearIcon, ReloadIcon } from "@radix-ui/react-icons";
 const boardView = [{ name: "Document" }, { name: "Both" }, { name: "Canvas" }];
 
 export default function Workspace() {
-   const [workspaceMode, setWorksapceMode] = useState("Both");
+   const [workspaceMode, setWorksapceMode] = useState("Canvas");
    //   const { projectData, isLoading, error } = useGetProjectAssets();
 
    return (

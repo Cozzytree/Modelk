@@ -586,7 +586,7 @@ export default class Shapes {
 
          // Store the measured dimensions
          t.width = maxWidth;
-         t.height = content.length * textSize;
+         t.height = content.length * textSize - this.tolerance;
 
          let currentY = y;
          content.forEach((c) => {
@@ -722,6 +722,7 @@ export default class Shapes {
                   : this.drawArrows({ x: mid.x, y: last.y }, last, headlen);
             }
          } else {
+            const last = curvePoints.length - 1;
             this.context.moveTo(curvePoints[0].x, curvePoints[0].y);
             const t = 0.8; // Weighting factor, 0.5 for halfway, closer to 1 for closer to cp2
 
@@ -765,16 +766,15 @@ export default class Shapes {
                   headlen
                );
             }
-
             if (arrowRight) {
                this.drawArrows(
                   {
-                     x: curvePoints[curvePoints.length - 2].x,
-                     y: curvePoints[curvePoints.length - 2].y,
+                     x: curvePoints[last - 1].x,
+                     y: curvePoints[last - 1].y,
                   },
                   {
-                     x: curvePoints[curvePoints.length - 1].x,
-                     y: curvePoints[curvePoints.length - 1].y,
+                     x: curvePoints[last].x,
+                     y: curvePoints[last].y,
                   },
                   headlen
                );
@@ -815,43 +815,32 @@ export default class Shapes {
          // Update the content and position of the element
          ele.textContent = title;
          ele.style.position = "absolute";
-         ele.style.top = y - 30 - scrollBar.scrollPositionY + "px";
+         ele.style.top = y - 20 - scrollBar.scrollPositionY + "px";
          ele.style.left = x - scrollBar.scrollPositionX + "px";
 
          if (isActive) {
             this.dots(
-               { x: x - this.tolerance, y: y - this.tolerance },
-               { x: x + width + this.tolerance, y: y - this.tolerance },
+               { x: x, y: y },
+               { x: x + width, y: y },
                {
-                  x: x + width + this.tolerance,
-                  y: y + height + this.tolerance,
+                  x: x + width,
+                  y: y + height,
                },
-               { x: x - this.tolerance, y: y + height + this.tolerance },
-               { x: x - this.tolerance, y: y - this.tolerance },
+               { x: x, y: y + height },
                { context: this.context }
             );
-
-            this.context.strokeStyle = this.activeColor;
-            this.context.globalAlpha = 0.7;
-            this.context.rect(
-               x - this.tolerance,
-               y - this.tolerance,
-               width + 2 * this.tolerance,
-               height + 2 * this.tolerance
-            );
-            this.context.stroke();
          }
 
          this.context.beginPath();
-         this.context.strokeStyle = "grey";
+         this.context.strokeStyle = isActive ? this.activeColor : "grey";
          this.context.lineWidth = 0.9;
-         this.context.moveTo(x + radius, y);
-         this.context.arcTo(x + width, y, x + width, y + height, radius);
-         this.context.arcTo(x + width, y + height, x, y + height, radius);
-         this.context.arcTo(x, y + height, x, y, radius);
-         this.context.arcTo(x, y, x + width, y, radius);
+         this.context.moveTo(x + 3, y);
+         this.context.arcTo(x + width, y, x + width, y + height, 3);
+         this.context.arcTo(x + width, y + height, x, y + height, 3);
+         this.context.arcTo(x, y + height, x, y, 3);
+         this.context.arcTo(x, y, x + width, y, 3);
          this.context.stroke();
-         this.context.beginPath();
+         this.context.closePath();
       });
 
       this.context.restore();
@@ -891,13 +880,15 @@ export default class Shapes {
       this.pencilMap.forEach((pencil) => {
          const { points, isActive, minX, minY, maxX, maxY } = pencil;
          if (isActive) {
-            this.dots(
-               { x: minX - this.tolerance, y: minY - this.tolerance },
-               { x: maxX + this.tolerance, y: minY - this.tolerance },
-               { x: maxX + this.tolerance, y: maxY + this.tolerance },
-               { x: minX - this.tolerance, y: maxY + this.tolerance },
-               { context: this.renderCanvasCtx }
-            );
+            if (!this.massiveSelection.isSelected)
+               this.dots(
+                  { x: minX - this.tolerance, y: minY - this.tolerance },
+                  { x: maxX + this.tolerance, y: minY - this.tolerance },
+                  { x: maxX + this.tolerance, y: maxY + this.tolerance },
+                  { x: minX - this.tolerance, y: maxY + this.tolerance },
+                  { context: this.renderCanvasCtx }
+               );
+
             this.renderCanvasCtx.beginPath();
             this.renderCanvasCtx.strokeStyle = this.activeColor;
             this.renderCanvasCtx.rect(
@@ -915,26 +906,42 @@ export default class Shapes {
          this.renderCanvasCtx.moveTo(points[0].x, points[0].y);
          this.renderCanvasCtx.lineCap = "round";
          this.renderCanvasCtx.lineJoin = "round";
-         let i = 1;
-         for (i = 1; i < points.length - 2; i++) {
-            const c = (points[i].x + points[i + 1].x) / 2;
-            const d = (points[i].y + points[i + 1].y) / 2;
+
+         if (points.length < 2) {
+            // If there is only one point, draw a small circle or dot
+            if (points.length === 1) {
+               this.renderCanvasCtx.arc(
+                  points[0].x,
+                  points[0].y,
+                  pencil.lineWidth / 2,
+                  0,
+                  2 * Math.PI
+               );
+               this.renderCanvasCtx.fill();
+            }
+         } else {
+            this.renderCanvasCtx.moveTo(points[0].x, points[0].y);
+            let i = 1;
+            for (i = 1; i < points.length - 2; i++) {
+               const c = (points[i].x + points[i + 1].x) / 2;
+               const d = (points[i].y + points[i + 1].y) / 2;
+
+               this.renderCanvasCtx.quadraticCurveTo(
+                  points[i].x,
+                  points[i].y,
+                  c,
+                  d
+               );
+               // this.renderCanvasCtx.lineTo(points[i].x, points[i].y);
+            }
 
             this.renderCanvasCtx.quadraticCurveTo(
                points[i].x,
                points[i].y,
-               c,
-               d
+               points[i + 1].x,
+               points[i + 1].y
             );
-            // this.renderCanvasCtx.lineTo(points[i].x, points[i].y);
          }
-
-         this.renderCanvasCtx.quadraticCurveTo(
-            points[i].x,
-            points[i].y,
-            points[i + 1].x,
-            points[i + 1].y
-         );
 
          this.renderCanvasCtx.stroke();
          this.renderCanvasCtx.closePath();
@@ -1029,25 +1036,54 @@ export default class Shapes {
          mouseY < this.massiveSelection.isSelectedMaxY
       ) {
          this.rectMap.forEach((rect) => {
-            rect.offsetX = rect.x - mouseX;
-            rect.offsetY = rect.y - mouseY;
+            if (rect.isActive) {
+               rect.offsetX = rect.x - mouseX;
+               rect.offsetY = rect.y - mouseY;
+            }
          });
 
          this.circleMap.forEach((circle) => {
-            circle.offsetX = circle.x - mouseX;
-            circle.offsetY = circle.y - mouseY;
+            if (circle.isActive) {
+               circle.offsetX = circle.x - mouseX;
+               circle.offsetY = circle.y - mouseY;
+            }
          });
 
          this.textMap.forEach((text) => {
-            text.offsetX = text.x - mouseX;
-            text.offsetY = text.y - mouseY;
+            if (text.isActive) {
+               text.offsetX = text.x - mouseX;
+               text.offsetY = text.y - mouseY;
+            }
          });
 
          this.lineMap.forEach((line) => {
-            line.curvePoints.forEach((p) => {
-               p.offsetX = p.x - mouseX;
-               p.offsetY = p.y - mouseY;
-            });
+            if (line.isActive) {
+               line.curvePoints.forEach((p) => {
+                  p.offsetX = p.x - mouseX;
+                  p.offsetY = p.y - mouseY;
+               });
+            }
+         });
+
+         this.figureMap.forEach((fig) => {
+            if (fig.isActive) {
+               fig.isActive = true;
+               fig.offsetX = fig.x - mouseX;
+               fig.offsetY = fig.y - mouseY;
+            }
+         });
+
+         this.pencilMap.forEach((pencil) => {
+            if (pencil.isActive) {
+               pencil.offsetX = pencil.minX - mouseX;
+               pencil.offsetY = pencil.minY - mouseY;
+               pencil.width = pencil.maxX - pencil.minX;
+               pencil.height = pencil.maxY - pencil.minY;
+               pencil.points.forEach((point) => {
+                  point.offsetX = point.x - mouseX;
+                  point.offsetY = point.y - mouseY;
+               });
+            }
          });
 
          this.massiveSelection.isSelectedDown = true;
@@ -1595,17 +1631,32 @@ export default class Shapes {
 
       const checkRect = (rect, key) => {
          if (rect.isActive) rect.isActive = false;
-         if (
+
+         const isMouseInRect =
             mouseX >= rect.x &&
             mouseX <= rect.x + rect.width &&
             mouseY >= rect.y &&
-            mouseY <= rect.y + rect.height
-         ) {
-            if (smallestRect === null || rect.width < smallestRect.rect.width) {
-               smallestRect = { rect: rect, key };
+            mouseY <= rect.y + rect.height;
+
+         if (isMouseInRect) {
+            if (rect.containerId) {
+               const container = this.figureMap.get(rect.containerId);
+               if (
+                  !container.isActive &&
+                  (smallestRect === null ||
+                     rect.width < smallestRect.rect.width)
+               ) {
+                  smallestRect = { rect, key };
+               }
+            } else {
+               if (
+                  smallestRect === null ||
+                  rect.width < smallestRect.rect.width
+               ) {
+                  smallestRect = { rect, key };
+               }
             }
          }
-         if (rect.isActive) rect.isActive = false;
       };
 
       const checkCircle = (sphere, key) => {
@@ -1805,7 +1856,6 @@ export default class Shapes {
          this.massiveSelection.isDown = true;
          this.massiveSelection.startX = mouseX;
          this.massiveSelection.startY = mouseY;
-         return;
       }
 
       this.draw();
@@ -1814,12 +1864,16 @@ export default class Shapes {
 
    mouseDownForFif(e) {
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
+
       for (const [key, value] of this.figureMap) {
          const { id, isActive, x, y, width, height } = value;
          const element = document.querySelector(`[data-containerId="${id}"]`);
 
          // Check if the click happened inside any of the elements
+         if (this.massiveSelection.isSelected) return;
          if (element.contains(e.target)) {
+            if (config.currentActive) config.currentActive.isActive = false;
+            config.currentActive = value;
             value.isActive = true;
          } else if (
             isActive &&
@@ -1933,47 +1987,44 @@ export default class Shapes {
                            const { x, y } = this.getClosestPointOnSphere(
                               object,
                               {
-                                 x: curvePoints[last].x,
-                                 y: curvePoints[last].y,
+                                 x: curvePoints[1].x,
+                                 y: curvePoints[1].y,
                               }
                            );
                            this.updateCurvePoint(l, x, y, 0);
                         } else {
                            const { x, y } = this.getClosestPoints(object, {
-                              x: curvePoints[last].x,
-                              y: curvePoints[last].y,
+                              x: curvePoints[1].x,
+                              y: curvePoints[1].y,
                            });
                            this.updateCurvePoint(l, x, y, 0);
                         }
 
                         if (r) {
                            const { x, y } = this.getClosestPoints(r, {
-                              x: curvePoints[0].x,
-                              y: curvePoints[0].y,
+                              x: curvePoints[last - 1].x,
+                              y: curvePoints[last - 1].y,
                            });
-                           curvePoints[last].x = x;
-                           curvePoints[last].y = y;
+
+                           this.updateCurvePoint(l, x, y, last);
                         } else if (t) {
                            const { x, y } = this.getClosestPoints(t, {
-                              x: curvePoints[0].x,
-                              y: curvePoints[0].y,
+                              x: curvePoints[last - 1].x,
+                              y: curvePoints[last - 1].y,
                            });
-                           curvePoints[last].x = x;
-                           curvePoints[last].y = y;
+                           this.updateCurvePoint(l, x, y, last);
                         } else if (s) {
                            const { x, y } = this.getClosestPointOnSphere(s, {
-                              x: curvePoints[0].x,
-                              y: curvePoints[0].y,
+                              x: curvePoints[last - 1].x,
+                              y: curvePoints[last - 1].y,
                            });
-                           curvePoints[last].x = x;
-                           curvePoints[last].y = y;
+                           this.updateCurvePoint(l, x, y, last);
                         } else if (i) {
                            const { x, y } = this.getClosestPoints(i, {
-                              x: curvePoints[0].x,
-                              y: curvePoints[0].y,
+                              x: curvePoints[last - 1].x,
+                              y: curvePoints[last - 1].y,
                            });
-                           curvePoints[last].x = x;
-                           curvePoints[last].y = y;
+                           this.updateCurvePoint(l, x, y, last);
                         }
                      }
                   });
@@ -2000,7 +2051,10 @@ export default class Shapes {
                         if (object.type == "sphere") {
                            const { x, y } = this.getClosestPointOnSphere(
                               object,
-                              { x: curvePoints[0].x, y: curvePoints[0].y }
+                              {
+                                 x: curvePoints[last - 1].x,
+                                 y: curvePoints[last - 1].y,
+                              }
                            );
                            this.updateCurvePoint(l, x, y, last);
                         } else {
@@ -2011,33 +2065,36 @@ export default class Shapes {
                                  width: object.width,
                                  height: object.height,
                               },
-                              { x: curvePoints[0].x, y: curvePoints[0].y }
+                              {
+                                 x: curvePoints[last - 1].x,
+                                 y: curvePoints[last - 1].y,
+                              }
                            );
                            this.updateCurvePoint(l, x, y, last);
                         }
 
                         if (r) {
                            const { x, y } = this.getClosestPoints(r, {
-                              x: curvePoints[last].x,
-                              y: curvePoints[last].y,
+                              x: curvePoints[1].x,
+                              y: curvePoints[1].y,
                            });
                            this.updateCurvePoint(l, x, y, 0);
                         } else if (t) {
                            const { x, y } = this.getClosestPoints(t, {
-                              x: curvePoints[last].x,
-                              y: curvePoints[last].y,
+                              x: curvePoints[1].x,
+                              y: curvePoints[1].y,
                            });
                            this.updateCurvePoint(l, x, y, 0);
                         } else if (s) {
                            const { x, y } = this.getClosestPointOnSphere(s, {
-                              x: curvePoints[last].x,
-                              y: curvePoints[last].y,
+                              x: curvePoints[1].x,
+                              y: curvePoints[1].y,
                            });
                            this.updateCurvePoint(l, x, y, 0);
                         } else if (i) {
                            const { x, y } = this.getClosestPoints(i, {
-                              x: curvePoints[last].x,
-                              y: curvePoints[last].y,
+                              x: curvePoints[1].x,
+                              y: curvePoints[1].y,
                            });
                            this.updateCurvePoint(l, x, y, 0);
                         }
@@ -2091,6 +2148,27 @@ export default class Shapes {
             });
          });
 
+         this.figureMap.forEach((fig) => {
+            if (fig.isActive) {
+               fig.x = mouseX + fig.offsetX;
+               fig.y = mouseY + fig.offsetY;
+            }
+         });
+
+         this.pencilMap.forEach((pencil) => {
+            if (pencil.isActive) {
+               pencil.minX = mouseX + pencil.offsetX;
+               pencil.minY = mouseY + pencil.offsetY;
+               pencil.maxY = pencil.minY + pencil.height;
+               pencil.maxX = pencil.minX + pencil.width;
+
+               pencil.points.forEach((point) => {
+                  point.x = mouseX + point.offsetX;
+                  point.y = mouseY + point.offsetY;
+               });
+            }
+         });
+
          this.massiveSelectionRect(
             this.massiveSelection.isSelectedMinX - this.tolerance,
             this.massiveSelection.isSelectedMinY - this.tolerance,
@@ -2098,7 +2176,8 @@ export default class Shapes {
             this.massiveSelection.height + 2 * this.tolerance
          );
 
-         this.draw(false);
+         this.drawImage();
+         this.draw();
          return;
       }
 
@@ -2323,10 +2402,13 @@ export default class Shapes {
          }
          this.updateLinesPointTo(circleResize);
       } else if (textResize) {
-         textResize.textSize = Math.max(
-            mouseX - textResize.x * 1.5,
-            mouseY - textResize.y * 1
-         ); // Ensure minimum size
+         if (mouseX > textResize.x && mouseY > textResize.y) {
+            textResize.textSize =
+               Math.max(
+                  12, // Minimum size to prevent text from becoming too small
+                  (mouseX - textResize.x) * 0.5 + (mouseY - textResize.y) * 0.8
+               ) / 2;
+         }
 
          this.updateLinesPointTo(textResize);
       } else if (lineResize) {
@@ -2939,6 +3021,9 @@ export default class Shapes {
                y - yRadius > minY &&
                y + yRadius < maxY
             ) {
+               if (!this.massiveSelection.isSelected) {
+                  this.massiveSelection.isSelected = true;
+               }
                this.adjustMassiveSelectionXandY(
                   x - xRadius,
                   y - yRadius,
@@ -2950,9 +3035,21 @@ export default class Shapes {
          });
 
          this.textMap.forEach((text) => {
-            const { x, y, width, height } = text;
-            if (x > minX && x + width < maxX && y > minY && y + height < maxY) {
-               this.adjustMassiveSelectionXandY(x, y, width, height);
+            if (
+               text.x > minX &&
+               text.x + text.width < maxX &&
+               text.y > minY &&
+               text.y + text.height < maxY
+            ) {
+               if (!this.massiveSelection.isSelected) {
+                  this.massiveSelection.isSelected = true;
+               }
+               this.adjustMassiveSelectionXandY(
+                  text.x,
+                  text.y,
+                  text.width,
+                  text.height
+               );
                text.isActive = true;
             }
          });
@@ -2960,13 +3057,37 @@ export default class Shapes {
          this.lineMap.forEach((line) => {
             const { minX: x, minY: y, maxX: width, maxY: height } = line;
             if (x > minX && width < maxX && y > minY && height < maxY) {
+               if (!this.massiveSelection.isSelected) {
+                  this.massiveSelection.isSelected = true;
+               }
                this.adjustMassiveSelectionXandY(x, y, width - x, height - y);
                line.isActive = true;
             }
          });
 
-         // Only draw the selection rectangle if at least one rectangle is selected
+         this.figureMap.forEach((fig) => {
+            const { x, y, width, height } = fig;
+            if (x > minX && x + width < maxX && y > minY && y + height < maxY) {
+               if (!this.massiveSelection.isSelected) {
+                  this.massiveSelection.isSelected = true;
+               }
+               this.adjustMassiveSelectionXandY(x, y, width, height);
+               fig.isActive = true;
+            }
+         });
 
+         this.pencilMap.forEach((pencil) => {
+            const { minX: x, maxX: width, minY: y, maxY: height } = pencil;
+            if (x > minY && width < maxX && y > minY && height < maxY) {
+               if (!this.massiveSelection.isSelected) {
+                  this.massiveSelection.isSelected = true;
+               }
+               this.adjustMassiveSelectionXandY(x, y, width - x, height - y);
+               pencil.isActive = true;
+            }
+         });
+
+         // Only draw the selection rectangle if at least one rectangle is selected
          this.massiveSelectionRect(
             this.massiveSelection.isSelectedMinX - this.tolerance,
             this.massiveSelection.isSelectedMinY - this.tolerance,
@@ -2977,21 +3098,19 @@ export default class Shapes {
                this.massiveSelection.isSelectedMinY +
                2 * this.tolerance
          );
-
-         this.draw(false);
+         this.draw();
       }
 
       // variable to control mouse down for selected
       if (this.massiveSelection.isSelectedDown) {
          this.massiveSelection.isSelectedDown = false;
          this.massiveSelection.isDown = false;
-      }
 
-      // massive is selected
-      if (this.massiveSelection.isSelected) {
-         this.reEvaluateMassiveSelection();
-
-         return;
+         // massive is selected
+         if (this.massiveSelection.isSelected) {
+            this.reEvaluateMassiveSelection();
+            return;
+         }
       }
 
       if (!this.resizeElement && !this.dragElement) return;
@@ -3253,6 +3372,8 @@ export default class Shapes {
                rect.containerId = this.resizeElement.key;
             }
          });
+
+         this.updateGuides(figResize.id, x, y, x + width, y + height);
       }
 
       const rectDrag = this.rectMap.get(this.dragElement);
@@ -3260,6 +3381,7 @@ export default class Shapes {
       const lineDrag = this.lineMap.get(this.dragElement);
       const textDrag = this.textMap.get(this.dragElement);
       const image = this.imageMap.get(this.dragElement?.key);
+      const figDrag = this.figureMap.get(this.dragElement);
 
       if (rectDrag) {
          this.updateGuides(
@@ -3269,24 +3391,31 @@ export default class Shapes {
             rectDrag.x + rectDrag.width,
             rectDrag.y + rectDrag.height
          );
-         if (rectDrag.containerId) {
-            const container = this.figureMap.get(rectDrag.containerId);
-            if (container) {
-               if (
-                  rectDrag.x < container.x ||
-                  rectDrag.x + rectDrag.width > container.x + container.width ||
-                  rectDrag.y < container.y ||
-                  rectDrag.y + rectDrag.height > container.y + container.height
-               ) {
-                  rectDrag.containerId = null;
-               }
-            }
-         }
+         //  if (rectDrag.containerId) {
+         //     const container = this.figureMap.get(rectDrag.containerId);
+         //     if (container) {
+         //        if (
+         //           rectDrag.x < container.x ||
+         //           rectDrag.x + rectDrag.width > container.x + container.width ||
+         //           rectDrag.y < container.y ||
+         //           rectDrag.y + rectDrag.height > container.y + container.height
+         //        ) {
+         //           rectDrag.containerId = null;
+         //        }
+         //     }
+         //  }
          if (rectDrag.pointTo?.length > 0) {
             rectDrag.pointTo.forEach((l) => {
                this.updateLineMinMax(l);
             });
          }
+         this.checkInsideContainer(
+            rectDrag.x,
+            rectDrag.y,
+            rectDrag.width,
+            rectDrag.height,
+            rectDrag
+         );
       } else if (arcDrag) {
          this.updateGuides(
             this.dragElement,
@@ -3328,12 +3457,30 @@ export default class Shapes {
          this.drawImage();
          if (image.pointTo.length > 0) this.draw();
          return;
+      } else if (figDrag) {
+         const { x, id, y, width, height } = figDrag;
+         this.updateGuides(id, x, y, x + width, y + height);
       }
 
       this.resizeElement = null;
       this.dragElement = null;
       this.draw();
       //   this.drawImage();
+   }
+
+   checkInsideContainer(x, y, width, height, obj) {
+      for (const [key, fig] of this.figureMap) {
+         if (
+            x > fig.x &&
+            x + width < fig.x + fig.width &&
+            y > fig.y &&
+            y + height < fig.y + fig.height
+         ) {
+            obj.containerId = key;
+         } else {
+            obj.containerId = null;
+         }
+      }
    }
 
    adjustMassiveSelectionXandY(x, y, width, height) {
@@ -3361,21 +3508,7 @@ export default class Shapes {
       this.rectMap.forEach((rect, key) => {
          if (rect.isActive) {
             const { x, y, width, height } = rect;
-            if (!this.massiveSelection.isSelected) {
-               this.massiveSelection.isSelected = true;
-            }
-            if (x + width > this.massiveSelection.isSelectedMaxX) {
-               this.massiveSelection.isSelectedMaxX = x + width;
-            }
-            if (x < this.massiveSelection.isSelectedMinX) {
-               this.massiveSelection.isSelectedMinX = x;
-            }
-            if (y < this.massiveSelection.isSelectedMinY) {
-               this.massiveSelection.isSelectedMinY = y;
-            }
-            if (y + height > this.massiveSelection.isSelectedMaxY) {
-               this.massiveSelection.isSelectedMaxY = y + height;
-            }
+            this.adjustMassiveSelectionXandY(x, y, width, height);
             this.updateGuides(key, x, y, x + width, y + height);
          }
       });
@@ -3383,29 +3516,54 @@ export default class Shapes {
       this.circleMap.forEach((circle, key) => {
          const { x, y, xRadius, yRadius, isActive } = circle;
          if (isActive) {
-            if (x + xRadius > this.massiveSelection.isSelectedMaxX) {
-               this.massiveSelection.isSelectedMaxX = x + xRadius;
-            }
-            if (x - xRadius < this.massiveSelection.isSelectedMinX) {
-               this.massiveSelection.isSelectedMinX = x - xRadius;
-            }
-            if (y - yRadius < this.massiveSelection.isSelectedMinY) {
-               this.massiveSelection.isSelectedMinY = y - yRadius;
-            }
-            if (y + yRadius > this.massiveSelection.isSelectedMaxY) {
-               this.massiveSelection.isSelectedMaxY = y + yRadius;
-               this.updateGuides(
-                  key,
-                  x - xRadius,
-                  y - yRadius,
-                  x + xRadius,
-                  y + yRadius
-               );
-            }
+            this.adjustMassiveSelectionXandY(x, y, 2 * xRadius, 2 * yRadius);
+            this.updateGuides(
+               key,
+               x - xRadius,
+               y - yRadius,
+               x + xRadius,
+               y + yRadius
+            );
          }
       });
 
-      // Only draw the selection rectangle if at least one rectangle is selected
+      this.textMap.forEach((text) => {
+         if (text.isActive) {
+            this.adjustMassiveSelectionXandY(
+               text.x,
+               text.y,
+               text.width,
+               text.height
+            );
+         }
+      });
+
+      this.lineMap.forEach((line, key) => {
+         this.updateLineMinMax(key);
+         const { minX: x, minY: y, maxX: width, maxY: height } = line;
+         if (line.isActive) {
+            this.adjustMassiveSelectionXandY(x, y, width - x, height - y);
+         }
+      });
+
+      this.figureMap.forEach((fig, key) => {
+         const { isActive, x, y, width, height } = fig;
+         if (isActive) {
+            this.adjustMassiveSelectionXandY(x, y, width, height);
+         }
+         this.updateGuides(key, x, y, x + width, y + width);
+      });
+
+      this.pencilMap.forEach((pencil) => {
+         if (pencil.isActive) {
+            this.adjustMassiveSelectionXandY(
+               pencil.minX,
+               pencil.minY,
+               pencil.width,
+               pencil.height
+            );
+         }
+      });
 
       this.massiveSelectionRect(
          this.massiveSelection.isSelectedMinX - this.tolerance,
@@ -3418,7 +3576,7 @@ export default class Shapes {
             2 * this.tolerance
       );
 
-      this.draw(false);
+      this.draw();
    }
 
    massiveSelectionRect(x, y, width, height) {
@@ -3430,11 +3588,11 @@ export default class Shapes {
       );
 
       this.breakPointsCtx.save();
-      this.breakPointsCtx.scale(Scale.scale, Scale.scale);
       this.breakPointsCtx.translate(
          -scrollBar.scrollPositionX,
          -scrollBar.scrollPositionY
       );
+      this.breakPointsCtx.scale(Scale.scale, Scale.scale);
 
       this.dots(
          { x: x, y: y },
@@ -3558,8 +3716,16 @@ export default class Shapes {
          );
          newFigure.isActive = false;
          this.figureMap.set(newFigure.id, newFigure);
-         //  this.renderFigure();
          this.draw();
+
+         // set breakpoints
+         this.breakPoints.set(newFigure.id, {
+            minX: newFigure.x,
+            minY: newFigure.y,
+            maxX: newFigure.x + newFigure.width,
+            maxY: newFigure.y + newFigure.height,
+         });
+
          config.mode = "free";
          setMode(config.mode);
          config.currentActive = newFigure;
