@@ -1,5 +1,5 @@
 import { config, Scale, scrollBar } from "../../../lib/utils.ts";
-import { Circle, Figure, Line, Rect, Text } from "./stylesClass.js";
+import { Circle, Figure, Line, Pencil, Rect, Text } from "./stylesClass.js";
 
 class RevFor {
    constructor() {
@@ -33,11 +33,14 @@ class RevFor {
 export const recycleAndUse = new RevFor();
 
 export default class Shapes {
+   lastPoint = null;
    constructor(canvas, canvasbreakPoints, renderCanvas) {
       this.canvas = canvas;
       this.canvasbreakPoints = canvasbreakPoints;
       this.renderCanvas = renderCanvas;
       //   this.activeColor = "#2165ee";
+      this.isDrawing = false;
+      this.mewShapeParams = null;
       this.canvasDiv = document.getElementById("canvas-div");
       this.activeColor = "hsl(95,78%,49%)";
       this.tolerance = 6;
@@ -54,7 +57,6 @@ export default class Shapes {
       this.figureMap = new Map();
       this.breakPoints = new Map();
       this.pencilMap = new Map();
-      this.shapeToRender = null;
       this.cache = new Map();
       this.massiveSelection = {
          isDown: false,
@@ -69,6 +71,199 @@ export default class Shapes {
          width: null,
          height: null,
       };
+   }
+
+   newShape(x, y) {
+      this.lastPoint = { x, y };
+      if (config.mode === "rect") {
+         this.isDrawing = true;
+         const newRect = new Rect(x, y);
+         newRect.isActive = true;
+         this.newShapeParams = newRect;
+         return;
+      } else if (config.mode === "sphere") {
+         this.isDrawing = true;
+         const newSphere = new Circle(x, y);
+         newSphere.isActive = true;
+         this.newShapeParams = newSphere;
+         return;
+      } else if (config.mode === "pencil") {
+         this.isDrawing = true;
+         const newPencil = new Pencil();
+         this.newShapeParams = newPencil;
+         return;
+      } else if (config.mode === "arrowLine" && !this.newShapeParams) {
+         const newarrowLine = new Line("elbow");
+         newarrowLine.isActive = true;
+         this.isDrawing = true;
+         this.newShapeParams = newarrowLine;
+         return;
+      } else if (config.mode === "figure") {
+         const newFigure = new Figure(x, y, `Figure ${this.figureMap.size}`);
+         newFigure.isActive = false;
+         this.newShapeParams = newFigure;
+         this.isDrawing = true;
+         console.log(this.newShapeParams);
+         // this.figureMap.set(newFigure.id, newFigure);
+         // this.draw();
+
+         // // set breakpoints
+         // this.breakPoints.set(newFigure.id, {
+         //    minX: newFigure.x,
+         //    minY: newFigure.y,
+         //    maxX: newFigure.x + newFigure.width,
+         //    maxY: newFigure.y + newFigure.height,
+         // });
+
+         // config.mode = "free";
+         // setMode(config.mode);
+         // config.currentActive = newFigure;
+      }
+   }
+
+   isBuildingShape(x, y) {
+      const adjust = () => {
+         if (this.lastPoint.x < x) {
+            this.newShapeParams.width = x - this.lastPoint.x;
+         } else if (this.lastPoint.x > x) {
+            this.newShapeParams.width = this.lastPoint.x - x;
+            this.newShapeParams.x = x;
+         }
+         if (this.lastPoint.y < y) {
+            this.newShapeParams.height = y - this.lastPoint.y;
+         } else if (this.lastPoint.y > y) {
+            this.newShapeParams.height = this.lastPoint.y - y;
+            this.newShapeParams.y = y;
+         }
+      };
+      switch (this.newShapeParams?.type) {
+         case "rect":
+            adjust();
+            return;
+         case "sphere":
+            this.newShapeParams.xRadius = Math.abs(this.newShapeParams.x - x);
+            this.newShapeParams.yRadius = Math.abs(this.newShapeParams.y - y);
+            return;
+         case "pencil":
+            if (x < this.newShapeParams.minX) {
+               this.newShapeParams.minX = x;
+            } else if (x > this.newShapeParams.maxX) {
+               this.newShapeParams.maxX = x;
+            } else if (y < this.newShapeParams.minY) {
+               this.newShapeParams.minY = y;
+            } else if (y > this.newShapeParams.maxY) {
+               this.newShapeParams.maxY = y;
+            }
+            this.newShapeParams.points.push({ x, y });
+            return;
+         case "figure":
+            adjust();
+            return;
+      }
+   }
+
+   insertNew(x, y) {
+      if (
+         this.newShapeParams &&
+         this.newShapeParams.type !== "line" &&
+         this.isDrawing
+      ) {
+         switch (this.newShapeParams?.type) {
+            case "rect":
+               this.rectMap.set(this.newShapeParams.id, this.newShapeParams);
+               this.breakPoints.set(this.newShapeParams.id, {
+                  minX: this.newShapeParams.x,
+                  minY: this.newShapeParams.y,
+                  maxX: this.newShapeParams.x + this.newShapeParams.width,
+                  maxY: this.newShapeParams.y + this.newShapeParams.height,
+               });
+               config.mode = "free";
+               this.isDrawing = false;
+               break;
+            case "sphere":
+               this.circleMap.set(this.newShapeParams.id, this.newShapeParams);
+               this.breakPoints.set(this.newShapeParams.id, {
+                  minX: this.newShapeParams.x - this.newShapeParams.xRadius,
+                  minY: this.newShapeParams.y - this.newShapeParams.yRadius,
+                  maxX: this.newShapeParams.x + this.newShapeParams.xRadius,
+                  maxY: this.newShapeParams.y + this.newShapeParams.yRadius,
+               });
+               config.mode = "free";
+               this.isDrawing = false;
+               break;
+            case "pencil":
+               this.pencilMap.set(this.newShapeParams.id, this.newShapeParams);
+               this.lastPoint = null;
+               this.isDrawing = false;
+               break;
+            case "figure":
+               this.figureMap.set(this.newShapeParams.id, this.newShapeParams);
+               this.breakPoints.set(this.newShapeParams.id, {
+                  minX: this.newShapeParams.x,
+                  minY: this.newShapeParams.y,
+                  maxX: this.newShapeParams.x + this.newShapeParams.width,
+                  maxY: this.newShapeParams.y + this.newShapeParams.height,
+               });
+               this.isDrawing = false;
+               config.mode = "free";
+            default:
+               break;
+         }
+         config.currentActive = this.newShapeParams;
+         this.draw();
+         this.newShapeParams = null;
+         this.lastPoint = null;
+         return;
+      }
+   }
+
+   insertNewLine() {
+      if (
+         this.newShapeParams &&
+         this.newShapeParams.type === "line" &&
+         this.isDrawing
+      ) {
+         this.lineMap.set(this.newShapeParams.id, this.newShapeParams);
+         this.isDrawing = false;
+         this.newShapeParams = null;
+      }
+   }
+
+   insertAPointToLine(x, y) {
+      if (
+         this.newShapeParams &&
+         this.newShapeParams.type === "line" &&
+         this.isDrawing
+      ) {
+         if (x > this.newShapeParams.maxX) {
+            this.newShapeParams.maxX = x;
+         }
+         if (x < this.newShapeParams.minX) {
+            this.newShapeParams.minX = x;
+         }
+         if (y > this.newShapeParams.maxY) {
+            this.newShapeParams.maxY = y;
+         }
+         if (y < this.newShapeParams.minY) {
+            this.newShapeParams.minY = y;
+         }
+
+         if (this.newShapeParams.lineType === "elbow") {
+            this.newShapeParams.curvePoints.push({ x, y });
+
+            if (this.newShapeParams.curvePoints.length === 2) {
+               this.lineMap.set(this.newShapeParams.id, this.newShapeParams);
+               this.isDrawing = false;
+               config.mode = "free";
+               console.log(this.newShapeParams);
+               this.newShapeParams = null;
+               this.lastPoint = null;
+               this.draw();
+            }
+         } else {
+            this.newShapeParams.curvePoints.push({ x, y });
+         }
+      }
    }
 
    deleteAndSeletAll(e) {
@@ -342,7 +537,7 @@ export default class Shapes {
       return config.currentActive;
    }
 
-   drawArrows(startPoint, endPoint, arrowLength) {
+   drawArrows(startPoint, endPoint, arrowLength, context = this.context) {
       // Draw the back arrowhead
       const firstPoint = startPoint;
       const lastPoint = endPoint;
@@ -354,23 +549,23 @@ export default class Shapes {
       );
 
       // Draw the first side of the back arrowhead
-      this.context.moveTo(lastPoint.x, lastPoint.y);
-      this.context.lineTo(
+      context.moveTo(lastPoint.x, lastPoint.y);
+      context.lineTo(
          lastPoint.x - arrowLength * Math.cos(angle - Math.PI / 6),
          lastPoint.y - arrowLength * Math.sin(angle - Math.PI / 6)
       );
-      this.context.stroke();
-      this.context.closePath();
+      context.stroke();
+      context.closePath();
 
       // Draw the second side of the back arrowhead
-      this.context.beginPath();
-      this.context.moveTo(lastPoint.x, lastPoint.y);
-      this.context.lineTo(
+      context.beginPath();
+      context.moveTo(lastPoint.x, lastPoint.y);
+      context.lineTo(
          lastPoint.x - arrowLength * Math.cos(angle + Math.PI / 6),
          lastPoint.y - arrowLength * Math.sin(angle + Math.PI / 6)
       );
-      this.context.stroke();
-      this.context.closePath();
+      context.stroke();
+      context.closePath();
    }
 
    draw() {
@@ -396,15 +591,7 @@ export default class Shapes {
       this.context.lineWidth = this.lineWidth;
       this.context.strokeStyle = "rgb(2, 211, 134)";
 
-      const drawDotsAndRect = (
-         x,
-         y,
-         width,
-         height,
-         tolerance,
-         isActive,
-         activeColor
-      ) => {
+      const drawDotsAndRect = (x, y, width, height, tolerance, isActive) => {
          if (isActive) {
             // Draw dots
             if (!this.massiveSelection.isSelected)
@@ -418,6 +605,7 @@ export default class Shapes {
 
             // Draw active rectangle
             this.context.beginPath();
+            this.context.lineWidth = 1;
             this.context.strokeStyle = this.activeColor;
             this.context.rect(
                x - tolerance,
@@ -451,15 +639,7 @@ export default class Shapes {
             fontWeight,
          } = rect;
 
-         drawDotsAndRect(
-            x,
-            y,
-            width,
-            height,
-            this.tolerance,
-            isActive,
-            this.activeColor
-         );
+         drawDotsAndRect(x, y, width, height, this.tolerance, isActive);
          let parttern;
          //  if()
 
@@ -513,15 +693,7 @@ export default class Shapes {
          const width = 2 * xRadius;
          const height = 2 * yRadius;
 
-         drawDotsAndRect(
-            x,
-            y,
-            width,
-            height,
-            this.tolerance,
-            isActive,
-            this.activeColor
-         );
+         drawDotsAndRect(x, y, width, height, this.tolerance, isActive);
 
          // Draw circle
          this.context.beginPath();
@@ -653,7 +825,9 @@ export default class Shapes {
             }
 
             this.context.strokeStyle = this.activeColor;
-            this.dots(...curvePoints, { context: this.context });
+
+            if (!this.massiveSelection.isSelected)
+               this.dots(...curvePoints, { context: this.context });
          } else {
             this.context.strokeStyle = borderColor;
          }
@@ -907,18 +1081,20 @@ export default class Shapes {
          this.renderCanvasCtx.lineCap = "round";
          this.renderCanvasCtx.lineJoin = "round";
 
-         if (points.length < 2) {
-            // If there is only one point, draw a small circle or dot
-            if (points.length === 1) {
-               this.renderCanvasCtx.arc(
-                  points[0].x,
-                  points[0].y,
-                  pencil.lineWidth / 2,
-                  0,
-                  2 * Math.PI
-               );
-               this.renderCanvasCtx.fill();
-            }
+         if (points.length < 3) {
+            const b = points[0];
+            //ctx.moveTo(b.x, b.y);
+            //ctx.lineTo(b.x+50, b.y+50);
+            this.context.arc(
+               b.x,
+               b.y,
+               this.context.lineWidth / 2,
+               0,
+               Math.PI * 2,
+               !0
+            );
+            this.context.fill();
+            this.context.closePath();
          } else {
             this.renderCanvasCtx.moveTo(points[0].x, points[0].y);
             let i = 1;
@@ -934,7 +1110,6 @@ export default class Shapes {
                );
                // this.renderCanvasCtx.lineTo(points[i].x, points[i].y);
             }
-
             this.renderCanvasCtx.quadraticCurveTo(
                points[i].x,
                points[i].y,
@@ -1022,10 +1197,12 @@ export default class Shapes {
    }
 
    mouseDownDragAndResize(e) {
-      if (config.mode === "pencil" || config.mode === "handsFree") return;
+      if (e.altKey || e.ctrlKey || config.mode === "handsFree") return;
 
-      if (e.altKey || e.ctrlKey) return;
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
+
+      this.newShape(mouseX, mouseY);
+      if (this.isDrawing || this.newShapeParams) return;
 
       // check if multiple selected exist
       if (
@@ -1666,11 +1843,23 @@ export default class Shapes {
 
          if (sphere.isActive) sphere.isActive = false;
          if (distance < sphere.xRadius && distance < sphere.yRadius) {
-            if (
-               smallestCircle === null ||
-               sphere.xRadius < smallestCircle.circle.xRadius
-            ) {
-               smallestCircle = { circle: sphere, key };
+            if (sphere.containerId) {
+               const container = this.figureMap.get(sphere.containerId);
+               if (!container?.isActive) {
+                  if (
+                     smallestCircle === null ||
+                     sphere.xRadius < smallestCircle.circle.xRadius
+                  ) {
+                     smallestCircle = { circle: sphere, key };
+                  }
+               }
+            } else {
+               if (
+                  smallestCircle === null ||
+                  sphere.xRadius < smallestCircle.circle.xRadius
+               ) {
+                  smallestCircle = { circle: sphere, key };
+               }
             }
          }
       };
@@ -1845,6 +2034,24 @@ export default class Shapes {
             if (rect.containerId === smallestFig.key) {
                rect.offsetX = mouseX - rect.x;
                rect.offsetY = mouseY - rect.y;
+            }
+         });
+         this.circleMap.forEach((circle) => {
+            if (circle.containerId === smallestFig.key) {
+               circle.offsetX = mouseX - circle.x;
+               circle.offsetY = mouseY - circle.y;
+            }
+         });
+         this.lineMap.forEach((line) => {
+            if (line.containerId === smallestFig.key) {
+               line.offsetX = mouseX - line.minX;
+               line.offsetY = mouseY - line.minY;
+               line.width = line.maxX - line.minX;
+               line.height = line.maxY - line.minY;
+               line.curvePoints.forEach((point) => {
+                  point.offsetX = point.x - mouseX;
+                  point.offsetY = point.y - mouseY;
+               });
             }
          });
          this.draw();
@@ -2106,9 +2313,124 @@ export default class Shapes {
       }
    }
 
+   drawNewShape(shape, obj, x, y) {
+      if (shape !== "pencil") {
+         this.breakPointsCtx.clearRect(
+            0,
+            0,
+            this.canvasbreakPoints.width,
+            this.canvasbreakPoints.height
+         );
+      }
+      this.breakPointsCtx.save();
+      this.breakPointsCtx.scale(Scale.scale, Scale.scale);
+      this.breakPointsCtx.translate(
+         -scrollBar.scrollPositionX,
+         -scrollBar.scrollPositionY
+      );
+      this.breakPointsCtx.beginPath();
+      this.breakPointsCtx.strokeStyle = "grey";
+      this.breakPointsCtx.lineWidth = obj.lineWidth || 0.8;
+      switch (shape) {
+         case "rect":
+            this.breakPointsCtx.rect(obj.x, obj.y, obj.width, obj.height);
+            break;
+         case "sphere":
+            this.breakPointsCtx.ellipse(
+               this.newShapeParams.x,
+               this.newShapeParams.y,
+               this.newShapeParams.xRadius,
+               this.newShapeParams.yRadius,
+               0,
+               0,
+               Math.PI * 2,
+               false
+            );
+            break;
+         case "pencil":
+            this.breakPointsCtx.lineCap = "round";
+            this.breakPointsCtx.lineJoin = "round";
+            if (!this.lastPoint) {
+               this.lastPoint = { x, y };
+            }
+            this.breakPointsCtx.moveTo(this.lastPoint.x, this.lastPoint.y);
+            this.breakPointsCtx.lineTo(x, y);
+
+            this.lastPoint = { x, y };
+            break;
+         case "line":
+            const first = obj.curvePoints[0] || { x, y };
+            const last = { x, y };
+            const mid = {
+               x: (first.x + last.x) / 2,
+               y: (first.y + last.y) / 2,
+            };
+
+            // Start from the first point
+            this.breakPointsCtx.moveTo(first.x, first.y);
+
+            // Draw the first arc: From first to mid horizontally
+            this.breakPointsCtx.arcTo(mid.x, first.y, mid.x, mid.y, obj.radius);
+
+            // Draw the second arc: From mid horizontally to mid vertically aligned with last
+            this.breakPointsCtx.arcTo(
+               mid.x,
+               last.y,
+               last.x,
+               last.y,
+               obj.radius
+            );
+
+            // Draw final line: From the end of the second arc to the last point
+            this.breakPointsCtx.lineTo(last.x, last.y);
+
+            if (obj.arrowLeft) {
+               mid.x == first.x
+                  ? this.drawArrows(mid, first, 10)
+                  : this.drawArrows(
+                       { x: mid.x, y: first.y },
+                       first,
+                       10,
+                       this.breakPointsCtx
+                    );
+            }
+            if (obj.arrowRight) {
+               mid.x == first.x
+                  ? this.drawArrows(mid, last, 10)
+                  : this.drawArrows(
+                       { x: mid.x, y: last.y },
+                       last,
+                       10,
+                       this.breakPointsCtx
+                    );
+            }
+            break;
+         case "figure":
+            this.breakPointsCtx.rect(obj.x, obj.y, obj.width, obj.height);
+            break;
+         default:
+            break;
+      }
+
+      this.breakPointsCtx.stroke();
+      this.breakPointsCtx.closePath();
+      this.breakPointsCtx.restore();
+   }
+
    mouseMove(e) {
-      if (config.mode === "pencil") return;
+      //   if (config.mode === "pencil") return;
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
+
+      if (this.isDrawing || this.newShapeParams) {
+         this.isBuildingShape(mouseX, mouseY);
+
+         this.drawNewShape(
+            this.newShapeParams.type,
+            this.newShapeParams,
+            mouseX,
+            mouseY
+         );
+      }
 
       // massive is selected and selected is down
       if (this.massiveSelection.isSelectedDown) {
@@ -2142,10 +2464,12 @@ export default class Shapes {
          });
 
          this.lineMap.forEach((line) => {
-            line.curvePoints.forEach((p) => {
-               p.x = mouseX + p.offsetX;
-               p.y = mouseY + p.offsetY;
-            });
+            if (line.isActive) {
+               line.curvePoints.forEach((p) => {
+                  p.x = mouseX + p.offsetX;
+                  p.y = mouseY + p.offsetY;
+               });
+            }
          });
 
          this.figureMap.forEach((fig) => {
@@ -2489,138 +2813,6 @@ export default class Shapes {
          //  this.drawRenderCanvas(rect.type, rect);
 
          this.updateLinesPointTo(rect);
-         //  if (rect.pointTo?.length > 0) {
-         //     let line = [];
-         //     let arrowEndRect = [];
-         //     let arrowStartRect = [];
-
-         //     const updateCurvePoint = (object, x, y, index) => {
-         //        object.curvePoints[index].x = x;
-         //        object.curvePoints[index].y = y;
-         //     };
-
-         //     rect.pointTo.forEach((a) => {
-         //        let l = this.lineMap.get(a);
-         //        if (l) line.push(l);
-         //     });
-
-         //     // get all the arrows connected to rect
-
-         //     if (line.length > 0) {
-         //        line.forEach((l) => {
-         //           let start = this.rectMap.get(l.startTo);
-         //           let end = this.rectMap.get(l.endTo);
-         //           if (start) {
-         //              arrowStartRect.push(start);
-         //           }
-         //           if (end) {
-         //              arrowEndRect.push(end);
-         //           }
-         //        });
-         //     }
-
-         //     if (arrowStartRect.length > 0) {
-         //        arrowStartRect.forEach((ar) => {
-         //           if (ar === rect) {
-         //              line.forEach((l) => {
-         //                 if (this.rectMap.get(l.startTo) === rect) {
-         //                    const {
-         //                       rect: r,
-         //                       text: t,
-         //                       sphere: s,
-         //                    } = this.getShape(l.endTo);
-
-         //                    const { curvePoints, lineType } = l;
-         //                    const last = curvePoints.length - 1;
-
-         //                    const { x, y } = this.getClosestPoints(
-         //                       {
-         //                          x: rect.x + rect.width / 2,
-         //                          y: rect.y,
-         //                          width: 5,
-         //                          height: rect.height,
-         //                       },
-         //                       { x: curvePoints[last].x, y: curvePoints[last].y }
-         //                    );
-         //                    this.updateCurvePoint(l, x, y, 0);
-         //                    if (r) {
-         //                       const { x, y } = this.getClosestPoints(r, {
-         //                          x: curvePoints[0].x,
-         //                          y: curvePoints[0].y,
-         //                       });
-         //                       curvePoints[last].x = x;
-         //                       curvePoints[last].y = y;
-         //                    } else if (t) {
-         //                       const { x, y } = this.getClosestPoints(t, {
-         //                          x: curvePoints[0].x,
-         //                          y: curvePoints[0].y,
-         //                       });
-         //                       curvePoints[last].x = x;
-         //                       curvePoints[last].y = y;
-         //                    } else if (s) {
-         //                       const { x, y } = this.getClosestPointOnSphere(s, {
-         //                          x: curvePoints[0].x,
-         //                          y: curvePoints[0].y,
-         //                       });
-         //                       curvePoints[last].x = x;
-         //                       curvePoints[last].y = y;
-         //                    }
-         //                 }
-         //              });
-         //           }
-         //        });
-         //     }
-
-         //     if (arrowEndRect.length > 0) {
-         //        arrowEndRect.forEach((ar) => {
-         //           if (ar === rect) {
-         //              line.forEach((l) => {
-         //                 if (this.rectMap.get(l.endTo) === rect) {
-         //                    // get the shape if connect to start
-         //                    const {
-         //                       rect: r,
-         //                       text: t,
-         //                       sphere: s,
-         //                    } = this.getShape(l.startTo);
-
-         //                    const { curvePoints } = l;
-         //                    const last = curvePoints.length - 1;
-
-         //                    const { x, y } = this.getClosestPoints(
-         //                       {
-         //                          x: rect.x + rect.width / 2,
-         //                          y: rect.y,
-         //                          width: 5,
-         //                          height: rect.height,
-         //                       },
-         //                       { x: curvePoints[0].x, y: curvePoints[0].y }
-         //                    );
-         //                    updateCurvePoint(l, x, y, last);
-         //                    if (r) {
-         //                       const { x, y } = this.getClosestPoints(r, {
-         //                          x: curvePoints[last].x,
-         //                          y: curvePoints[last].y,
-         //                       });
-         //                       this.updateCurvePoint(l, x, y, 0);
-         //                    } else if (t) {
-         //                       const { x, y } = this.getClosestPoints(t, {
-         //                          x: curvePoints[last].x,
-         //                          y: curvePoints[last].y,
-         //                       });
-         //                       this.updateCurvePoint(l, x, y, 0);
-         //                    } else if (s) {
-         //                       const { x, y } = this.getClosestPointOnSphere(s, {
-         //                          x: curvePoints[last].x,
-         //                          y: curvePoints[last].y,
-         //                       });
-         //                       this.updateCurvePoint(l, x, y, 0);
-         //                    }
-         //                 }
-         //              });
-         //           }
-         //        });
-         //     }
-         //  }
       } else if (arc) {
          arc.isActive = true;
          arc.x = mouseX - arc.offsetX;
@@ -2636,115 +2828,6 @@ export default class Shapes {
          //  this.drawRenderCanvas(arc.type, arc);
 
          this.updateLinesPointTo(arc);
-         //  if (arc.pointTo?.length > 0) {
-         //     let line = [];
-         //     let arrowStartSphere = [];
-         //     let arrowEndSphere = [];
-         //     arc.pointTo.forEach((a) => {
-         //        let l = this.lineMap.get(a);
-
-         //        if (l) line.push(l);
-         //     });
-
-         //     line.forEach((l) => {
-         //        let start = this.circleMap.get(l.startTo);
-         //        let end = this.circleMap.get(l.endTo);
-         //        if (start) {
-         //           arrowStartSphere.push(start);
-         //        }
-         //        if (end) {
-         //           arrowEndSphere.push(end);
-         //        }
-         //     });
-
-         //     if (arrowStartSphere.length > 0) {
-         //        arrowStartSphere.forEach((ar) => {
-         //           if (ar == arc) {
-         //              line.forEach((l) => {
-         //                 if (this.circleMap.get(l.startTo) === arc) {
-         //                    const { curvePoints, endTo } = l;
-         //                    const {
-         //                       rect: r,
-         //                       text: t,
-         //                       sphere: s,
-         //                    } = this.getShape(endTo);
-         //                    const last = curvePoints.length - 1;
-
-         //                    const { x, y } = this.getClosestPointOnSphere(arc, {
-         //                       x: curvePoints[last].x,
-         //                       y: curvePoints[last].y,
-         //                    });
-         //                    this.updateCurvePoint(l, x, y, 0);
-
-         //                    if (r) {
-         //                       const { x, y } = this.getClosestPoints(r, {
-         //                          x: curvePoints[0].x,
-         //                          y: curvePoints[0].y,
-         //                       });
-         //                       this.updateCurvePoint(l, x, y, last);
-         //                    } else if (t) {
-         //                       const { x, y } = this.getClosestPoints(t, {
-         //                          x: curvePoints[0].x,
-         //                          y: curvePoints[0].y,
-         //                       });
-         //                       this.updateCurvePoint(l, x, y, last);
-         //                    } else if (s) {
-         //                       const { x, y } = this.getClosestPointOnSphere(s, {
-         //                          x: curvePoints[0].x,
-         //                          y: curvePoints[0].y,
-         //                       });
-         //                       this.updateCurvePoint(l, x, y, last);
-         //                    }
-         //                 }
-         //              });
-         //           }
-         //        });
-         //     }
-         //     if (arrowEndSphere.length > 0) {
-         //        arrowEndSphere.forEach((ar) => {
-         //           if (ar == arc) {
-         //              line.forEach((l) => {
-         //                 if (this.circleMap.get(l.endTo) === arc) {
-         //                    const { startTo, curvePoints } = l;
-         //                    const {
-         //                       rect: r,
-         //                       text: t,
-         //                       sphere: s,
-         //                    } = this.getShape(startTo);
-
-         //                    const last = l.curvePoints.length - 1;
-
-         //                    const { x, y } = this.getClosestPointOnSphere(arc, {
-         //                       x: curvePoints[0].x,
-         //                       y: curvePoints[0].y,
-         //                    });
-         //                    this.updateCurvePoint(l, x, y, last);
-
-         //                    if (r) {
-         //                       const { x, y } = this.getClosestPoints(r, {
-         //                          x: curvePoints[last].x,
-         //                          y: curvePoints[last].y,
-         //                       });
-         //                       this.updateCurvePoint(l, x, y, 0);
-         //                    } else if (t) {
-         //                       const { x, y } = this.getClosestPoints(t, {
-         //                          x: curvePoints[last].x,
-         //                          y: curvePoints[last].y,
-         //                       });
-         //                       this.updateCurvePoint(l, x, y, 0);
-         //                    } else if (s) {
-         //                       const { x, y } = this.getClosestPointOnSphere(s, {
-         //                          x: curvePoints[last].x,
-         //                          y: curvePoints[last].y,
-         //                       });
-         //                       this.updateCurvePoint(l, x, y, 0);
-         //                    }
-         //                 }
-         //              });
-         //           }
-         //        });
-         //     }
-         //  }
       } else if (text) {
          text.x = mouseX - text.offsetX;
          text.y = mouseY - text.offsetY;
@@ -2759,132 +2842,6 @@ export default class Shapes {
 
          //  this.drawRenderCanvas("text", text);
          this.updateLinesPointTo(text);
-         //  if (text.pointTo.length > 0) {
-         //     let arcs = text.pointTo.map((t) => {
-         //        return this.lineMap.get(t);
-         //     });
-         //     let lineStart = [];
-         //     let lineEnd = [];
-
-         //     arcs.forEach((a) => {
-         //        let start = this.textMap.get(a.startTo);
-         //        let end = this.textMap.get(a.endTo);
-         //        if (start) {
-         //           lineStart.push(start);
-         //        }
-         //        if (end) {
-         //           lineEnd.push(end);
-         //        }
-         //     });
-
-         //     if (lineStart.length > 0) {
-         //        lineStart.forEach((ar) => {
-         //           if (ar === text) {
-         //              arcs.forEach((a) => {
-         //                 if (this.textMap.get(a.startTo) === text) {
-         //                    const { curvePoints, endTo } = a;
-         //                    const last = curvePoints.length - 1;
-         //                    const {
-         //                       rect: r,
-         //                       text: t,
-         //                       sphere: s,
-         //                    } = this.getShape(endTo);
-
-         //                    const { x, y } = this.getClosestPoints(
-         //                       {
-         //                          x: text.x + text.width / 2 - this.tolerance,
-         //                          y: text.y,
-         //                          width: this.tolerance,
-         //                          height: text.height,
-         //                       },
-         //                       {
-         //                          x: curvePoints[last].x,
-         //                          y: curvePoints[last].y,
-         //                       }
-         //                    );
-         //                    this.updateCurvePoint(a, x, y, 0);
-
-         //                    if (r) {
-         //                       //tail
-         //                       const { x, y } = this.getClosestPoints(r, {
-         //                          x: curvePoints[0].x,
-         //                          y: curvePoints[0].y,
-         //                       });
-         //                       this.updateCurvePoint(a, x, y, last);
-         //                    } else if (t) {
-         //                       //tail
-         //                       const { x, y } = this.getClosestPoints(t, {
-         //                          x: curvePoints[0].x,
-         //                          y: curvePoints[0].y,
-         //                       });
-         //                       this.updateCurvePoint(a, x, y, last);
-         //                    } else if (t) {
-         //                       //tail
-         //                       const { x, y } = this.getClosestPointOnSphere(s, {
-         //                          x: curvePoints[0].x,
-         //                          y: curvePoints[0].y,
-         //                       });
-         //                       this.updateCurvePoint(a, x, y, last);
-         //                    }
-         //                 }
-         //              });
-         //           }
-         //        });
-         //     }
-
-         //     if (lineEnd.length > 0) {
-         //        lineEnd.forEach((ar) => {
-         //           if (ar === text) {
-         //              arcs.forEach((l) => {
-         //                 if (this.textMap.get(l.endTo) === text) {
-         //                    const { curvePoints, startTo } = l;
-         //                    const last = curvePoints.length - 1;
-
-         //                    const {
-         //                       rect: r,
-         //                       text: t,
-         //                       sphere: s,
-         //                    } = this.getShape(startTo);
-
-         //                    const { x, y } = this.getClosestPoints(
-         //                       {
-         //                          x: text.x + text.width / 2 - this.tolerance,
-         //                          y: text.y,
-         //                          width: this.tolerance,
-         //                          height: text.height,
-         //                       },
-         //                       {
-         //                          x: curvePoints[0].x,
-         //                          y: curvePoints[0].y,
-         //                       }
-         //                    );
-         //                    this.updateCurvePoint(a, x, y, last);
-
-         //                    if (r) {
-         //                       const { x, y } = this.getClosestPoints(r, {
-         //                          x: curvePoints[last].x,
-         //                          y: curvePoints[last].y,
-         //                       });
-         //                       this.updateCurvePoint(l, x, y, 0);
-         //                    } else if (t) {
-         //                       const { x, y } = this.getClosestPoints(t, {
-         //                          x: curvePoints[last].x,
-         //                          y: curvePoints[last].y,
-         //                       });
-         //                       this.updateCurvePoint(l, x, y, 0);
-         //                    } else if (s) {
-         //                       const { x, y } = this.getClosestPointOnSphere(s, {
-         //                          x: curvePoints[last].x,
-         //                          y: curvePoints[last].y,
-         //                       });
-         //                       this.updateCurvePoint(l, x, y, 0);
-         //                    }
-         //                 }
-         //              });
-         //           }
-         //        });
-         //     }
-         //  }
       } else if (line) {
          line.curvePoints.forEach((ele) => {
             const deltaX = mouseX - ele.offsetX;
@@ -2979,12 +2936,34 @@ export default class Shapes {
                rect.y = mouseY - rect.offsetY;
             }
          });
+
+         this.circleMap.forEach((circle) => {
+            if (circle.containerId === this.dragElement) {
+               circle.x = mouseX - circle.offsetX;
+               circle.y = mouseY - circle.offsetY;
+            }
+         });
+
+         this.lineMap.forEach((line) => {
+            if (line.containerId === this.dragElement) {
+               line.minX = mouseX - line.offsetX;
+               line.minY = mouseY - line.offsetY;
+               line.maxX = line.maxX + line.width;
+               line.maxX = line.maxX + line.height;
+               line.curvePoints.forEach((point) => {
+                  point.x = mouseX + point.offsetX;
+                  point.y = mouseY + point.offsetY;
+               });
+            }
+         });
       }
       this.draw();
    }
 
    mouseUp(e) {
-      if (config.mode === "pencil" || config.mode === "handsFree") return;
+      if (config.mode === "handsFree") return;
+
+      this.insertNew();
 
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
 
@@ -3362,16 +3341,7 @@ export default class Shapes {
          }
       } else if (figResize) {
          const { x, y, width, height } = figResize;
-         this.rectMap.forEach((rect) => {
-            if (
-               rect.x > x &&
-               rect.x + rect.width < x + width &&
-               rect.y > y &&
-               rect.y + rect.height < y + height
-            ) {
-               rect.containerId = this.resizeElement.key;
-            }
-         });
+         this.getShapesInsideFigure(figResize, this.resizeElement?.key);
 
          this.updateGuides(figResize.id, x, y, x + width, y + height);
       }
@@ -3409,7 +3379,7 @@ export default class Shapes {
                this.updateLineMinMax(l);
             });
          }
-         this.checkInsideContainer(
+         this.checkShapeIfInContainer(
             rectDrag.x,
             rectDrag.y,
             rectDrag.width,
@@ -3459,6 +3429,7 @@ export default class Shapes {
          return;
       } else if (figDrag) {
          const { x, id, y, width, height } = figDrag;
+         this.getShapesInsideFigure(figDrag, this.dragElement);
          this.updateGuides(id, x, y, x + width, y + height);
       }
 
@@ -3468,7 +3439,7 @@ export default class Shapes {
       //   this.drawImage();
    }
 
-   checkInsideContainer(x, y, width, height, obj) {
+   checkShapeIfInContainer(x, y, width, height, obj) {
       for (const [key, fig] of this.figureMap) {
          if (
             x > fig.x &&
@@ -3479,6 +3450,45 @@ export default class Shapes {
             obj.containerId = key;
          } else {
             obj.containerId = null;
+         }
+      }
+   }
+
+   getShapesInsideFigure(figObj, key) {
+      const { x, y, width, height } = figObj;
+
+      for (const [_, rect] of this.rectMap) {
+         if (
+            rect.x > x &&
+            rect.x + rect.width < x + width &&
+            rect.y > y &&
+            rect.y + rect.height < y + height
+         ) {
+            rect.containerId = key;
+            break;
+         }
+      }
+
+      for (const [_, circle] of this.circleMap) {
+         if (
+            circle.x - circle.xRadius > x &&
+            circle.x + circle.xRadius < x + width &&
+            circle.y - circle.yRadius > y &&
+            circle.y + circle.yRadius < y + height
+         ) {
+            circle.containerId = key;
+         }
+      }
+
+      for (const [_, line] of this.lineMap) {
+         if (
+            line.minX > x &&
+            line.maxX < x + width &&
+            line.minY > y &&
+            line.maxY < y + height
+         ) {
+            line.containerId = key;
+            break;
          }
       }
    }
@@ -3648,6 +3658,7 @@ export default class Shapes {
 
    insertNewAsset(e, setMode, setCurrentActive, currentActive, handler) {
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
+      let isDrawing = false;
       if (config.mode === "rect") {
          const newRect = new Rect(mouseX, mouseY, 100, 100, [], 15, true);
          this.rectMap.set(newRect.id, newRect);
@@ -4642,8 +4653,10 @@ export default class Shapes {
       } else if (e.ctrlKey) {
          const current = this.canvasClick(e);
          if (!current) return;
+         if (current?.isActive) {
+            current.isActive = false;
+         } else current.isActive = true;
 
-         current.isActive = true;
          this.draw();
       }
    }
@@ -4854,6 +4867,10 @@ export default class Shapes {
    }
 
    initialize() {
+      this.canvas.addEventListener("click", (e) => {
+         const { x, y } = this.getTransformedMouseCoords(e);
+         this.insertAPointToLine(x, y);
+      });
       this.canvas.addEventListener("mouseup", this.mouseUp.bind(this));
       this.canvas.addEventListener("mousemove", (e) => {
          this.mouseMove(e);
@@ -4866,13 +4883,20 @@ export default class Shapes {
          this.mouseDownDragAndResize(e);
          this.duplicate(e);
       });
-      this.canvas.addEventListener("dblclick", this.newText.bind(this));
+      this.canvas.addEventListener("dblclick", (e) => {
+         this.newText(e);
+         this.insertNewLine();
+      });
       window.addEventListener("keydown", this.duplicateCtrl_D.bind(this), {
          passive: false,
       });
    }
 
    cleanup() {
+      this.canvas.removeEventListener("click", (e) => {
+         const { x, y } = this.getTransformedMouseCoords(e);
+         this.insertAPointToLine(x, y);
+      });
       this.canvas.removeEventListener("mouseup", this.mouseUp.bind(this));
       this.canvas.removeEventListener("mousemove", this.mouseMove.bind(this));
       this.canvasDiv.removeEventListener(
@@ -4883,7 +4907,10 @@ export default class Shapes {
          this.mouseDownDragAndResize(e);
          this.duplicate(e);
       });
-      this.canvas.removeEventListener("dblclick", this.newText.bind(this));
+      this.canvas.removeEventListener("dblclick", (e) => {
+         this.newText();
+         this.insertNewLine();
+      });
       window.removeEventListener("keydown", this.duplicateCtrl_D.bind(this));
    }
 }

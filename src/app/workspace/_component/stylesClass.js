@@ -50,10 +50,10 @@ export class Circle extends DefaultStyles {
 export class Line extends DefaultStyles {
    constructor(
       lineType = "",
-      minX = null,
-      minY = null,
-      maxX = null,
-      maxY = null,
+      minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity,
       curvePoints = [],
       isActive = false
    ) {
@@ -105,6 +105,7 @@ export class Figure extends DefaultStyles {
       super();
       this.x = x;
       this.y = y;
+      this.type = "figure"
       this.title = title;
       this.width = width;
       this.height = height;
@@ -115,10 +116,10 @@ export class Figure extends DefaultStyles {
 export class Pencil extends DefaultStyles {
    constructor(
       points = [],
-      minX = null,
-      minY = null,
-      maxX = null,
-      maxY = null
+      minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity
    ) {
       super();
       this.type = "pencil";

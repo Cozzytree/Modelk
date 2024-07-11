@@ -18,7 +18,7 @@ import { useParams } from "next/navigation.js";
 import { useEffect, useRef, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button.tsx";
 import { config, Scale, scrollBar } from "@/lib/utils.ts";
-import { Line, Pencil } from "../_component/stylesClass.js";
+import { Line, Pencil, Rect } from "../_component/stylesClass.js";
 import { useNewRect, useNewSphere } from "@/requests/shapeRequests.ts";
 import {
    Tooltip,
@@ -172,7 +172,13 @@ export default function Canvas() {
       const handler = (e) => {
          if (config.mode === "pencil") return;
 
-         if (!shape) GSP_NO_RETURNED_VALU;
+         if (!shape) return;
+         if (config.currentActive !== currentActive) {
+            setCurrentActive(config.currentActive);
+         }
+         if (config.mode !== mode) {
+            setMode(config.mode);
+         }
 
          if (newImage) {
             const { x, y } = shape.getTransformedMouseCoords(e);
@@ -190,11 +196,11 @@ export default function Canvas() {
             setImage(null);
          }
 
-         shape.insertNewAsset(e, setMode, setCurrentActive, currentActive);
+         //  shape.insertNewAsset(e, setMode, setCurrentActive, currentActive);
       };
 
       const canvasmousedown = (e) => {
-         if (config.mode !== "pencil") return;
+         if (config.mode === "free" || config.mode === "handsFree") return;
          const { x, y } = shape.getTransformedMouseCoords(e);
          draw = new Pencil();
          draw.points.push({ x, y });
@@ -211,41 +217,45 @@ export default function Canvas() {
       };
 
       const canvasmousemove = (x, y) => {
-         if (x < minX) {
-            minX = x;
+         if (config.mode === "rect") {
+         } else if (config.mode === "pencil") {
+            if (x < minX) {
+               minX = x;
+            }
+            if (x > maxX) {
+               maxX = x;
+            }
+            if (y < minY) {
+               minY = y;
+            }
+            if (y > maxY) {
+               maxY = y;
+            }
+            pencilDraw(x, y, context, tempPoint);
+            draw.points.push(tempPoint);
+            tempPoint = { x, y };
          }
-         if (x > maxX) {
-            maxX = x;
-         }
-         if (y < minY) {
-            minY = y;
-         }
-         if (y > maxY) {
-            maxY = y;
-         }
-         pencilDraw(x, y, context, tempPoint);
-         draw.points.push(tempPoint);
-         tempPoint = { x, y };
       };
 
       const mouseUp = () => {
-         if (config.mode !== "pencil") return;
-         isDrawing = false;
-         draw.minX = minX;
-         draw.maxX = maxX;
-         draw.minY = minY;
-         draw.maxY = maxY;
+         if (config.mode === "pencil" && isDrawing) {
+            isDrawing = false;
+            draw.minX = minX;
+            draw.maxX = maxX;
+            draw.minY = minY;
+            draw.maxY = maxY;
 
-         minX = Infinity;
-         maxX = -Infinity;
-         minY = Infinity;
-         maxY = -Infinity;
+            minX = Infinity;
+            maxX = -Infinity;
+            minY = Infinity;
+            maxY = -Infinity;
 
-         // set new drawing
-         shape.pencilMap.set(draw.id, draw);
-         canvas.removeEventListener("mousemove", canvasmousemove);
-         context.clearRect(0, 0, renderCanvas.width, renderCanvas.height);
-         shape.drawImage();
+            // set new drawing
+            shape.pencilMap.set(draw.id, draw);
+            canvas.removeEventListener("mousemove", canvasmousemove);
+            context.clearRect(0, 0, renderCanvas.width, renderCanvas.height);
+            shape.drawImage();
+         }
       };
 
       const zoomInOut = (e) => {
@@ -263,8 +273,8 @@ export default function Canvas() {
 
       document.addEventListener("keydown", keyDownHandler);
       canvas.addEventListener("click", handler);
-      canvas.addEventListener("mousedown", canvasmousedown);
-      canvas.addEventListener("mouseup", mouseUp);
+    //   canvas.addEventListener("mousedown", canvasmousedown);
+    //   canvas.addEventListener("mouseup", mouseUp);
       window.addEventListener("wheel", zoomInOut, {
          passive: false,
       });
@@ -272,11 +282,11 @@ export default function Canvas() {
       return () => {
          document.removeEventListener("keydown", keyDownHandler);
          canvas.removeEventListener("click", handler);
-         canvas.removeEventListener("mousedown", canvasmousedown);
-         canvas.removeEventListener("mouseup", mouseUp);
+        //  canvas.removeEventListener("mousedown", canvasmousedown);
+        //  canvas.removeEventListener("mouseup", mouseUp);
          window.removeEventListener("wheel", zoomInOut);
       };
-   }, [currentActive, newImage]);
+   }, [currentActive, newImage, mode]);
 
    return (
       <>
@@ -351,7 +361,6 @@ export default function Canvas() {
                         size: "icon",
                      })} text-xs p-[10px] w-full h-fit`}
                      onClick={() => {
-                        console.log(mode);
                         //change mode
                         config.mode = "line";
                         setMode(config.mode);
@@ -365,7 +374,7 @@ export default function Canvas() {
                         let maxY = -Infinity;
                         const shape = shapeClassRef.current;
                         const canvas = canvasRef.current;
-                        const renderCanvas = renderCanvasRef.current;
+                        const renderCanvas = breakPointsRef.current;
                         const context = renderCanvas.getContext("2d");
 
                         const onMouseMove = (e) => {
