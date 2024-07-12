@@ -227,13 +227,16 @@ export default function Canvas() {
     <>
       <canvas
         ref={breakPointsRef}
-        className="absolute top-0 left-0 z-[1]"
+        className="absolute top-0 left-0 z-[1] transition-all duration-200"
       ></canvas>
       <canvas
         ref={renderCanvasRef}
-        className="absolute top-0 left-0 z-[]"
+        className="absolute top-0 left-0 z-[1] transition-all duration-200"
       ></canvas>
-      <canvas ref={canvasRef} className="absolute top-0 left-0 z-[1]"></canvas>
+      <canvas
+        ref={canvasRef}
+        className="absolute top-0 left-0 z-[1] transition-all duration-200"
+      ></canvas>
 
       <TooltipProvider>
         <div className="absolute top-[8%] left-2 border p-[2px] border-zinc-800 flex flex-col items-center rounded-sm gap-[2px] z-[2]">

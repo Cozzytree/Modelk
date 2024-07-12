@@ -1,5 +1,26 @@
 import { config, Scale, scrollBar } from "../../../lib/utils.ts";
 import { Circle, Figure, Line, Pencil, Rect, Text } from "./stylesClass.js";
+import getStroke from "perfect-freehand";
+
+const getStrokeOptions = {
+  size: 5,
+  // thinning: 0.5,
+  // smoothing: 4,
+  // streamline: 0.5,
+  // easing: (t) => t,
+  // simulatePressure: true,
+  // last: true,
+  // start: {
+  //   cap: true,
+  //   taper: 0,
+  //   easing: (t) => t,
+  // },
+  // end: {
+  //   cap: true,
+  //   taper: 0,
+  //   easing: (t) => t,
+  // },
+};
 
 class RevFor {
   constructor() {
@@ -1079,46 +1100,11 @@ export default class Shapes {
         this.renderCanvasCtx.stroke();
         this.renderCanvasCtx.closePath();
       }
+      const outline = getStroke(points, getStrokeOptions);
+      const stroke = this.getSvgPathFromStroke(outline);
       this.renderCanvasCtx.beginPath();
-      this.renderCanvasCtx.strokeStyle = pencil.borderColor;
-      this.renderCanvasCtx.lineWidth = pencil.lineWidth;
-      this.renderCanvasCtx.moveTo(points[0].x, points[0].y);
-      this.renderCanvasCtx.lineCap = "round";
-      this.renderCanvasCtx.lineJoin = "round";
-
-      if (points.length < 3) {
-        const b = points[0];
-        //ctx.moveTo(b.x, b.y);
-        //ctx.lineTo(b.x+50, b.y+50);
-        this.context.arc(
-          b.x,
-          b.y,
-          this.context.lineWidth / 2,
-          0,
-          Math.PI * 2,
-          !0,
-        );
-        this.context.fill();
-        this.context.closePath();
-      } else {
-        this.renderCanvasCtx.moveTo(points[0].x, points[0].y);
-        let i = 1;
-        for (i = 1; i < points.length - 2; i++) {
-          const c = (points[i].x + points[i + 1].x) / 2;
-          const d = (points[i].y + points[i + 1].y) / 2;
-
-          this.renderCanvasCtx.quadraticCurveTo(points[i].x, points[i].y, c, d);
-          // this.renderCanvasCtx.lineTo(points[i].x, points[i].y);
-        }
-        this.renderCanvasCtx.quadraticCurveTo(
-          points[i].x,
-          points[i].y,
-          points[i + 1].x,
-          points[i + 1].y,
-        );
-      }
-
-      this.renderCanvasCtx.stroke();
+      this.renderCanvasCtx.fillStyle = "white";
+      this.renderCanvasCtx.fill(new Path2D(stroke));
       this.renderCanvasCtx.closePath();
     });
 
@@ -1260,6 +1246,14 @@ export default class Shapes {
             point.offsetX = point.x - mouseX;
             point.offsetY = point.y - mouseY;
           });
+        }
+      });
+
+      this.imageMap.forEach((image) => {
+        const { x, y, width, height, isActive } = image;
+        if (isActive) {
+          image.offsetX = x - mouseX;
+          image.offsetY = y - mouseY;
         }
       });
 
@@ -1896,31 +1890,79 @@ export default class Shapes {
     };
 
     const simpleLine = (l, key) => {
-      const width = l.maxX - l.minX;
-      let horizontelParams = width < 5 ? -this.tolerance : +this.tolerance;
-      let verticalParams =
-        l.maxY - l.minY < 5 ? -this.tolerance : +this.tolerance;
+      const { curvePoints, lineType } = l;
 
-      const mouseInSphere =
-        mouseX >= l.minX + horizontelParams &&
-        mouseX <= l.maxX - horizontelParams &&
-        mouseY >= l.minY + verticalParams &&
-        mouseY <= l.maxY - verticalParams;
+      if (lineType === "elbow") {
+        let midPointX = (curvePoints[0].x + curvePoints[1].x) / 2;
 
-      if (l.isActive) l.isActive = false;
+        let firstPart =
+          mouseX >
+            Math.min(
+              curvePoints[0].x - this.tolerance,
+              midPointX - this.tolerance,
+            ) &&
+          mouseX <
+            Math.max(
+              midPointX + this.tolerance,
+              curvePoints[0].x + this.tolerance,
+            ) &&
+          mouseY > curvePoints[0].y - this.tolerance &&
+          mouseY < curvePoints[0].y + this.tolerance;
+        let secondPart =
+          mouseX > midPointX - this.tolerance &&
+          mouseX < midPointX + this.tolerance &&
+          mouseY > curvePoints[0].y - this.tolerance &&
+          mouseY < curvePoints[1].y + this.tolerance;
+        let lastPart =
+          mouseX >
+            Math.min(
+              midPointX - this.tolerance,
+              curvePoints[1].x - this.tolerance,
+            ) &&
+          mouseX <
+            Math.max(
+              midPointX + this.tolerance,
+              curvePoints[1].x + this.tolerance,
+            ) &&
+          mouseY > curvePoints[1].y - this.tolerance &&
+          mouseY < curvePoints[1].y + this.tolerance;
 
-      if (mouseInSphere) {
-        if (l.containerId) {
-          const container = this.figureMap.get(l.containerId);
-          if (
-            !container.isActive &&
-            (line === null || line.l.maxX - line.l.minX > width)
-          ) {
+        if (firstPart || secondPart || lastPart) {
+          if (l.containerId) {
+            const container = this.figureMap.get(l.containerId);
+            if (container && !container.isActive) {
+              line = { l, key };
+            }
+          } else if (!l.containerId) {
             line = { l, key };
           }
         } else {
-          if (line === null || line.l.maxX - line.l.minX > width) {
-            line = { l, key };
+          l.isActive = false;
+        }
+      } else {
+        const width = l.maxX - l.minX;
+        let horizontelParams = width < 5 ? -this.tolerance : +this.tolerance;
+        let verticalParams =
+          l.maxY - l.minY < 5 ? -this.tolerance : +this.tolerance;
+        const mouseInSphere =
+          mouseX >= l.minX + horizontelParams &&
+          mouseX <= l.maxX - horizontelParams &&
+          mouseY >= l.minY + verticalParams &&
+          mouseY <= l.maxY - verticalParams;
+        if (l.isActive) l.isActive = false;
+        if (mouseInSphere) {
+          if (l.containerId) {
+            const container = this.figureMap.get(l.containerId);
+            if (
+              !container.isActive &&
+              (line === null || line.l.maxX - line.l.minX > width)
+            ) {
+              line = { l, key };
+            }
+          } else {
+            if (line === null || line.l.maxX - line.l.minX > width) {
+              line = { l, key };
+            }
           }
         }
       }
@@ -2332,6 +2374,22 @@ export default class Shapes {
     }
   }
 
+  getSvgPathFromStroke(stroke) {
+    if (!stroke.length) return "";
+
+    const d = stroke.reduce(
+      (acc, [x0, y0], i, arr) => {
+        const [x1, y1] = arr[(i + 1) % arr.length];
+        acc.push(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
+        return acc;
+      },
+      ["M", ...stroke[0], "Q"],
+    );
+
+    d.push("Z");
+    return d.join(" ");
+  }
+
   drawNewShape(shape, obj, x, y) {
     if (shape !== "pencil") {
       this.breakPointsCtx.clearRect(
@@ -2395,13 +2453,12 @@ export default class Shapes {
         );
         break;
       case "pencil":
-        this.breakPointsCtx.lineCap = "round";
-        this.breakPointsCtx.lineJoin = "round";
-        if (!this.lastPoint) {
-          this.lastPoint = { x, y };
-        }
-        this.breakPointsCtx.moveTo(this.lastPoint.x, this.lastPoint.y);
-        this.breakPointsCtx.lineTo(x, y);
+        const outlinePath = getStroke([this.lastPoint], getStrokeOptions);
+        const stroke = this.getSvgPathFromStroke(outlinePath);
+        const path = new Path2D(stroke);
+
+        this.breakPointsCtx.fillStyle = "white";
+        this.breakPointsCtx.fill(path);
 
         this.lastPoint = { x, y };
         break;
@@ -2558,6 +2615,13 @@ export default class Shapes {
             point.x = mouseX + point.offsetX;
             point.y = mouseY + point.offsetY;
           });
+        }
+      });
+
+      this.imageMap.forEach((image) => {
+        if (image.isActive) {
+          image.x = mouseX + image.offsetX;
+          image.y = mouseY + image.offsetY;
         }
       });
 
@@ -2812,8 +2876,8 @@ export default class Shapes {
         textResize.textSize =
           Math.max(
             12, // Minimum size to prevent text from becoming too small
-            (mouseX - textResize.x) * 0.5 + (mouseY - textResize.y) * 0.8,
-          ) / 2;
+            (mouseX - textResize.x) * 0.3 + (mouseY - textResize.y) * 0.5,
+          ) * 0.5;
       }
 
       this.updateLinesPointTo(textResize);
@@ -3147,7 +3211,16 @@ export default class Shapes {
         }
       });
 
-      this.imageMap.forEach((image) => {});
+      this.imageMap.forEach((image) => {
+        const { x, y, width, height } = image;
+        if (x > minX && x + width < maxX && y > minY && y + height < maxY) {
+          if (!this.massiveSelection.isSelected) {
+            this.massiveSelection.isSelected = true;
+          }
+          this.adjustMassiveSelectionXandY(x, y, width, height);
+          image.isActive = true;
+        }
+      });
 
       // Only draw the selection rectangle if at least one rectangle is selected
       this.massiveSelectionRect(
@@ -3669,6 +3742,14 @@ export default class Shapes {
           pencil.width,
           pencil.height,
         );
+      }
+    });
+
+    this.imageMap.forEach((image, key) => {
+      if (image.isActive) {
+        const { x, y, width, height } = image;
+        this.adjustMassiveSelectionXandY(x, y, width, height);
+        this.updateGuides(key, x, y, x + width, y + height);
       }
     });
 
@@ -4892,12 +4973,59 @@ export default class Shapes {
 
   newText(event) {
     if (event.target.tagName === "TEXTAREA") return;
+    const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(event);
+
+    const html = `<textarea class="w-fit absolute px-[3px] text-[14px] outline-none z-[999] h-fit shadow-sm bg-transparent" id="input"></textarea>`;
+
+    let isClickOnText = false;
+    let selectedText = null;
+    this.textMap.forEach((text) => {
+      const { x, y, width, height } = text;
+      if (
+        mouseX > x &&
+        mouseX < x + width &&
+        mouseY > y &&
+        mouseY < y + height
+      ) {
+        isClickOnText = true;
+        selectedText = text;
+        return;
+      }
+    });
+
+    if (selectedText) {
+      this.canvasDiv.insertAdjacentHTML("afterbegin", html);
+      const input = document.getElementById("input");
+      input.style.left = selectedText.x + "px";
+      input.style.top = selectedText.y + "px";
+      input.style.fontSize = "18px";
+      let content = "";
+      selectedText.content.forEach((t) => {
+        if (t.length) {
+          content += t + "\n";
+        }
+      });
+
+      input.textContent = content;
+      input.focus();
+      const changeEvent = (e) => {
+        const content = e.target.value.split("\n");
+        selectedText.content = content;
+        input.remove();
+      };
+
+      input.addEventListener("change", changeEvent);
+
+      input.addEventListener("blur", (e) => {
+        input.removeEventListener("change", changeEvent);
+        input.remove();
+        this.draw();
+      });
+    }
+
+    if (isClickOnText) return;
 
     if (config.mode === "free" || config.mode === "text") {
-      const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(event);
-
-      const html = `<textarea class="w-fit absolute px-[3px] text-[14px] outline-none z-[999] h-fit shadow-sm bg-transparent" id="input"></textarea>`;
-
       const canvasDiv = document.getElementById("canvas-div");
       canvasDiv.insertAdjacentHTML("afterbegin", html);
       const input = document.getElementById("input");
