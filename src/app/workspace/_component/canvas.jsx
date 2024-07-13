@@ -185,7 +185,10 @@ export default function Canvas() {
           type: "image",
           pointTo: [],
           radius: 2,
+          containerId: null,
         });
+        config.mode = "free";
+        setMode(config.mode);
         setImage(null);
       }
     };
@@ -297,6 +300,10 @@ export default function Canvas() {
                 onChange={(e) => {
                   const shape = shapeClassRef.current;
                   const file = e.target.files[0];
+                  if (!file) {
+                    config.mode = "free";
+                    setMode(config.mode);
+                  }
                   const reader = new FileReader();
                   reader.onload = () => {
                     const base64Image = reader.result;
