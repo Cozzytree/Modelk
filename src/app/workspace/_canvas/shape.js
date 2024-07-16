@@ -11,7 +11,7 @@ import { scrollBar, Scale, config } from "@/lib/utils.ts";
 import getStroke from "perfect-freehand";
 
 const getStrokeOptions = {
-   size: 5,
+   size: 3,
    thinning: 0.5,
    streamline: 0.5,
    // easing: (t) => t,
@@ -1915,6 +1915,7 @@ export default class Shapes {
          };
 
          const checkAndSetActiveResizing = (resizeParams) => {
+            console.log(container);
             if (container && !container.isActive) {
                setActiveResizing(resizeParams);
             } else if (!containerId) {
@@ -1965,14 +1966,14 @@ export default class Shapes {
 
          // resize corners
          [
-            withinBottomLeftCorner,
-            withinBottomRightCorner,
-            withinTopLeftCorner,
-            withinTopRightCorner,
+            { cond: withinBottomLeftCorner, d: "bottom-left" },
+            { cond: withinBottomRightCorner, d: "bottom-right" },
+            { cond: withinTopLeftCorner, d: "top-left" },
+            { cond: withinTopRightCorner, d: "top-right" },
          ].forEach((any) => {
-            if (any) {
+            if (any.cond) {
                checkAndSetActiveResizing({
-                  direction: "corners",
+                  direction: any.d,
                   key,
                   initialMinX: minX,
                   initialMaxX: maxX,
@@ -2047,11 +2048,7 @@ export default class Shapes {
 
          if (isMouseInRect) {
             const container = this.figureMap.get(rect.containerId);
-            if (container) {
-               if (!container.isActive) {
-                  updateSmallestRect();
-               }
-            } else {
+            if (!container || !container.isActive) {
                updateSmallestRect();
             }
          }
@@ -2077,10 +2074,7 @@ export default class Shapes {
 
          if (distance < sphere.xRadius && distance < sphere.yRadius) {
             const container = this.figureMap.get(sphere.containerId);
-
-            if (container) {
-               if (!container.isActive) setSmallestSphere();
-            } else {
+            if (!container || !container.isActive) {
                setSmallestSphere();
             }
          }
@@ -2201,13 +2195,22 @@ export default class Shapes {
       };
 
       const pencilDrag = (pencil, key) => {
-         const { minX, maxX, minY, maxY } = pencil;
+         const { minX, maxX, minY, maxY, containerId } = pencil;
+         const container = this.figureMap.get(containerId);
+
+         // Check if the mouse is within the pencil's boundaries
          if (mouseX > minX && mouseX < maxX && mouseY > minY && mouseY < maxY) {
-            if (
-               smallestPencil == null ||
-               smallestPencil.maxX - smallestPencil.minY > maxX - minX
-            ) {
-               smallestPencil = { pencil, key };
+            // Calculate pencil width once
+            const pencilWidth = maxX - minX;
+
+            // Check if the pencil should be the smallest active pencil
+            if (!container || !container.isActive) {
+               if (
+                  !smallestPencil ||
+                  smallestPencil.maxX - smallestPencil.minX > pencilWidth
+               ) {
+                  smallestPencil = { pencil, key };
+               }
             }
          } else {
             pencil.isActive = false;
@@ -2368,6 +2371,17 @@ export default class Shapes {
                image.offsetX = mouseX - image.x;
                image.offsetY = mouseY - image.y;
             }
+         });
+         this.pencilMap.forEach((pencil) => {
+            if (pencil.containerId !== smallestFig.key) return;
+            pencil.offsetX = mouseX - pencil.minX;
+            pencil.offsetY = mouseY - pencil.minY;
+            pencil.width = pencil.maxX - pencil.minX;
+            pencil.height = pencil.maxY - pencil.minY;
+            pencil.points.forEach((point) => {
+               point.offsetX = mouseX - point.x;
+               point.offsetY = mouseY - point.y;
+            });
          });
          this.draw();
          return;
@@ -3280,6 +3294,8 @@ export default class Shapes {
       } else if (pencilResize) {
          const { initialMaxX, initialMinX, initialMinY, initialMaxY } =
             this.resizeElement;
+         const originalWidth = initialMaxX - initialMinX;
+         const originalHeight = initialMaxY - initialMinY;
 
          if (this.resizeElement.direction == "left-edge") {
             // Determine new boundaries based on the mouse position
@@ -3287,7 +3303,6 @@ export default class Shapes {
             let newMaxX = mouseX > initialMaxX ? mouseX : initialMaxX;
 
             // Calculate the original dimensions and new width
-            const originalWidth = initialMaxX - initialMinX;
             const newWidth = newMaxX - newMinX;
 
             if (originalWidth === 0) {
@@ -3311,7 +3326,6 @@ export default class Shapes {
             let newMaxX = mouseX > initialMinX ? mouseX : initialMinX;
 
             // Calculate the original dimensions and new width
-            const originalWidth = initialMaxX - initialMinX;
             const newWidth = newMaxX - newMinX;
 
             if (originalWidth === 0) {
@@ -3335,7 +3349,6 @@ export default class Shapes {
             let newMaxY = mouseY > initialMaxY ? mouseY : initialMaxY;
 
             // Calculate the original dimensions and new height
-            const originalHeight = initialMaxY - initialMinY;
             const newHeight = newMaxY - newMinY;
 
             if (originalHeight === 0) {
@@ -3353,13 +3366,12 @@ export default class Shapes {
             // Update the resized shape
             pencilResize.minY = newMinY;
             pencilResize.maxY = newMaxY;
-         } else if (this.resizeElement.direction === "bottom-edge") {
+         } else if (this.resizeElement.direction == "bottom-edge") {
             // Determine new boundaries based on the mouse position
             let newMinY = mouseY > initialMinY ? initialMinY : mouseY;
             let newMaxY = mouseY > initialMinY ? mouseY : initialMinY;
 
             // Calculate the original dimensions and new height
-            const originalHeight = initialMaxY - initialMinY;
             const newHeight = newMaxY - newMinY;
 
             if (originalHeight === 0) {
@@ -3377,6 +3389,92 @@ export default class Shapes {
             // Update the resized shape
             pencilResize.minY = newMinY;
             pencilResize.maxY = newMaxY;
+         } else {
+            let newMinX, newMaxX, newMinY, newMaxY;
+            let newWidth, newHeight, heightScaleFactor, widthScalingFactor;
+            switch (this.resizeElement.direction) {
+               case "top-left":
+                  newMinX = Math.min(initialMaxX, mouseX);
+                  newMinY = Math.min(initialMaxY, mouseY);
+                  newMaxX = Math.max(initialMaxX, mouseX);
+                  newMaxY = Math.max(initialMaxY, mouseY);
+
+                  newWidth = newMaxX - newMinX;
+                  newHeight = newMaxY - newMinY;
+
+                  if (originalHeight === 0 && originalWidth === 0) {
+                     return;
+                  }
+                  widthScalingFactor = newWidth / originalWidth;
+                  heightScaleFactor = newHeight / originalHeight;
+                  pencilResize.points.forEach((point) => {
+                     point.y = newMinY + point.offsetY * heightScaleFactor;
+                     point.x = newMinX + point.offsetX * widthScalingFactor;
+                  });
+                  break;
+               case "top-right":
+                  newMinX = Math.min(initialMinX, mouseX);
+                  newMaxX = Math.max(initialMinX, mouseX);
+                  newMinY = Math.min(initialMaxY, mouseY);
+                  newMaxY = Math.max(initialMaxY, mouseY);
+
+                  newWidth = newMaxX - newMinX;
+                  newHeight = newMaxY - newMinY;
+
+                  if (originalHeight === 0 && originalWidth === 0) {
+                     return;
+                  }
+                  widthScalingFactor = newWidth / originalWidth;
+                  heightScaleFactor = newHeight / originalHeight;
+                  pencilResize.points.forEach((point) => {
+                     point.y = newMinY + point.offsetY * heightScaleFactor;
+                     point.x = newMaxX + point.offsetX * widthScalingFactor;
+                  });
+                  break;
+               case "bottom-left":
+                  newMinX = Math.min(initialMaxX, mouseX);
+                  newMaxX = Math.max(initialMaxX, mouseX);
+                  newMinY = Math.min(initialMinY, mouseY);
+                  newMaxY = Math.max(initialMinY, mouseY);
+
+                  newWidth = newMaxX - newMinX;
+                  newHeight = newMaxY - newMinY;
+
+                  if (originalHeight === 0 && originalWidth === 0) {
+                     return;
+                  }
+                  widthScalingFactor = newWidth / originalWidth;
+                  heightScaleFactor = newHeight / originalHeight;
+                  pencilResize.points.forEach((point) => {
+                     point.y = newMaxY + point.offsetY * heightScaleFactor;
+                     point.x = newMinX + point.offsetX * widthScalingFactor;
+                  });
+                  break;
+               case "bottom-right":
+                  newMinX = Math.min(initialMinX, mouseX);
+                  newMaxX = Math.max(initialMinX, mouseX);
+                  newMinY = Math.min(initialMinY, mouseY);
+                  newMaxY = Math.max(initialMinY, mouseY);
+
+                  newWidth = newMaxX - newMinX;
+                  newHeight = newMaxY - newMinY;
+
+                  if (originalHeight === 0 && originalWidth === 0) {
+                     return;
+                  }
+                  widthScalingFactor = newWidth / originalWidth;
+                  heightScaleFactor = newHeight / originalHeight;
+                  pencilResize.points.forEach((point) => {
+                     point.y = newMaxY + point.offsetY * heightScaleFactor;
+                     point.x = newMaxX + point.offsetX * widthScalingFactor;
+                  });
+                  break;
+            }
+            // Update the resized shape
+            pencilResize.minY = newMinY;
+            pencilResize.maxY = newMaxY;
+            pencilResize.maxX = newMaxX;
+            pencilResize.minX = newMinX;
          }
          this.drawImage();
       }
@@ -3573,6 +3671,18 @@ export default class Shapes {
                image.x = mouseX - image.offsetX;
                image.y = mouseY - image.offsetY;
             }
+         });
+
+         this.pencilMap.forEach((pencil) => {
+            if (pencil.containerId !== this.dragElement) return;
+            pencil.minX = mouseX - pencil.offsetX;
+            pencil.minY = mouseY - pencil.offsetY;
+            pencil.maxY = pencil.minX + pencil.width;
+            pencil.maxY = pencil.minY + pencil.height;
+            pencil.points.forEach((point) => {
+               point.x = mouseX - point.offsetX;
+               point.y = mouseY - point.offsetY;
+            });
          });
       }
       this.draw();
@@ -4268,6 +4378,16 @@ export default class Shapes {
 
       this.imageMap.forEach((image) => {
          checkIfIn(image.x, image.y, image.width, image.height, image);
+      });
+
+      this.pencilMap.forEach((pencil) => {
+         checkIfIn(
+            pencil.minX,
+            pencil.minY,
+            pencil.maxX - pencil.minX,
+            pencil.maxY - pencil.minY,
+            pencil,
+         );
       });
    }
 
