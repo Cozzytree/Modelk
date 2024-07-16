@@ -84,9 +84,9 @@ h5.ce-header {
    background: transparent;
 }
 
-::selection {
+/* ::selection {
    background: #009160;
-}
+} */
 
 .cdx-settings-button:hover,
 .ce-settings__button:hover,
@@ -164,7 +164,7 @@ h5.ce-header {
       --destructive: 14 86% 33%;
       --destructive-foreground: 14 86% 93%;
       --ring: 335 78% 49%;
-      --radius: 0.2rem;
+      --radius: 0.4rem;
    }
 
    .dark {
@@ -224,8 +224,18 @@ h5.ce-header {
          transparent 109px
       ),
       #000000;
-   background-size: 109px 109px, 109px 109px, 100% 6px, 109px 109px, 109px 109px;
-   background-position: 54px 55px, 0px 0px, 0px 0px, 0px 0px, 0px 0px;
+   background-size:
+      109px 109px,
+      109px 109px,
+      100% 6px,
+      109px 109px,
+      109px 109px;
+   background-position:
+      54px 55px,
+      0px 0px,
+      0px 0px,
+      0px 0px,
+      0px 0px;
 }
 
 @layer base {
