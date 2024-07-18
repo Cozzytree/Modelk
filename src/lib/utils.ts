@@ -12,13 +12,6 @@ export const config = {
    currentActive: null,
 };
 
-export const fontsizes = [
-   { size: "Small", q: 15 },
-   { size: "Medium", q: 25 },
-   { size: "Large", q: 35 },
-   { size: "Extra Large", q: 45 },
-];
-
 export const thickness = [
    { size: "S", q: 1 },
    { size: "M", q: 3 },
@@ -61,6 +54,12 @@ export const shapeProps = {
       "Courier New",
       "serif",
       "sans-serif",
+   ],
+   fontsizes: [
+      { size: "Small", q: 15 },
+      { size: "Medium", q: 25 },
+      { size: "Large", q: 35 },
+      { size: "Extra Large", q: 45 },
    ],
    fontWeight: ["normal", "bold", "bolder", "lighter"],
    fontVarient: ["normal", "small-caps"],

@@ -2,6 +2,7 @@
 
 import Shape from "../_canvas/shape.js";
 import CanvasShapeOptions from "../_component/canvasShapeOptions.jsx";
+import Polygon from "../_component/polygon.jsx";
 import CanvasRecord from "../_canvas/canvasRecord.js";
 import {
    ArrowBottomRightIcon,
@@ -12,7 +13,9 @@ import {
    HandIcon,
    ImageIcon,
    Pencil1Icon,
+   PlusIcon,
    SlashIcon,
+   StarIcon,
    TextIcon,
 } from "@radix-ui/react-icons";
 import ZoomLabel from "./ZoomLabel.tsx";
@@ -28,6 +31,13 @@ import {
    TooltipProvider,
    TooltipTrigger,
 } from "@/components/ui/tooltip.tsx";
+import {
+   DropdownMenu,
+   DropdownMenuContent,
+   DropdownMenuItem,
+   DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu.tsx";
+import Image from "next/image.js";
 
 const buttons = [
    { icon: <HandIcon width={"100%"} />, label: "handsFree" },
@@ -260,6 +270,8 @@ export default function Canvas() {
 
          <TooltipProvider>
             <div className="absolute top-[8%] left-2 border p-[2px] border-zinc-800 flex flex-col items-center rounded-sm gap-[2px] z-[2]">
+               <Polygon setMode={setMode} />
+
                {buttons.map((button, index) => (
                   <Tooltip key={index}>
                      <TooltipTrigger

@@ -9,14 +9,9 @@ import {
    MenubarSubTrigger,
    MenubarTrigger,
 } from "@/components/ui/menubar";
+import { config, thickness, lineType, shapeProps } from "@/lib/utils.ts";
 import {
-   config,
-   thickness,
-   lineType,
-   fontsizes,
-   shapeProps,
-} from "@/lib/utils.ts";
-import {
+   AlignCenterVerticallyIcon,
    ArrowLeftIcon,
    ArrowRightIcon,
    ArrowTopRightIcon,
@@ -27,11 +22,16 @@ import {
    FontStyleIcon,
    LetterCaseLowercaseIcon,
    LetterCaseUppercaseIcon,
+   MinusIcon,
+   PlusIcon,
    SquareIcon,
+   TextAlignBottomIcon,
    TextAlignCenterIcon,
    TextAlignJustifyIcon,
    TextAlignLeftIcon,
+   TextAlignMiddleIcon,
    TextAlignRightIcon,
+   TextAlignTopIcon,
    WidthIcon,
 } from "@radix-ui/react-icons";
 import { useEffect, useRef, useState } from "react";
@@ -43,6 +43,7 @@ export default function CanvasShapeOptions({
 }) {
    const [inputText, setInputText] = useState(false);
    const [textContent, setTextContent] = useState("");
+   const [fontSize, setFontSize] = useState(config.currentActive?.textSize);
    const inputTextRef = useRef(null);
 
    useEffect(() => {
@@ -54,7 +55,8 @@ export default function CanvasShapeOptions({
       });
 
       setTextContent(text);
-   }, [currentActive.text]);
+      setFontSize(currentActive?.textSize);
+   }, [currentActive]);
 
    const handleRadius = (val) => {
       setInputText(false);
@@ -118,6 +120,14 @@ export default function CanvasShapeOptions({
       }
    };
 
+   const textAlignVertical = (position) => {
+      if (config.currentActive) {
+         config.currentActive.allignVertical = position;
+         setCurrent(config.currentActive);
+         if (shapeClassRef) shapeClassRef.draw();
+      }
+   };
+
    return (
       <>
          <div className="absolute bottom-5 left-[50%] z-[999] translate-x-[-50%] flex items-center divide-x-2 border border-zinc-800 gap-1">
@@ -166,7 +176,7 @@ export default function CanvasShapeOptions({
                   </MenubarContent>
                </MenubarMenu>
 
-               {/* {line thickness} */}
+               {/* {text allign} */}
                {currentActive.type !== "text" && (
                   <>
                      <MenubarMenu>
@@ -193,6 +203,35 @@ export default function CanvasShapeOptions({
                               className=" hover:bg-accent transition-all duration-150 p-1 rounded-sm"
                               width={"30px"}
                               height={"30px"}
+                              cursor={"pointer"}
+                           />
+                        </MenubarContent>
+                     </MenubarMenu>
+
+                     <MenubarMenu>
+                        <MenubarTrigger>
+                           <AlignCenterVerticallyIcon />
+                        </MenubarTrigger>
+                        <MenubarContent className="flex gap-2 items-center">
+                           <TextAlignTopIcon
+                              onClick={() => textAlignVertical("top")}
+                              width={"30px"}
+                              height={"30px"}
+                              className=" hover:bg-accent transition-all duration-150 p-1 rounded-sm"
+                              cursor={"pointer"}
+                           />
+                           <TextAlignMiddleIcon
+                              onClick={() => textAlignVertical("center")}
+                              width={"30px"}
+                              height={"30px"}
+                              className=" hover:bg-accent transition-all duration-150 p-1 rounded-sm"
+                              cursor={"pointer"}
+                           />
+                           <TextAlignBottomIcon
+                              onClick={() => textAlignVertical("bottom")}
+                              width={"30px"}
+                              height={"30px"}
+                              className=" hover:bg-accent transition-all duration-150 p-1 rounded-sm"
                               cursor={"pointer"}
                            />
                         </MenubarContent>
@@ -253,7 +292,30 @@ export default function CanvasShapeOptions({
                      <FontSizeIcon />
                   </MenubarTrigger>
                   <MenubarContent className="w-fit">
-                     {fontsizes.map((font) => (
+                     <div className="flex gap-1 items-center">
+                        <Button
+                           onClick={() => {
+                              setFontSize((f) => f - 1);
+                              changeFontSizes(fontSize);
+                           }}
+                           variant={"ghost"}
+                           size={"icon"}
+                        >
+                           <MinusIcon />
+                        </Button>
+                        <p className="sm:text-xs md:text-sm">{fontSize}</p>
+                        <Button
+                           onClick={() => {
+                              setFontSize((f) => f + 1);
+                              changeFontSizes(fontSize);
+                           }}
+                           variant={"ghost"}
+                           size={"icon"}
+                        >
+                           <PlusIcon />
+                        </Button>
+                     </div>
+                     {shapeProps.fontsizes.map((font) => (
                         <div
                            onClick={() => changeFontSizes(font.q)}
                            key={font.size}

@@ -8,12 +8,25 @@ class DefaultStyles {
       this.fillStyle = "transparent";
       this.fillType = "full"; // full , net
       this.id = Date.now();
-      this.textSize = 20;
+      this.textSize = 15;
       this.text = [];
       this.textPosition = "center"; // "center" || "left" || "right"
+      this.allignVertical = "top"; // "top" || "bottom" || "center"
       this.font = "Arial";
       this.fontWeight = "normal";
       this.fontVarient = "normal";
+      this.angle = 0;
+   }
+}
+
+export class Polygons extends DefaultStyles {
+   constructor(x, y, inset, lines) {
+      super();
+      this.x = x;
+      this.y = y;
+      this.lines = lines;
+      this.inset = inset;
+      this.type = "polygon";
    }
 }
 
@@ -55,7 +68,7 @@ export class Line extends DefaultStyles {
       maxX = -Infinity,
       maxY = -Infinity,
       curvePoints = [],
-      isActive = false
+      isActive = false,
    ) {
       super();
       this.startTo = null;
@@ -83,7 +96,7 @@ export class Text extends DefaultStyles {
       font = "Arial",
       isActive,
       height,
-      width
+      width,
    ) {
       super();
       this.content = content;
@@ -105,7 +118,7 @@ export class Figure extends DefaultStyles {
       super();
       this.x = x;
       this.y = y;
-      this.type = "figure"
+      this.type = "figure";
       this.title = title;
       this.width = width;
       this.height = height;
@@ -119,7 +132,7 @@ export class Pencil extends DefaultStyles {
       minX = Infinity,
       minY = Infinity,
       maxX = -Infinity,
-      maxY = -Infinity
+      maxY = -Infinity,
    ) {
       super();
       this.type = "pencil";

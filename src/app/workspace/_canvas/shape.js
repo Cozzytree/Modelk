@@ -3,10 +3,17 @@ import {
    Figure,
    Line,
    Pencil,
+   Polygons,
    Rect,
    Text,
 } from "../_component/stylesClass.js";
-import { drawRect, drawSphere, drawText } from "./utilsFunc.js";
+import {
+   drawRect,
+   drawSHapes,
+   drawSphere,
+   drawText,
+   findSlope,
+} from "./utilsFunc.js";
 import { scrollBar, Scale, config } from "@/lib/utils.ts";
 import getStroke from "perfect-freehand";
 
@@ -138,41 +145,36 @@ export default class Shapes {
    }
 
    newShape(x, y) {
+      if (config.mode == "free" || config.mode == "handsFRee") return;
+
       this.lastPoint = { x, y };
-      if (config.mode === "rect") {
-         this.isDrawing = true;
-         const newRect = new Rect(x, y);
-         newRect.isActive = true;
-         this.newShapeParams = newRect;
-         return;
-      } else if (config.mode === "sphere") {
-         this.isDrawing = true;
-         const newSphere = new Circle(x, y);
-         newSphere.isActive = true;
-         this.newShapeParams = newSphere;
-         return;
-      } else if (config.mode === "pencil") {
-         this.isDrawing = true;
-         const newPencil = new Pencil();
-         this.newShapeParams = newPencil;
-         return;
-      } else if (config.mode === "arrowLine" && !this.newShapeParams) {
-         const newarrowLine = new Line("elbow");
-         newarrowLine.isActive = true;
-         this.isDrawing = true;
-         this.newShapeParams = newarrowLine;
-         return;
-      } else if (config.mode === "figure") {
-         const newFigure = new Figure(x, y, `Figure ${this.figureMap.size}`);
-         newFigure.isActive = false;
-         this.newShapeParams = newFigure;
-         this.isDrawing = true;
-      } else if (config.mode === "line" && !this.newShapeParams) {
-         const newLine = new Line("curve");
-         newLine.isActive = true;
-         this.isDrawing = true;
-         this.newShapeParams = newLine;
-         return;
+      this.isDrawing = true;
+
+      const shapeConfig = {
+         rect: () => new Rect(x, y),
+         sphere: () => new Circle(x, y),
+         pencil: () => new Pencil(),
+         arrowLine: () => {
+            if (!this.newShapeParams) return new Line("elbow");
+         },
+         figure: () => new Figure(x, y, `Figure ${this.figureMap.size}`),
+         line: () => {
+            if (!this.newShapeParams) return new Line("curve");
+         },
+         hexagon: () => new Polygons(x, y, 1.1, 4),
+         diamond: () => new Polygons(x, y, 1, 2),
+         star: () => new Polygons(x, y, 0.6, 6),
+         triangle: () => new Polygons(x, y, 0.5, 2),
+      };
+
+      const createShape = shapeConfig[config.mode];
+      console.log(createShape);
+      if (createShape) {
+         const shape = createShape();
+         if (shape) {
+            shape.isActive = config.mode !== "figure"; // Special case for figure
+            this.newShapeParams = shape;
+         }
       }
    }
 
@@ -202,17 +204,22 @@ export default class Shapes {
          case "pencil":
             if (x < this.newShapeParams.minX) {
                this.newShapeParams.minX = x;
-            } else if (x > this.newShapeParams.maxX) {
+            }
+            if (x > this.newShapeParams.maxX) {
                this.newShapeParams.maxX = x;
-            } else if (y < this.newShapeParams.minY) {
+            }
+            if (y < this.newShapeParams.minY) {
                this.newShapeParams.minY = y;
-            } else if (y > this.newShapeParams.maxY) {
+            }
+            if (y > this.newShapeParams.maxY) {
                this.newShapeParams.maxY = y;
             }
             this.newShapeParams.points.push({ x, y });
             return;
          case "figure":
             adjust();
+         case "polygon":
+            this.newShapeParams.radius = this.lastPoint.x - x;
             return;
       }
    }
@@ -289,7 +296,10 @@ export default class Shapes {
                });
                this.isDrawing = false;
                config.mode = "free";
+               break;
             default:
+               config.mode = "free";
+               this.isDrawing = false;
                break;
          }
          if (this.newShapeParams.type !== "pencil") {
@@ -719,9 +729,19 @@ export default class Shapes {
             this.context.closePath();
          }
       };
-
+      const s = { x: 300, y: 200, inset: 1, lines: 3, radius: 50 };
+      drawDotsAndRect(
+         s.x - s.radius,
+         s.y - s.radius,
+         2 * s.radius,
+         2 * s.radius,
+         this.tolerance,
+         true,
+      );
+      drawSHapes(s, this.context);
       // Draw rectangles
       this.rectMap.forEach((rect) => {
+         if (rect.containerId) return;
          const {
             x,
             y,
@@ -739,8 +759,8 @@ export default class Shapes {
             fontVarient,
             font,
             fontWeight,
+            allignVertical,
          } = rect;
-
          drawDotsAndRect(x, y, width, height, this.tolerance, isActive);
 
          // Draw rounded rectangle
@@ -758,11 +778,13 @@ export default class Shapes {
             fontWeight,
             fontVarient,
             font,
+            allignVertical,
          );
       });
 
       // Draw circles
       this.circleMap.forEach((sphere) => {
+         if (sphere.containerId) return;
          const {
             xRadius,
             yRadius,
@@ -776,6 +798,7 @@ export default class Shapes {
             fontWeight,
             fontVarient,
             font,
+            allignVertical,
          } = sphere;
          const x = sphere.x - xRadius;
          const y = sphere.y - yRadius;
@@ -808,6 +831,7 @@ export default class Shapes {
             fontWeight,
             fontVarient,
             font,
+            allignVertical,
          );
       });
 
@@ -862,6 +886,7 @@ export default class Shapes {
             fontVarient,
             fontWeight,
             font,
+            allignVertical,
          } = line;
 
          this.context.beginPath();
@@ -1023,6 +1048,7 @@ export default class Shapes {
             fontWeight,
             fontVarient,
             font,
+            allignVertical,
          );
 
          this.context.stroke();
@@ -1078,6 +1104,94 @@ export default class Shapes {
 
          //rect
          drawRect(figure, this.context, this.activeColor, true);
+      });
+
+      this.rectMap.forEach((rect) => {
+         if (!rect.containerId) return;
+         const {
+            x,
+            y,
+            width,
+            height,
+            isActive,
+            text,
+            textSize,
+            textPosition,
+            fontWeight,
+            fontVarient,
+            font,
+            allignVertical,
+         } = rect;
+         drawDotsAndRect(x, y, width, height, this.tolerance, isActive);
+         // Draw rounded rectangle
+         drawRect(rect, this.context, this.activeColor);
+
+         // Render text
+         this.renderText(
+            text,
+            x,
+            y,
+            textSize,
+            height,
+            width,
+            textPosition,
+            fontWeight,
+            fontVarient,
+            font,
+            allignVertical,
+         );
+      });
+
+      this.circleMap.forEach((sphere) => {
+         if (!sphere.containerId) return;
+         const {
+            xRadius,
+            yRadius,
+            text,
+            textPosition,
+            lineWidth,
+            fillStyle,
+            borderColor,
+            textSize,
+            isActive,
+            fontWeight,
+            fontVarient,
+            font,
+            allignVertical,
+         } = sphere;
+         const x = sphere.x - xRadius;
+         const y = sphere.y - yRadius;
+         const width = 2 * xRadius;
+         const height = 2 * yRadius;
+
+         drawDotsAndRect(x, y, width, height, this.tolerance, isActive);
+
+         // Draw circle
+         drawSphere(
+            lineWidth,
+            fillStyle,
+            borderColor,
+            sphere.x,
+            sphere.y,
+            xRadius,
+            yRadius,
+            this.context,
+         );
+
+         // Render text
+         this.renderText(
+            text,
+            x,
+            y,
+            textSize,
+            height,
+            width,
+            textPosition,
+            fontWeight,
+            fontVarient,
+            font,
+            allignVertical,
+         );
       });
 
       this.context.restore();
@@ -1326,7 +1440,17 @@ export default class Shapes {
             this.canvasbreakPoints.width,
             this.canvasbreakPoints.height,
          );
-         this.massiveSelection = this.massiveSelection;
+         this.massiveSelection.isDown = false;
+         this.massiveSelection.startX = null;
+         this.massiveSelection.startY = null;
+         this.massiveSelection.isSelectedDown = false;
+         this.massiveSelection.isSelected = false;
+         this.massiveSelection.isSelectedMinX = Infinity;
+         this.massiveSelection.isSelectedMinY = Infinity;
+         this.massiveSelection.isSelectedMaxX = -Infinity;
+         this.massiveSelection.isSelectedMaxY = -Infinity;
+         this.massiveSelection.width = null;
+         this.massiveSelection.height = null;
       }
 
       config.currentActive = null;
@@ -1640,7 +1764,6 @@ export default class Shapes {
          const verticalBounds =
             mouseY >= y + this.tolerance &&
             mouseY <= y + height - this.tolerance;
-
          //  // top - bottom
          const withinTopEdge =
             mouseY >= y - this.tolerance && mouseY <= y + this.tolerance;
@@ -1649,26 +1772,22 @@ export default class Shapes {
             mouseY <= y + height + this.tolerance;
          const withinHorizontalBounds =
             mouseX > x + this.tolerance && mouseX < x + width - this.tolerance;
-
          // Check for corners resize
          const withinTopLeftCorner =
             mouseX >= x - this.tolerance &&
             mouseX <= x + this.tolerance &&
             mouseY >= y - this.tolerance &&
             mouseY <= y + this.tolerance;
-
          const withinTopRightCorner =
             mouseX >= x + width - this.tolerance &&
             mouseX <= x + width + this.tolerance &&
             mouseY >= y - this.tolerance &&
             mouseY <= y + this.tolerance;
-
          const withinBottomLeftCorner =
             mouseX >= x - this.tolerance &&
             mouseX <= x + this.tolerance &&
             mouseY >= y + height - this.tolerance &&
             mouseY <= y + height + this.tolerance;
-
          const withinBottomRightCorner =
             mouseX >= x + width - this.tolerance &&
             mouseX <= x + width + this.tolerance &&
@@ -2797,6 +2916,9 @@ export default class Shapes {
          case "figure":
             drawRect(obj, this.breakPointsCtx, this.activeColor, true);
             break;
+         case "polygon":
+            drawSHapes(obj, this.breakPointsCtx);
+            break;
          default:
             break;
       }
@@ -2830,7 +2952,6 @@ export default class Shapes {
 
       if (this.isDrawing || this.newShapeParams) {
          this.isBuildingShape(mouseX, mouseY);
-
          this.drawNewShape(
             this.newShapeParams.type,
             this.newShapeParams,
@@ -5013,7 +5134,7 @@ export default class Shapes {
          if (key !== pointKey) {
             if (Math.abs(point.minX - x) <= this.tolerance) {
                object.x =
-                  object.type === "sphere"
+                  object.type == "sphere"
                      ? point.minX + object.xRadius
                      : point.minX;
 
@@ -5144,23 +5265,27 @@ export default class Shapes {
 
    squareLineParams(obj, mouseX, mouseY) {
       const { x, y, width, height } = obj;
+      const slopeTop1 = findSlope(mouseY, y, mouseX, x);
+      const slopeTop2 = findSlope(mouseY, y, mouseX, x + width);
+
+      const slopeBottom1 = findSlope(mouseY, y + height, mouseX, x);
+      const slopeBottom2 = findSlope(mouseY, y + height, mouseX, x + width);
+
+      const slopeLeft1 = findSlope(mouseY, y, mouseX, x);
+      const slopeLeft2 = findSlope(mouseY, y + height, mouseX, x);
+
+      const slopeRight1 = findSlope(mouseY, y, mouseX, x + width);
+      const slopeRight2 = findSlope(mouseY, y + height, mouseX, x + width);
+
       return (
-         (mouseX >= x &&
-            mouseX <= x + width &&
-            mouseY >= y &&
-            mouseY <= y + this.tolerance) ||
-         (mouseX >= x &&
-            mouseX <= x + this.tolerance &&
-            mouseY >= y &&
-            mouseY <= y + height) ||
-         (mouseX >= x &&
-            mouseX <= x + width &&
-            mouseY >= y + height - this.tolerance &&
-            mouseY <= y + height) ||
-         (mouseX >= x + width - this.tolerance &&
-            mouseX <= x + width &&
-            mouseY >= y &&
-            mouseY <= y + height)
+         (mouseX > x &&
+            mouseX < x + width &&
+            Math.abs(slopeTop1 - slopeTop2) <= 0.15) ||
+         (mouseX > x &&
+            mouseX < x + width &&
+            Math.abs(slopeBottom1 - slopeBottom2) <= 0.15) ||
+         Math.abs(slopeLeft1 - slopeLeft2) >= 50 ||
+         Math.abs(slopeRight1 - slopeRight2) >= 50
       );
    }
 
@@ -5173,15 +5298,21 @@ export default class Shapes {
       );
 
       this.breakPointsCtx.save();
+      const centerX = this.canvasbreakPoints.width / 2;
+      const centerY = this.canvasbreakPoints.height / 2;
       this.breakPointsCtx.translate(
          -scrollBar.scrollPositionX,
          -scrollBar.scrollPositionY,
       );
+
+      this.breakPointsCtx.translate(centerX, centerY);
       this.breakPointsCtx.scale(Scale.scale, Scale.scale);
+      this.breakPointsCtx.translate(-centerX, -centerY);
+
       this.breakPointsCtx.beginPath();
       const padding = this.tolerance; // padding
-      this.breakPointsCtx.lineWidth = padding;
-      this.breakPointsCtx.strokeStyle = this.activeColor;
+      this.breakPointsCtx.lineWidth = 1.3;
+      this.breakPointsCtx.strokeStyle = "grey";
 
       const draw = (obj) => {
          const { x, y, width, height } = obj;
@@ -5350,34 +5481,6 @@ export default class Shapes {
 
       this.breakPointsCtx.stroke();
       this.breakPointsCtx.restore();
-   }
-
-   pointToSegmentDistance(px, py, x1, y1, x2, y2) {
-      const A = px - x1;
-      const B = py - y1;
-      const C = x2 - x1;
-      const D = y2 - y1;
-
-      const dot = A * C + B * D;
-      const len_sq = C * C + D * D;
-      const param = len_sq !== 0 ? dot / len_sq : -1;
-
-      let xx, yy;
-
-      if (param < 0) {
-         xx = x1;
-         yy = y1;
-      } else if (param > 1) {
-         xx = x2;
-         yy = y2;
-      } else {
-         xx = x1 + param * C;
-         yy = y1 + param * D;
-      }
-
-      const dx = px - xx;
-      const dy = py - yy;
-      return Math.sqrt(dx * dx + dy * dy);
    }
 
    canvasZoomInOutAndScroll(e, setScale) {
@@ -5644,12 +5747,25 @@ export default class Shapes {
       fontWeight,
       fontVarient,
       font,
+      allignVertical = "top",
    ) {
       // Calculate the total height of the text block
       let totalTextHeight = textArray.length * textSize;
 
       // Calculate the starting y-coordinate to center the text block vertically
-      let startY = y + (height - totalTextHeight) * 0.5 + textSize;
+      let startY;
+
+      switch (allignVertical) {
+         case "center":
+            startY = y + (height - totalTextHeight) * 0.5 + textSize;
+            break;
+         case "top":
+            startY = y + 3 * this.tolerance;
+            break;
+         case "bottom":
+            startY = y + height - totalTextHeight;
+            break;
+      }
 
       // Set the text properties
       this.context.fillStyle = "white";
@@ -5668,10 +5784,10 @@ export default class Shapes {
                midPoint = x + (width - metrics.width) * 0.5;
                break;
             case "left":
-               midPoint = x;
+               midPoint = x + this.tolerance;
                break;
             case "right":
-               midPoint = x + (width - metrics.width);
+               midPoint = x + (width - metrics.width) - this.tolerance;
                break;
             default:
                break;

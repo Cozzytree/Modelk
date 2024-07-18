@@ -15,7 +15,7 @@ export function drawRect(rect, context, activeColor, isFigure = false) {
    if (isFigure) {
       context.strokeStyle = isActive ? activeColor : "grey";
       context.lineWidth = 1;
-      context.fillStyle = "transparent";
+      context.fillStyle = "black";
    } else {
       context.strokeStyle = borderColor;
       context.lineWidth = lineWidth;
@@ -80,4 +80,33 @@ export function drawText(text, tolerance, context) {
          textMetrics.actualBoundingBoxDescent +
          tolerance;
    });
+}
+
+export function findSlope(y2, y1, x2, x1) {
+   return (y2 - y1) / (x2 - x1);
+}
+
+export function drawSHapes(shape, context) {
+   const { radius, x, y, inset, lines } = shape;
+   context.save();
+   context.shadowOffsetX = 2;
+   context.shadowOffsetY = 2;
+   context.shadowBlur = 2;
+   context.shadowColor = "red";
+   context.beginPath();
+   context.lineWidth = 2;
+   context.fillStyle = "transparent";
+   context.strokeStyle = "white";
+   context.translate(x, y);
+   context.moveTo(0, 0 - radius);
+   for (let i = 0; i < lines; i++) {
+      context.rotate(Math.PI / lines);
+      context.lineTo(0, 0 - radius * inset);
+      context.rotate(Math.PI / lines);
+      context.lineTo(0, 0 - radius);
+   }
+   context.closePath();
+   context.stroke();
+   context.fill();
+   context.restore();
 }
