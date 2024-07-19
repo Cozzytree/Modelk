@@ -79,7 +79,10 @@ export default function CanvasShapeOptions({
    const handleFillStyle = (color) => {
       setInputText(false);
       if (config.currentActive) {
-         if (config.currentActive.type === "line") {
+         if (
+            config.currentActive.type === "line" ||
+            config.currentActive.type === "pencil"
+         ) {
             config.currentActive.borderColor = color;
          } else config.currentActive.fillStyle = color;
          setCurrent(config.currentActive);

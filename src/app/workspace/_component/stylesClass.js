@@ -1,5 +1,7 @@
 class DefaultStyles {
    constructor() {
+      this.width = 100;
+      this.height = 100;
       this.lineWidth = 1.7;
       this.isActive = false;
       this.radius = 10;

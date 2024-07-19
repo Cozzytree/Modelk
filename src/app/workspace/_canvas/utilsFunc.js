@@ -1,55 +1,24 @@
-export function drawRect(rect, context, activeColor, isFigure = false) {
-   const {
-      lineWidth,
-      borderColor,
-      fillStyle,
-      x,
-      y,
-      width,
-      height,
-      radius,
-      isActive,
-   } = rect;
-   // Draw rounded rectangle
-   context.beginPath();
-   if (isFigure) {
-      context.strokeStyle = isActive ? activeColor : "grey";
-      context.lineWidth = 1;
-      context.fillStyle = "black";
-   } else {
-      context.strokeStyle = borderColor;
-      context.lineWidth = lineWidth;
-      context.fillStyle = fillStyle;
-   }
+export function drawRect(rect) {
+   const { x, y, width, height, radius } = rect;
 
-   context.moveTo(x + radius, y);
-   context.arcTo(x + width, y, x + width, y + height, radius);
-   context.arcTo(x + width, y + height, x, y + height, radius);
-   context.arcTo(x, y + height, x, y, radius);
-   context.arcTo(x, y, x + width, y, radius);
-   context.stroke();
-   context.fill();
-   context.closePath();
+   const path = new Path2D();
+   path.moveTo(x + radius, y);
+   path.lineTo(x + width - radius, y);
+   path.arcTo(x + width, y, x + width, y + radius, radius);
+   path.lineTo(x + width, y + height - radius);
+   path.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+   path.lineTo(x + radius, y + height);
+   path.arcTo(x, y + height, x, y + height - radius, radius);
+   path.lineTo(x, y + radius);
+   path.arcTo(x, y, x + radius, y, radius);
+
+   return path;
 }
 
-export function drawSphere(
-   lineWidth,
-   fillStyle,
-   borderColor,
-   x,
-   y,
-   xRadius,
-   yRadius,
-   context,
-) {
-   context.beginPath();
-   context.lineWidth = lineWidth;
-   context.fillStyle = fillStyle;
-   context.strokeStyle = borderColor;
-   context.ellipse(x, y, xRadius, yRadius, 0, 0, 2 * Math.PI);
-   context.fill();
-   context.stroke();
-   context.closePath();
+export function drawSphere(x, y, xRadius, yRadius) {
+   const path = new Path2D();
+   path.ellipse(x, y, xRadius, yRadius, 0, 0, 2 * Math.PI);
+   return path;
 }
 
 export function drawText(text, tolerance, context) {
@@ -87,16 +56,17 @@ export function findSlope(y2, y1, x2, x1) {
 }
 
 export function drawSHapes(shape, context) {
-   const { radius, x, y, inset, lines } = shape;
+   const { radius, x, y, inset, lines, borderColor, fillStyle, lineWidth } =
+      shape;
    context.save();
-   context.shadowOffsetX = 2;
-   context.shadowOffsetY = 2;
-   context.shadowBlur = 2;
-   context.shadowColor = "red";
+   // context.shadowOffsetX = 2;
+   // context.shadowOffsetY = 2;
+   // context.shadowBlur = 2;
+   // context.shadowColor = "red";
    context.beginPath();
-   context.lineWidth = 2;
-   context.fillStyle = "transparent";
-   context.strokeStyle = "white";
+   context.lineWidth = lineWidth;
+   context.fillStyle = fillStyle;
+   context.strokeStyle = borderColor;
    context.translate(x, y);
    context.moveTo(0, 0 - radius);
    for (let i = 0; i < lines; i++) {
@@ -109,4 +79,148 @@ export function drawSHapes(shape, context) {
    context.stroke();
    context.fill();
    context.restore();
+}
+
+function drawArrows(startPoint, endPoint, arrowLength, context) {
+   const angle = Math.atan2(
+      endPoint.y - startPoint.y,
+      endPoint.x - startPoint.x,
+   );
+
+   // First side of the arrowhead
+   context.moveTo(endPoint.x, endPoint.y);
+   context.lineTo(
+      endPoint.x - arrowLength * Math.cos(angle - Math.PI / 6),
+      endPoint.y - arrowLength * Math.sin(angle - Math.PI / 6),
+   );
+   context.stroke();
+   context.closePath();
+
+   // Second side of the arrowhead
+   context.beginPath();
+   context.moveTo(endPoint.x, endPoint.y);
+   context.lineTo(
+      endPoint.x - arrowLength * Math.cos(angle + Math.PI / 6),
+      endPoint.y - arrowLength * Math.sin(angle + Math.PI / 6),
+   );
+   context.stroke();
+   context.closePath();
+}
+
+export function drawLine({ line, headlen, context }) {
+   const { curvePoints, lineType, arrowLeft, arrowRight, radius = 0 } = line;
+   const path = new Path2D();
+
+   if (lineType === "straight") {
+      path.moveTo(curvePoints[0].x, curvePoints[0].y);
+      for (let i = 1; i < curvePoints.length; i++) {
+         path.lineTo(curvePoints[i].x, curvePoints[i].y);
+      }
+      if (arrowLeft) {
+         drawArrows(
+            {
+               x: curvePoints[curvePoints.length - 1].x,
+               y: curvePoints[curvePoints.length - 1].y,
+            },
+            {
+               x: curvePoints[0].x,
+               y: curvePoints[0].y,
+            },
+            headlen,
+         );
+      }
+      if (arrowRight) {
+         drawArrows(
+            {
+               x: curvePoints[0].x,
+               y: curvePoints[0].y,
+            },
+            {
+               x: curvePoints[curvePoints.length - 1].x,
+               y: curvePoints[curvePoints.length - 1].y,
+            },
+            headlen,
+         );
+      }
+   } else if (lineType === "elbow") {
+      const first = curvePoints[0];
+      const last = curvePoints[curvePoints.length - 1];
+      const mid = {
+         x: (first.x + last.x) / 2,
+         y: (first.y + last.y) / 2,
+      };
+
+      path.moveTo(first.x, first.y);
+      path.arcTo(mid.x, first.y, mid.x, mid.y, radius);
+      path.arcTo(mid.x, last.y, last.x, last.y, radius);
+      path.lineTo(last.x, last.y);
+
+      if (arrowLeft) {
+         mid.x == first.x
+            ? drawArrows(mid, first, headlen, context)
+            : drawArrows({ x: mid.x, y: first.y }, first, headlen, context);
+      }
+      if (arrowRight) {
+         mid.x == first.x
+            ? drawArrows(mid, last, headlen, context)
+            : drawArrows({ x: mid.x, y: last.y }, last, headlen, context);
+      }
+   } else {
+      const last = curvePoints.length - 1;
+      path.moveTo(curvePoints[0].x, curvePoints[0].y);
+      const t = 0.8;
+
+      for (let i = 1; i < curvePoints.length - 1; i++) {
+         const cp1 = curvePoints[i];
+         const cp2 = curvePoints[i + 1];
+         const midPointX = (1 - t) * cp1.x + t * cp2.x;
+         const midPointY = (1 - t) * cp1.y + t * cp2.y;
+         path.quadraticCurveTo(cp1.x, cp1.y, midPointX, midPointY);
+      }
+
+      const secondToLastPoint = curvePoints[curvePoints.length - 2];
+      const lastPoint = curvePoints[curvePoints.length - 1];
+      const controlPointX = (1 - t) * secondToLastPoint.x + t * lastPoint.x;
+      const controlPointY = (1 - t) * secondToLastPoint.y + t * lastPoint.y;
+
+      path.quadraticCurveTo(
+         controlPointX,
+         controlPointY,
+         lastPoint.x,
+         lastPoint.y,
+      );
+
+      if (arrowLeft) {
+         drawArrows(
+            {
+               x: curvePoints[1].x,
+               y: curvePoints[1].y,
+            },
+            {
+               x: curvePoints[0].x,
+               y: curvePoints[0].y,
+            },
+            headlen,
+            context,
+         );
+      }
+      if (arrowRight) {
+         drawArrows(
+            {
+               x: curvePoints[last - 1].x,
+               y: curvePoints[last - 1].y,
+            },
+            {
+               x: curvePoints[last].x,
+               y: curvePoints[last].y,
+            },
+            headlen,
+            context,
+         );
+      }
+   }
+
+   // Draw the path
+   return path;
+   // context.stroke(path);
 }
