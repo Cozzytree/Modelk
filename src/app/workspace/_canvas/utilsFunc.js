@@ -1,5 +1,18 @@
-export function drawRect(rect) {
-   const { x, y, width, height, radius } = rect;
+export function drawRect(rect, context) {
+   const {
+      x,
+      y,
+      width,
+      height,
+      radius,
+      text,
+      textSize,
+      textPosition,
+      fontVarient,
+      font,
+      fontWeight,
+      allignVertical,
+   } = rect;
 
    const path = new Path2D();
    path.moveTo(x + radius, y);
@@ -12,12 +25,123 @@ export function drawRect(rect) {
    path.lineTo(x, y + radius);
    path.arcTo(x, y, x + radius, y, radius);
 
+   renderText(
+      text,
+      x,
+      y,
+      textSize,
+      height,
+      width,
+      textPosition,
+      fontWeight,
+      fontVarient,
+      font,
+      allignVertical,
+      6,
+      context,
+   );
+
    return path;
 }
 
-export function drawSphere(x, y, xRadius, yRadius) {
+export function renderText(
+   textArray,
+   x,
+   y,
+   textSize,
+   height,
+   width,
+   position = "left",
+   fontWeight,
+   fontVarient,
+   font,
+   allignVertical = "top",
+   tolerance,
+   context,
+) {
+   // Calculate the total height of the text block
+   let totalTextHeight = textArray.length * textSize;
+
+   // Calculate the starting y-coordinate to center the text block vertically
+   let startY;
+
+   switch (allignVertical) {
+      case "center":
+         startY = y + (height - totalTextHeight) * 0.5 + textSize;
+         break;
+      case "top":
+         startY = y + 3 * tolerance;
+         break;
+      case "bottom":
+         startY = y + height - totalTextHeight;
+         break;
+   }
+
+   // Set the text properties
+   context.fillStyle = "white";
+   context.font = `${fontVarient} ${fontWeight} ${textSize}px ${font}`;
+
+   // Iterate through the text array and render each line
+   for (let i = 0; i < textArray.length; i++) {
+      // Measure the width of the current line of text
+      const metrics = context.measureText(textArray[i]);
+
+      // Calculate the x-coordinate to center the text horizontally
+      let midPoint;
+
+      switch (position) {
+         case "center":
+            midPoint = x + (width - metrics.width) * 0.5;
+            break;
+         case "left":
+            midPoint = x + tolerance;
+            break;
+         case "right":
+            midPoint = x + (width - metrics.width) - tolerance;
+            break;
+         default:
+            break;
+      }
+
+      // Render the text
+      context.fillText(textArray[i], midPoint, startY);
+
+      // Move to the next line
+      startY += textSize;
+   }
+}
+
+export function drawSphere(sphere, context) {
+   const {
+      x,
+      y,
+      xRadius,
+      yRadius,
+      text,
+      textPosition,
+      textSize,
+      fontWeight,
+      fontVarient,
+      font,
+      allignVertical,
+   } = sphere;
    const path = new Path2D();
    path.ellipse(x, y, xRadius, yRadius, 0, 0, 2 * Math.PI);
+   renderText(
+      text,
+      x - xRadius,
+      y - yRadius,
+      textSize,
+      2 * yRadius,
+      2 * yRadius,
+      textPosition,
+      fontWeight,
+      fontVarient,
+      font,
+      allignVertical,
+      6,
+      context,
+   );
    return path;
 }
 
@@ -38,17 +162,24 @@ export function drawText(text, tolerance, context) {
 
    // Store the measured dimensions
    text.width = maxWidth;
-   text.height = content.length * textSize - tolerance;
+   let totalHeight = 0;
 
    let currentY = y;
    content.forEach((c) => {
       const textMetrics = context.measureText(c);
+
+      const lineHeight =
+         textMetrics.actualBoundingBoxAscent +
+         textMetrics.actualBoundingBoxDescent;
+      totalHeight += lineHeight + tolerance;
+
       context.fillText(c, x, currentY + textMetrics.actualBoundingBoxAscent);
       currentY +=
          textMetrics.actualBoundingBoxAscent +
          textMetrics.actualBoundingBoxDescent +
          tolerance;
    });
+   text.height = totalHeight;
 }
 
 export function findSlope(y2, y1, x2, x1) {

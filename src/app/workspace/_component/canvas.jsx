@@ -216,6 +216,20 @@ export default function Canvas() {
             setMode(config.mode);
             setImage(null);
          }
+
+         if (e.ctrlKey) {
+            const s = shape.canvasClick(e);
+            s.isActive = true;
+            shape.draw();
+         }
+         if (config.mode === "text") {
+            const { x, y } = shape.getTransformedMouseCoords(e);
+            shape.inputText(
+               x,
+               y,
+               `<div class="w-fit absolute px-[3px] min-w-[10ch] text-[14px] outline-none z-[999] h-fit shadow-sm bg-transparent" id="input" contenteditable="true"></div>`,
+            );
+         }
       };
 
       const zoomInOut = (e) => {
