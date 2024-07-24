@@ -271,6 +271,7 @@ export function drawLine({ line, headlen, context }) {
                y: curvePoints[curvePoints.length - 1].y,
             },
             headlen,
+            context,
          );
       }
    } else if (lineType === "elbow") {

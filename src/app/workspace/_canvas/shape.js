@@ -1697,12 +1697,16 @@ export default class Shapes {
                const container = this.figureMap.get(text.containerId);
                if (container && !container.isActive) {
                   isResizing = true;
-                  this.resizeElement = { key };
+                  this.resizeElement = {
+                     key,
+                  };
                   config.currentActive = text;
                }
             } else if (!text.containerId) {
                isResizing = true;
-               this.resizeElement = { key };
+               this.resizeElement = {
+                  key,
+               };
                config.currentActive = text;
             }
          }
@@ -3090,10 +3094,11 @@ export default class Shapes {
          this.updateLinesPointTo(circleResize);
       } else if (textResize) {
          if (mouseX > textResize.x && mouseY > textResize.y) {
+            const { initialSize } = this.resizeElement;
             textResize.textSize =
                Math.max(
                   12, // Minimum size to prevent text from becoming too small
-                  (mouseX - textResize.x) * 0.3 + (mouseY - textResize.y) * 0.5,
+                  (mouseX - textResize.x) * 0.2 + (mouseY - textResize.y) * 0.3,
                ) * 0.5;
          }
 
@@ -5100,6 +5105,8 @@ export default class Shapes {
    }
 
    lineConnectParams(mouseX, mouseY) {
+      let letsDraw = false;
+      let path = new Path2D();
       this.breakPointsCtx.clearRect(
          0,
          0,
@@ -5127,57 +5134,42 @@ export default class Shapes {
       const draw = (obj) => {
          const { x, y, width, height } = obj;
          // Start from the top-left corner, slightly offset by padding
-         this.breakPointsCtx.moveTo(x - padding + 5, y - padding);
-
+         path.moveTo(x - padding + 5, y - padding);
          // Top-right corner
-         this.breakPointsCtx.arcTo(
+         path.arcTo(
             x + width + padding,
             y - padding,
             x + width + padding,
             y - padding + 5,
             5,
          );
-
          // Bottom-right corner
-         this.breakPointsCtx.arcTo(
+         path.arcTo(
             x + width + padding,
             y + height + padding,
             x + width + padding - 5,
             y + height + padding,
             5,
          );
-
          // Bottom-left corner
-         this.breakPointsCtx.arcTo(
+         path.arcTo(
             x - padding,
             y + height + padding,
             x - padding,
             y + height + padding - 5,
             5,
          );
-
          // Top-left corner to close the path
-         this.breakPointsCtx.arcTo(
-            x - padding,
-            y - padding,
-            x - padding + 5,
-            y - padding,
-            5,
-         );
-
-         this.breakPointsCtx.closePath();
+         path.arcTo(x - padding, y - padding, x - padding + 5, y - padding, 5);
+         path.closePath();
       };
 
       this.rectMap.forEach((rect) => {
          if (this.squareLineParams(rect, mouseX, mouseY)) {
             draw(rect);
+            letsDraw = true;
          } else {
-            this.breakPointsCtx.clearRect(
-               0,
-               0,
-               this.canvasbreakPoints.width,
-               this.canvasbreakPoints.height,
-            );
+            letsDraw = false;
          }
       });
 
@@ -5191,8 +5183,7 @@ export default class Shapes {
             Math.abs(distance - xRadius) <= this.tolerance &&
             Math.abs(distance - yRadius) <= this.tolerance
          ) {
-            this.breakPointsCtx.beginPath();
-            this.breakPointsCtx.ellipse(
+            path.ellipse(
                circle.x,
                circle.y,
                circle.xRadius + padding,
@@ -5202,14 +5193,9 @@ export default class Shapes {
                Math.PI * 2,
                false,
             );
-            this.breakPointsCtx.closePath();
+            letsDraw = true;
          } else {
-            this.breakPointsCtx.clearRect(
-               0,
-               0,
-               this.canvasbreakPoints.width,
-               this.canvasbreakPoints.height,
-            );
+            letsDraw = false;
          }
       });
 
@@ -5234,10 +5220,10 @@ export default class Shapes {
                mouseY <= y + height)
          ) {
             // Start from the top-left corner, slightly offset by padding
-            this.breakPointsCtx.moveTo(x - padding + 5, y - padding);
+            path.moveTo(x - padding + 5, y - padding);
 
             // Top-right corner
-            this.breakPointsCtx.arcTo(
+            path.arcTo(
                x + width + padding,
                y - padding,
                x + width + padding,
@@ -5246,7 +5232,7 @@ export default class Shapes {
             );
 
             // Bottom-right corner
-            this.breakPointsCtx.arcTo(
+            path.arcTo(
                x + width + padding,
                y + height + padding,
                x + width + padding - 5,
@@ -5255,7 +5241,7 @@ export default class Shapes {
             );
 
             // Bottom-left corner
-            this.breakPointsCtx.arcTo(
+            path.arcTo(
                x - padding,
                y + height + padding,
                x - padding,
@@ -5264,7 +5250,7 @@ export default class Shapes {
             );
 
             // Top-left corner to close the path
-            this.breakPointsCtx.arcTo(
+            path.arcTo(
                x - padding,
                y - padding,
                x - padding + 5,
@@ -5272,24 +5258,32 @@ export default class Shapes {
                5,
             );
 
-            this.breakPointsCtx.closePath();
+            path.closePath();
          }
       });
 
       this.imageMap.forEach((image) => {
          if (this.squareLineParams(image, mouseX, mouseY)) {
             draw(image);
+            letsDraw = true;
          } else {
-            this.breakPointsCtx.clearRect(
-               0,
-               0,
-               this.canvasbreakPoints.width,
-               this.canvasbreakPoints.height,
-            );
+            letsDraw = false;
          }
       });
 
-      this.breakPointsCtx.stroke();
+      if (letsDraw) {
+         this.breakPointsCtx.stroke(path);
+      } else {
+         path = new Path2D();
+         letsDraw = false;
+         this.breakPointsCtx.clearRect(
+            0,
+            0,
+            this.canvasbreakPoints.width,
+            this.canvasbreakPoints.height,
+         );
+      }
+
       this.breakPointsCtx.restore();
    }
 
