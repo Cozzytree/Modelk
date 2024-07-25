@@ -62,7 +62,6 @@ class RevFor {
          JSON.stringify(lastElement[0]) === JSON.stringify(value[0])
       )
          return;
-      console.log(this.recycleBin);
       if (this.getLength() >= 10) {
          this.recycleBin.shift();
       }
@@ -580,95 +579,59 @@ export default class Shapes {
       let square = null;
       let text = null;
       let minLine = null;
+      let otherS = null;
 
-      // Check if the click is within any rectangle
-      for (const [_, rect] of this.rectMap) {
-         if (
-            clickX >= rect.x &&
-            clickX <= rect.x + rect.width &&
-            clickY >= rect.y &&
-            clickY <= rect.y + rect.height
-         ) {
-            if (square === null || square.width > rect.width) {
-               square = rect;
-            }
+      let smallestShape = null;
+      const allSphape = [
+         ...this.rectMap.values(),
+         ...this.circleMap.values(),
+         ...this.textMap.values(),
+         ...this.lineMap.values(),
+         ...this.otherShapes.values(),
+      ];
+
+      allSphape.forEach((value) => {
+         let x = 0;
+         let y = 0;
+         let width = 0;
+         let height = 0;
+         switch (value.type) {
+            case "polygon":
+               x = value.x - value.radius;
+               y = value.y - value.radius;
+               width = value.width;
+               height = value.height;
+               break;
+            case "sphere":
+               x = value.x - value.xRadius;
+               y = value.y - value.yRadius;
+               width = 2 * value.xRadius;
+               height = 2 * value.xRadius;
+               break;
+            case "line":
+               x = value.minX;
+               y = value.minY;
+               width = value.maxX - value.minX;
+               height = value.maxY - value.minY;
+               break;
+            default:
+               x = value.x;
+               y = value.y;
+               width = value.width;
+               height = value.height;
+               break;
          }
-      }
-
-      // click withinh circle
-      for (const [_, arc] of this.circleMap) {
-         if (
-            clickX > arc.x - arc.xRadius &&
-            clickX <= arc.x + arc.xRadius &&
-            clickY >= arc.y - arc.yRadius &&
-            clickY <= arc.y + arc.yRadius
-         ) {
-            if (circle === null || arc.xRadius < circle.xRadius) {
-               circle = arc;
+         if (this.isIn(clickX, clickY, 0, 0, x, y, width, height)) {
+            if (smallestShape == null || smallestShape.width > width) {
+               smallestShape = value;
             }
-         }
-      }
-
-      //click withinh text
-      for (const [_, t] of this.textMap) {
-         if (
-            clickX >= t.x &&
-            clickX <= t.x + t.width &&
-            clickY >= t.y &&
-            clickY <= t.y + t.height
-         ) {
-            if (text === null || t.width < text.width) {
-               text = t;
-            }
-         }
-      }
-
-      this.lineMap.forEach((l) => {
-         const width = l.maxX - l.minX;
-         let horizontelParams = width < 5 ? -this.tolerance : +this.tolerance;
-         let verticalParams =
-            l.maxY - l.minY < 5 ? -this.tolerance : +this.tolerance;
-
-         if (
-            clickX >= l.minX + horizontelParams &&
-            clickX <= l.maxX - horizontelParams &&
-            clickY >= l.minY + verticalParams &&
-            clickY <= l.maxY - verticalParams
-         ) {
-            if (minLine === null || minLine.maxX - minLine.minX > width)
-               minLine = l;
          }
       });
 
-      if (
-         circle &&
-         (!square || circle.xRadius * 2 < square.width) &&
-         (!text || circle.xRadius * 2 < text.width)
-      ) {
-         config.currentActive = circle;
-         circle.isActive = true;
-      } else if (
-         square &&
-         (!circle || square.width < circle.xRadius * 2) &&
-         (!text || square.width < text.width) &&
-         (!minLine || square.width < minLine.maxX - minLine.minX)
-      ) {
-         config.currentActive = square;
-         square.isActive = true;
-      } else if (
-         text &&
-         (!circle || text.width < circle.xRadius * 2) &&
-         (!square || text.width < square.width)
-      ) {
-         config.currentActive = text;
-         text.isActive = true;
-      } else if (
-         minLine &&
-         (!square || minLine.maxX - minLine.minX < square.width)
-      ) {
-         minLine.isActive = true;
-         config.currentActive = minLine;
-      }
+      if (!smallestShape) return;
+      if (!e.ctrlKey) this.removeActiveForAll();
+      smallestShape.isActive = true;
+      config.currentActive = smallestShape;
       return config.currentActive;
    }
 
@@ -1309,14 +1272,6 @@ export default class Shapes {
    mouseDownDragAndResize(e) {
       if (e.altKey || e.ctrlKey || config.mode === "handsFree") return;
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
-      // if (config.mode === "text") {
-      //    this.inputText(
-      //       mouseX,
-      //       mouseY,
-      //       `<div class="w-fit absolute px-[3px] bg-black min-w-[20ch] text-[14px] outline-none z-[999] h-fit shadow-sm bg-transparent" id="input" contenteditable="true"></div>`,
-      //    );
-      //    return;
-      // }
 
       this.newShape(mouseX, mouseY);
       if (this.isDrawing || this.newShapeParams) return;
@@ -1790,134 +1745,175 @@ export default class Shapes {
 
       if (isResizing) return;
 
-      let smallestCircle = null;
-      let smallestRect = null;
-      let smallestText = null;
-      let line = null;
-      let smallestImage = null;
-      let smallestPencil = null;
-      let smallestFig = null;
-      let smallestOtherShape = null;
+      const allShapes = [
+         ...Array.from(this.rectMap.entries()),
+         ...Array.from(this.circleMap.entries()),
+         ...Array.from(this.textMap.entries()),
+         ...Array.from(this.lineMap.entries()),
+         ...Array.from(this.pencilMap.entries()),
+         ...Array.from(this.otherShapes.entries()),
+         ...Array.from(this.imageMap.entries()),
+         ...Array.from(this.figureMap.entries()),
+      ];
 
-      //   image drag params
-      const imageDrag = (image, key) => {
-         const { x, y, width, height, isActive, containerId } = image;
-
-         // Helper function to update the smallestImage and insert into recycleAndUse
-         const updateSmallestImage = (image, key) => {
-            if (smallestImage == null || smallestImage.width > width) {
-               smallestImage = { image, key };
-               recycleAndUse.insertSingle([{ s: image, bg: null }]);
-            }
-         };
-
-         const parameter =
-            mouseX > x &&
-            mouseX < x + width &&
-            mouseY > y &&
-            mouseY < y + height;
-
-         if (parameter) {
-            const container = this.figureMap.get(containerId);
-
-            // Update smallestImage and insert into recycleAndUse based on container's activity
-            if (container) {
-               if (!container.isActive) {
-                  updateSmallestImage(image, key);
-               }
-            } else {
-               updateSmallestImage(image, key);
-            }
-         }
-
-         if (image.isActive) {
-            image.isActive = false;
-         }
+      const setDragging = (obj) => {
+         obj.isActive = true;
+         obj.offsetX = mouseX - obj.x;
+         obj.offsetY = mouseY - obj.y;
       };
+      let smallestShape = null;
+      let smallestShapeKey = null;
+      allShapes.forEach(([key, shape]) => {
+         if (shape.type === "figure" && !shape.isActive) return;
 
-      const checkRect = (rect, key) => {
-         if (rect.isActive) rect.isActive = false;
+         const container = this.figureMap.get(shape.containerId);
+         if (shape.isActive) shape.isActive = false;
+         let x = 0;
+         let y = 0;
+         let width = 0;
+         let height = 0;
+         switch (shape.type) {
+            case "polygon":
+               x = shape.x - shape.radius;
+               y = shape.y - shape.radius;
+               width = shape.width;
+               height = shape.height;
+               break;
+            case "sphere":
+               x = shape.x - shape.xRadius;
+               y = shape.y - shape.yRadius;
+               width = 2 * shape.xRadius;
+               height = 2 * shape.xRadius;
+               break;
+            case "line":
+               x = shape.minX;
+               y = shape.minY;
+               width = shape.maxX - shape.minX;
+               height = shape.maxY - shape.minY;
+               break;
+            case "pencil":
+               x = shape.minX;
+               y = shape.minY;
+               width = shape.maxX - shape.minX;
+               height = shape.maxY - shape.minY;
+               break;
+            default:
+               x = shape.x;
+               y = shape.y;
+               width = shape.width;
+               height = shape.height;
+               break;
+         }
 
-         const isMouseInRect =
-            mouseX >= rect.x &&
-            mouseX <= rect.x + rect.width &&
-            mouseY >= rect.y &&
-            mouseY <= rect.y + rect.height;
-
-         const updateSmallestRect = () => {
-            if (smallestRect === null || rect.width < smallestRect.rect.width) {
-               smallestRect = { rect, key };
-               recycleAndUse.insertSingle([{ s: rect, bp: null }]);
-            }
-         };
-
-         if (isMouseInRect) {
-            const container = this.figureMap.get(rect.containerId);
+         if (this.isIn(mouseX, mouseY, 0, 0, x, y, width, height)) {
             if (!container || !container.isActive) {
-               updateSmallestRect();
-            }
-         }
-      };
-
-      const checkCircle = (sphere, key) => {
-         // distance between tow points;
-         const distance = Math.sqrt(
-            (mouseX - sphere.x) ** 2 + (mouseY - sphere.y) ** 2,
-         );
-
-         if (sphere.isActive) sphere.isActive = false;
-
-         const setSmallestSphere = () => {
-            if (
-               smallestCircle === null ||
-               sphere.xRadius < smallestCircle.circle.xRadius
-            ) {
-               smallestCircle = { circle: sphere, key };
-               recycleAndUse.insertSingle([{ s: sphere, bg: null }]);
-            }
-         };
-
-         if (distance < sphere.xRadius && distance < sphere.yRadius) {
-            const container = this.figureMap.get(sphere.containerId);
-            if (!container || !container.isActive) {
-               setSmallestSphere();
-            }
-         }
-      };
-
-      const checkText = (text, key) => {
-         if (
-            mouseX >= text.x &&
-            mouseX <= text.x + text.width &&
-            mouseY >= text.y &&
-            mouseY <= text.y + text.height
-         ) {
-            if (text.containerId) {
-               const container = this.figureMap.get(text.containerId);
-               if (container && !container.isActive) {
-                  if (
-                     smallestText === null ||
-                     text.width < smallestText.text.width
-                  ) {
-                     smallestText = { text, key };
-
-                     recycleAndUse.insertSingle([{ s: text, bg: null }]);
-                  }
-               }
-            } else if (!text.containerId) {
-               if (
-                  smallestText === null ||
-                  text.width < smallestText.text.width
-               ) {
-                  smallestText = { text, key };
-
-                  recycleAndUse.insertSingle([{ s: text, bg: null }]);
+               if (smallestShape === null || smallestShape.width > width) {
+                  smallestShape = shape;
+                  smallestShapeKey = key;
                }
             }
          }
+      });
 
-         if (text.isActive) text.isActive = false;
-      };
+      if (smallestShape && smallestShapeKey) {
+         config.currentActive = smallestShape;
+
+         switch (smallestShape.type) {
+            case "image":
+               const img = new Image();
+               img.src = smallestShape.src;
+               img.style.borderRadius = smallestShape.radius + "px";
+
+               smallestShape.offsetX = mouseX - smallestShape.x;
+               smallestShape.offsetY = mouseY - smallestShape.y;
+               smallestShape.isActive = true;
+               this.dragElement = {
+                  src: img,
+                  key: smallestShapeKey,
+               };
+               this.draw();
+               this.drawImage();
+               return;
+            case "line":
+               if (smallestShape.startTo && smallestShape.endTo) {
+                  smallestShape.isActive = true;
+                  this.draw();
+                  return;
+               }
+               smallestShape.isActive = true;
+               smallestShape.curvePoints.forEach((e) => {
+                  e.offsetX = mouseX - e.x;
+                  e.offsetY = mouseY - e.y;
+               });
+               smallestShape.isActive = true;
+               this.dragElement = smallestShapeKey;
+               break;
+            case "pencil":
+               smallestShape.isActive = true;
+               smallestShape.offsetX = smallestShape.minX - mouseX;
+               smallestShape.offsetY = smallestShape.minY - mouseY;
+               smallestShape.width = smallestShape.maxX - smallestShape.minX;
+               smallestShape.height = smallestShape.maxY - smallestShape.minY;
+
+               smallestShape.points.forEach((point) => {
+                  point.offsetX = point.x - mouseX;
+                  point.offsetY = point.y - mouseY;
+               });
+               this.dragElement = smallestShapeKey;
+               break;
+            case "figure":
+               this.dragElement = smallestShapeKey;
+               setDragging(smallestShape);
+
+               this.rectMap.forEach((rect) => {
+                  if (rect.containerId !== smallestShapeKey) return;
+                  rect.offsetX = mouseX - rect.x;
+                  rect.offsetY = mouseY - rect.y;
+               });
+               this.circleMap.forEach((circle) => {
+                  if (circle.containerId !== smallestShapeKey) return;
+                  circle.offsetX = mouseX - circle.x;
+                  circle.offsetY = mouseY - circle.y;
+               });
+               this.lineMap.forEach((line) => {
+                  if (line.containerId !== smallestShapeKey) return;
+                  line.offsetX = line.minX - mouseX;
+                  line.offsetY = line.minY - mouseY;
+                  line.width = line.maxX - line.minX;
+                  line.height = line.maxY - line.minY;
+                  line.curvePoints.forEach((point) => {
+                     point.offsetX = point.x - mouseX;
+                     point.offsetY = point.y - mouseY;
+                  });
+               });
+               this.textMap.forEach((text) => {
+                  if (text.containerId !== smallestShapeKey) return;
+                  text.offsetX = mouseX - text.x;
+                  text.offsetY = mouseY - text.y;
+               });
+               this.imageMap.forEach((image) => {
+                  if (image.containerId !== smallestShapeKey) return;
+                  image.offsetX = mouseX - image.x;
+                  image.offsetY = mouseY - image.y;
+               });
+               this.pencilMap.forEach((pencil) => {
+                  if (pencil.containerId !== smallestShapeKey) return;
+                  pencil.offsetX = mouseX - pencil.minX;
+                  pencil.offsetY = mouseY - pencil.minY;
+                  pencil.width = pencil.maxX - pencil.minX;
+                  pencil.height = pencil.maxY - pencil.minY;
+                  pencil.points.forEach((point) => {
+                     point.offsetX = mouseX - point.x;
+                     point.offsetY = mouseY - point.y;
+                  });
+               });
+               break;
+            default:
+               setDragging(smallestShape);
+               this.dragElement = smallestShapeKey;
+               break;
+         }
+      }
 
       const simpleLine = (l, key) => {
          const { curvePoints, lineType } = l;
@@ -1999,232 +1995,12 @@ export default class Shapes {
          }
       };
 
-      const pencilDrag = (pencil, key) => {
-         const { minX, maxX, minY, maxY, containerId } = pencil;
-         const container = this.figureMap.get(containerId);
-
-         // Check if the mouse is within the pencil's boundaries
-         if (mouseX > minX && mouseX < maxX && mouseY > minY && mouseY < maxY) {
-            // Calculate pencil width once
-            const pencilWidth = maxX - minX;
-
-            // Check if the pencil should be the smallest active pencil
-            if (!container || !container.isActive) {
-               if (
-                  !smallestPencil ||
-                  smallestPencil.maxX - smallestPencil.minX > pencilWidth
-               ) {
-                  smallestPencil = { pencil, key };
-               }
-            }
-         } else {
-            pencil.isActive = false;
-         }
-      };
-
-      const otherDrag = (other, key) => {
-         const { x, y, width, height, isActive, radius } = other;
-         if (isActive) other.isActive = false;
-         const abR = Math.abs(radius);
-         if (
-            mouseX > x - abR &&
-            mouseX < x - abR + width &&
-            mouseY > y - abR &&
-            mouseY < y - abR + height
-         ) {
-            if (
-               smallestOtherShape == null ||
-               smallestOtherShape.width > width
-            ) {
-               smallestOtherShape = { other, key };
-            }
-         }
-      };
-
-      this.rectMap.forEach(checkRect);
-      this.circleMap.forEach(checkCircle);
-      this.textMap.forEach(checkText);
-      this.lineMap.forEach(simpleLine);
-      this.imageMap.forEach(imageDrag);
-      this.pencilMap.forEach(pencilDrag);
-      this.otherShapes.forEach(otherDrag);
-      this.figureMap.forEach((fig, key) => {
-         const { isActive, x, y, width, height } = fig;
-         if (!isActive) return;
-
-         if (
-            mouseX >= x &&
-            mouseX < x + width &&
-            mouseY > y &&
-            mouseY < y + width
-         ) {
-            if (smallestFig === null || smallestFig.width > width) {
-               smallestFig = { fig, key };
-            }
-         }
-      });
-
-      // giving priority to image over shapes
-      if (smallestImage?.key) {
-         const img = new Image();
-         img.src = smallestImage.image.src;
-         img.style.borderRadius = smallestImage.image.radius + "px";
-
-         smallestImage.image.offsetX = mouseX - smallestImage.image.x;
-         smallestImage.image.offsetY = mouseY - smallestImage.image.y;
-         smallestImage.image.isActive = true;
-         this.dragElement = { src: img, key: smallestImage.key };
-
-         config.currentActive = smallestImage?.image;
-         this.draw();
-         this.drawImage();
-         return;
-      }
-
-      const setDragging = (obj) => {
-         obj.isActive = true;
-         obj.offsetX = mouseX - obj.x;
-         obj.offsetY = mouseY - obj.y;
-      };
-
-      if (
-         smallestCircle &&
-         (!smallestRect ||
-            smallestCircle?.circle.xRadius * 2 < smallestRect?.rect.width) &&
-         (!smallestText ||
-            smallestCircle?.circle.xRadius * 2 < smallestText?.text.width)
-      ) {
-         setDragging(smallestCircle.circle);
-         this.dragElement = smallestCircle.key;
-         config.currentActive = smallestCircle.circle;
-      } else if (
-         smallestRect &&
-         (!smallestCircle ||
-            smallestRect?.rect.width < smallestCircle?.circle.xRadius * 2) &&
-         (!smallestText ||
-            smallestRect?.rect.width < smallestText?.text.width) &&
-         (!line || smallestRect?.rect.width < line?.l.maxX - line?.l.minX)
-      ) {
-         setDragging(smallestRect.rect);
-         this.dragElement = smallestRect.key;
-         config.currentActive = smallestRect.rect;
-      } else if (
-         line &&
-         (!smallestRect || line.l.maxX - line.l.minX < smallestRect?.rect.width)
-      ) {
-         if (line.l.startTo && line.l.endTo) {
-            line.l.isActive = true;
-            this.draw();
-            config.currentActive = line.l;
-            return;
-         }
-
-         line.l.curvePoints.forEach((e) => {
-            e.offsetX = mouseX - e.x;
-            e.offsetY = mouseY - e.y;
-         });
-         line.l.isActive = true;
-         this.dragElement = line.key;
-         config.currentActive = line.l;
-      } else if (smallestText) {
-         setDragging(smallestText.text);
-         this.dragElement = smallestText.key;
-         config.currentActive = smallestText.text;
-      } else if (
-         smallestPencil &&
-         (!smallestRect ||
-            smallestRect.rect.width >
-               smallestPencil.pencil.maxX - smallestPencil.pencil.minX) &&
-         (!smallestCircle ||
-            smallestCircle.circle.xRadius * 2 >
-               smallestPencil.pencil.maxX - smallestPencil.pencil.minX)
-      ) {
-         const { minX, maxX, minY, maxY } = smallestPencil.pencil;
-         smallestPencil.pencil.isActive = true;
-         smallestPencil.pencil.offsetX = minX - mouseX;
-         smallestPencil.pencil.offsetY = minY - mouseY;
-         smallestPencil.pencil.width = maxX - minX;
-         smallestPencil.pencil.height = maxY - minY;
-
-         smallestPencil.pencil.points.forEach((point) => {
-            point.offsetX = point.x - mouseX;
-            point.offsetY = point.y - mouseY;
-         });
-         this.dragElement = smallestPencil.key;
-         config.currentActive = smallestPencil.pencil;
-      } else if (
-         smallestFig?.key &&
-         (!smallestRect || smallestRect.rect.width > smallestFig.fig.width)
-      ) {
-         this.dragElement = smallestFig.key;
-         config.currentActive = smallestFig.fig;
-         smallestFig.fig.offsetX = mouseX - smallestFig.fig.x;
-         smallestFig.fig.offsetY = mouseY - smallestFig.fig.y;
-
-         this.rectMap.forEach((rect) => {
-            if (rect.containerId === smallestFig.key) {
-               rect.offsetX = mouseX - rect.x;
-               rect.offsetY = mouseY - rect.y;
-            }
-         });
-         this.circleMap.forEach((circle) => {
-            if (circle.containerId === smallestFig.key) {
-               circle.offsetX = mouseX - circle.x;
-               circle.offsetY = mouseY - circle.y;
-            }
-         });
-         this.lineMap.forEach((line) => {
-            if (line.containerId === smallestFig.key) {
-               line.offsetX = line.minX - mouseX;
-               line.offsetY = line.minY - mouseY;
-               line.width = line.maxX - line.minX;
-               line.height = line.maxY - line.minY;
-               line.curvePoints.forEach((point) => {
-                  point.offsetX = point.x - mouseX;
-                  point.offsetY = point.y - mouseY;
-               });
-            }
-         });
-         this.textMap.forEach((text) => {
-            if (text.containerId === smallestFig.key) {
-               text.offsetX = mouseX - text.x;
-               text.offsetY = mouseY - text.y;
-            }
-         });
-         this.imageMap.forEach((image) => {
-            if (image.containerId === smallestFig.key) {
-               image.offsetX = mouseX - image.x;
-               image.offsetY = mouseY - image.y;
-            }
-         });
-         this.pencilMap.forEach((pencil) => {
-            if (pencil.containerId !== smallestFig.key) return;
-            pencil.offsetX = mouseX - pencil.minX;
-            pencil.offsetY = mouseY - pencil.minY;
-            pencil.width = pencil.maxX - pencil.minX;
-            pencil.height = pencil.maxY - pencil.minY;
-            pencil.points.forEach((point) => {
-               point.offsetX = mouseX - point.x;
-               point.offsetY = mouseY - point.y;
-            });
-         });
-         this.draw();
-         return;
-      } else if (smallestOtherShape) {
-         smallestOtherShape.other.isActive = true;
-         smallestOtherShape.other.offsetX = mouseX - smallestOtherShape.other.x;
-         smallestOtherShape.other.offsetY = mouseY - smallestOtherShape.other.y;
-         this.dragElement = smallestOtherShape.key;
-         config.currentActive = smallestOtherShape.other;
-      }
-
       // for massSelection
       if (!this.dragElement && !this.resizeElement && config.mode === "free") {
          this.massiveSelection.isDown = true;
          this.massiveSelection.startX = mouseX;
          this.massiveSelection.startY = mouseY;
       }
-
       this.draw();
       this.drawImage();
    }
@@ -2645,7 +2421,7 @@ export default class Shapes {
       this.breakPointsCtx.restore();
    }
 
-   isIn(sx, sy, swidth, sheight, ox, oy, owidth, oheight, obj) {
+   isIn(sx, sy, swidth, sheight, ox, oy, owidth, oheight) {
       return (
          sx > ox &&
          sx + swidth < ox + owidth &&
@@ -2665,6 +2441,8 @@ export default class Shapes {
    }
 
    mouseMove(e) {
+      if (e.altKey || e.ctrlKey) return;
+
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
 
       if (this.isDrawing || this.newShapeParams) {
@@ -3338,6 +3116,7 @@ export default class Shapes {
          }
          this.drawImage();
       } else if (otherResize) {
+         console.log(this.resizeElement);
          const { initailX } = this.resizeElement;
          otherResize.radius = Math.abs(otherResize.x - mouseX);
          otherResize.width = 2 * otherResize.radius;
@@ -3567,7 +3346,7 @@ export default class Shapes {
    }
 
    mouseUp(e) {
-      if (config.mode == "handsFree") return;
+      if (config.mode == "handsFree" || e.altKey) return;
       this.insertNew(this.handler);
 
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
@@ -4101,6 +3880,8 @@ export default class Shapes {
 
          this.updateGuides(figResize.id, x, y, x + width, y + height);
       } else if (pencilResize) {
+         pencilResize.width = pencilResize.maxX - pencilResize.minX;
+         pencilResize.height = pencilResize.maxY - pencilResize.min;
       } else if (otherShapeResize) {
          this.updateGuides(
             this.resizeElement?.key,
@@ -4125,6 +3906,7 @@ export default class Shapes {
       const image = this.imageMap.get(this.dragElement?.key);
       const figDrag = this.figureMap.get(this.dragElement);
       const otherShapeDrag = this.otherShapes.get(this.dragElement);
+      const pencilDrag = this.pencilMap.get(this.dragElement);
 
       if (rectDrag) {
          this.updateGuides(
@@ -4155,6 +3937,8 @@ export default class Shapes {
             arcDrag.x + arcDrag.xRadius,
             arcDrag.y + arcDrag.yRadius,
          );
+         arcDrag.width = 2 * arcDrag.xRadius;
+         arcDrag.height = 2 * arcDrag.yRadius;
          if (arcDrag.pointTo?.length > 0) {
             arcDrag.pointTo.forEach((l) => {
                this.updateLineMinMax(l);
@@ -4170,6 +3954,8 @@ export default class Shapes {
       } else if (lineDrag) {
          this.updateLineMinMax(this.dragElement);
          lineDrag.isActive = true;
+         lineDrag.width = lineDrag.maxX - lineDrag.minX;
+         lineDrag.height = lineDrag.maxY - lineDrag.minY;
          this.checkShapeIfInContainer(
             lineDrag.minX,
             lineDrag.minY,
@@ -4222,6 +4008,9 @@ export default class Shapes {
             otherShapeDrag.x + otherShapeDrag.radius,
             otherShapeDrag.y + otherShapeDrag.radius,
          );
+      } else if (pencilDrag) {
+         pencilDrag.width = pencilDrag.maxX - pencilDrag.minX;
+         pencilDrag.height = pencilDrag.maxY - pencilDrag.minY;
       }
 
       this.resizeElement = null;
@@ -5373,6 +5162,20 @@ export default class Shapes {
             newText.height = newText.content.length * newText.textSize;
             this.textMap.set(newText.id, newText);
             return newText;
+         case "polygon":
+            const newS = new Polygons(
+               current.x,
+               current.y,
+               current.inset,
+               current.lines,
+            );
+            newS.isActive = true;
+            newS.width = current.width;
+            newS.height = current.height;
+            newS.radius = current.radius;
+            current.isActive = false;
+            this.otherShapes.set(newS.id, newS);
+            return newS;
          default:
             break;
       }
@@ -5480,9 +5283,9 @@ export default class Shapes {
                   maxY: rect.y + rect.height,
                });
                rect.isActive = false;
-               return;
             }
          });
+
          this.circleMap.forEach((sphere) => {
             if (!sphere.isActive) return;
             const newSphere = new Circle(
