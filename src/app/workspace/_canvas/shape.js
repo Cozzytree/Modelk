@@ -4989,10 +4989,9 @@ export default class Shapes {
                guideDrawn = true;
             } else if (Math.abs(point.maxX - (x + width)) <= this.tolerance) {
                object.x =
-                  object.type === "sphere"
+                  object.type === "sphere" || object.type === "polygon"
                      ? point.maxX - width / 2
                      : point.maxX - width;
-
                this.breakPointsCtx.moveTo(point.maxX, y);
                this.breakPointsCtx.lineTo(point.maxX, point.minY);
                guideDrawn = true;
@@ -5007,7 +5006,7 @@ export default class Shapes {
                guideDrawn = true;
             } else if (Math.abs(point.maxY - (y + height)) <= this.tolerance) {
                object.y =
-                  object.type === "sphere"
+                  object.type === "sphere" || object.type === "polygon"
                      ? point.maxY - height / 2
                      : point.maxY - height;
 
@@ -5460,7 +5459,7 @@ export default class Shapes {
 
    duplicateCtrl_D(e) {
       if (e.ctrlKey && e.key === "d") {
-         const padding = 10;
+         const padding = 5;
          e.preventDefault();
          this.rectMap.forEach((rect) => {
             if (rect.isActive) {
@@ -5481,6 +5480,7 @@ export default class Shapes {
                   maxY: rect.y + rect.height,
                });
                rect.isActive = false;
+               return;
             }
          });
          this.circleMap.forEach((sphere) => {
@@ -5533,6 +5533,44 @@ export default class Shapes {
                );
                this.lineMap.set(newLine.id, newLine);
                line.isActive = false;
+            }
+         });
+         this.otherShapes.forEach((shape) => {
+            if (shape.isActive) {
+               const newS = new Polygons(
+                  shape.x + padding,
+                  shape.y + padding,
+                  shape.inset,
+                  shape.lines,
+               );
+               newS.radius = shape.radius;
+               newS.width = shape.width;
+               newS.height = shape.height;
+               newS.isActive = true;
+               this.otherShapes.set(newS.id, newS);
+               shape.isActive = false;
+               return;
+            }
+         });
+         this.pencilMap.forEach((pencil) => {
+            if (pencil?.isActive) {
+               const points = pencil.points.map((point) => {
+                  return {
+                     x: point.x + padding,
+                     y: point.y + padding,
+                  };
+               });
+               const newPencil = new Pencil(
+                  points,
+                  pencil.minX + padding,
+                  pencil.minY + padding,
+                  pencil.maxX + padding,
+                  pencil.maxY + padding,
+               );
+               newPencil.isActive = true;
+               this.pencilMap.set(newPencil.id, newPencil);
+               pencil.isActive = false;
+               return;
             }
          });
          this.draw();
@@ -5671,8 +5709,8 @@ export default class Shapes {
          const canvasDiv = document.getElementById("canvas-div");
          canvasDiv.insertAdjacentHTML("afterbegin", html);
          const input = document.getElementById("input");
-         input.style.left = mouseX + "px";
-         input.style.top = mouseY + "px";
+         input.style.left = mouseX - scrollBar.scrollPositionX + "px";
+         input.style.top = mouseY - scrollBar.scrollPositionY + "px";
          input.style.fontSize = "18px";
          input.focus();
          const blurEvent = (e) => {
