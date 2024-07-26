@@ -5290,53 +5290,115 @@ export default class Shapes {
 
       if (!this.isIn(x, y, 0, 0, 0, 0, this.canvas.width, this.canvas.height))
          return;
-      e.preventDefault();
 
       if (e.ctrlKey && e.key === "c") {
-         this.rectMap.forEach((rect) => {
-            if (!rect.isActive) return;
-            this.copyShapes.push(rect);
-         });
+         e.preventDefault();
+         const allShapes = [
+            ...this.rectMap.values(),
+            ...this.circleMap.values(),
+            ...this.otherShapes.values(),
+            ...this.textMap.values(),
+            ...this.lineMap.values(),
+         ];
 
-         this.circleMap.forEach((sphere) => {
-            if (!sphere.isActive) return;
-            this.copyShapes.push(sphere);
+         allShapes.forEach((shape) => {
+            if (!shape.isActive) return;
+            this.copyShapes.push(shape);
          });
       } else if (e.ctrlKey && e.key === "v") {
-         if (!this.copyShapes.length === 0) return;
+         if (this.copyShapes.length === 0) return;
+         e.preventDefault();
          this.copyShapes.forEach((shape) => {
-            switch (shape.type) {
-               case "rect":
-                  const newRect = new Rect(
-                     shape.x + (x - shape.x),
-                     shape.y + (y - shape.y),
-                     shape.width,
-                     shape.height,
-                     shape.text,
-                     shape.textSize,
-                     true,
-                  );
-                  this.rectMap.set(newRect.id, newRect);
-                  break;
-               case "sphere":
-                  const newSphere = new Circle(
-                     shape.x + (x - shape.x),
-                     shape.y + (y - shape.y),
-                     shape.xRadius,
-                     shape.yRadius,
-                     shape.text,
-                     shape.textSize,
-                     true,
-                  );
-                  this.circleMap.set(newSphere.id, newSphere);
-                  break;
-               default:
-                  break;
+            shape.isActive = false;
+            const type = shape.type;
+            if (type === "rect") {
+               const newRect = new Rect(
+                  shape.x + (x - shape.x),
+                  shape.y + (y - shape.y),
+                  shape.width,
+                  shape.height,
+                  shape.text,
+                  shape.textSize,
+                  true,
+               );
+               this.rectMap.set(newRect.id, newRect);
+               //set new breakpoint
+               this.breakPoints.set(newRect.key, {
+                  minX: newRect.x,
+                  minY: newRect.y,
+                  maxX: newRect.x + newRect.width,
+                  maxY: newRect.y + newRect.height,
+               });
+            } else if (type === "sphere") {
+               const newSphere = new Circle(
+                  x,
+                  y,
+                  shape.xRadius,
+                  shape.yRadius,
+                  shape.text,
+                  shape.textSize,
+                  true,
+               );
+               this.circleMap.set(newSphere.id, newSphere);
+               this.breakPoints.set(newSphere.id, {
+                  minX: newSphere.x - newSphere.xRadius,
+                  minY: newSphere.y - newSphere.yRadius,
+                  maxX: 2 * newSphere.xRadius,
+                  maxY: 2 * newSphere.yRadius,
+               });
+            } else if (type === "text") {
+               const newText = new Text(
+                  x,
+                  y,
+                  shape.size,
+                  shape.content,
+                  shape.font,
+                  true,
+                  shape.height,
+                  shape.width,
+               );
+
+               this.textMap.set(newText.id, newText);
+            } else if (type === "polygon") {
+               const newOther = new Polygons(x, y, shape.inset, shape.lines);
+               this.otherShapes.set(newOther.id, newOther);
+
+               this.breakPoints.set(newOther.id, {
+                  minX: newOther.x - newOther.radius,
+                  minY: newOther.y - newOther.radius,
+                  maxX: newOther.x + newOther.radius,
+                  maxY: newOther.y + newOther.radius,
+               });
+            } else if (type === "line") {
+               const deltaX = x - shape.minX;
+               const deltaY = y - shape.minY;
+
+               const newPoints = shape.curvePoints.map((point) => ({
+                  x: point.x + deltaX,
+                  y: point.y + deltaY,
+               }));
+
+               const newLine = new Line(
+                  shape.lineType,
+                  shape.minX + deltaX,
+                  shape.minY + deltaY,
+                  shape.maxX + deltaX,
+                  shape.maxY + deltaY,
+                  newPoints,
+                  true,
+               );
+
+               newLine.width = shape.width;
+               newLine.height = shape.height;
+               shape.isActive = false;
+
+               this.lineMap.set(newLine.id, newLine);
             }
          });
          this.copyShapes = [];
          this.draw();
       } else if (e.ctrlKey && e.key === "d") {
+         e.preventDefault();
          if (e.ctrlKey && e.key === "d") {
             const padding = 5;
             e.preventDefault();
