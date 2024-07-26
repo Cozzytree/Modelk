@@ -1,3 +1,4 @@
+import { isAscii } from "buffer";
 import {
    Circle,
    Figure,
@@ -104,6 +105,7 @@ export const recycleAndUse = new RevFor();
 
 export default class Shapes {
    lastPoint = null;
+   mouseCurrentPosition = { x: 0, y: 0 };
    constructor(canvas, canvasbreakPoints, renderCanvas, handler) {
       this.handler = handler;
       this.canvas = canvas;
@@ -142,6 +144,7 @@ export default class Shapes {
          width: null,
          height: null,
       };
+      this.copyShapes = [];
    }
 
    newShape(x, y) {
@@ -1763,6 +1766,7 @@ export default class Shapes {
       };
       let smallestShape = null;
       let smallestShapeKey = null;
+
       allShapes.forEach(([key, shape]) => {
          if (shape.type === "figure" && !shape.isActive) return;
 
@@ -1965,6 +1969,19 @@ export default class Shapes {
             } else {
                l.isActive = false;
             }
+         } else if (lineType === "straight") {
+            const slope1 = findSlope(
+               curvePoints[0].y,
+               mouseY,
+               curvePoints[0].x,
+               mouseX,
+            );
+            const slope2 = findSlope(
+               curvePoints[curvePoints.length - 1].y,
+               mouseY,
+               curvePoints[curvePoints.length - 1].x,
+               mouseX,
+            );
          } else {
             const width = l.maxX - l.minX;
             let horizontelParams =
@@ -5260,123 +5277,183 @@ export default class Shapes {
       }
    }
 
-   duplicateCtrl_D(e) {
-      if (e.ctrlKey && e.key === "d") {
-         const padding = 5;
-         e.preventDefault();
+   documentKeyDown(e) {
+      if (
+         this.massiveSelection.isSelected ||
+         config.mode === "handsFree" ||
+         config.mode === "pencil"
+      )
+         return;
+
+      const x = this.mouseCurrentPosition.x;
+      const y = this.mouseCurrentPosition.y;
+
+      if (!this.isIn(x, y, 0, 0, 0, 0, this.canvas.width, this.canvas.height))
+         return;
+      e.preventDefault();
+
+      if (e.ctrlKey && e.key === "c") {
          this.rectMap.forEach((rect) => {
-            if (rect.isActive) {
-               let newRect = new Rect(
-                  rect.x + padding,
-                  rect.y + padding,
-                  rect.width,
-                  rect.height,
-                  rect.text,
-                  rect.textSize,
-                  true,
-               );
-               this.rectMap.set(newRect.id, newRect);
-               this.breakPoints.set(newRect.id, {
-                  minX: rect.x,
-                  minY: rect.y,
-                  maxX: rect.x + rect.width,
-                  maxY: rect.y + rect.height,
-               });
-               rect.isActive = false;
-            }
+            if (!rect.isActive) return;
+            this.copyShapes.push(rect);
          });
 
          this.circleMap.forEach((sphere) => {
             if (!sphere.isActive) return;
-            const newSphere = new Circle(
-               sphere.x + padding,
-               sphere.y + padding,
-               sphere.xRadius,
-               sphere.yRadius,
-               sphere.text,
-               sphere.textSize,
-               true,
-            );
-            this.circleMap.set(newSphere.id, newSphere);
-            this.breakPoints.set(newSphere.id, {
-               minX: newSphere.x - newSphere.xRadius,
-               minY: newSphere.y - newSphere.yRadius,
-               maxX: newSphere.x + newSphere.xRadius,
-               maxY: newSphere.y + newSphere.xRadius,
+            this.copyShapes.push(sphere);
+         });
+      } else if (e.ctrlKey && e.key === "v") {
+         if (!this.copyShapes.length === 0) return;
+         this.copyShapes.forEach((shape) => {
+            switch (shape.type) {
+               case "rect":
+                  const newRect = new Rect(
+                     shape.x + (x - shape.x),
+                     shape.y + (y - shape.y),
+                     shape.width,
+                     shape.height,
+                     shape.text,
+                     shape.textSize,
+                     true,
+                  );
+                  this.rectMap.set(newRect.id, newRect);
+                  break;
+               case "sphere":
+                  const newSphere = new Circle(
+                     shape.x + (x - shape.x),
+                     shape.y + (y - shape.y),
+                     shape.xRadius,
+                     shape.yRadius,
+                     shape.text,
+                     shape.textSize,
+                     true,
+                  );
+                  this.circleMap.set(newSphere.id, newSphere);
+                  break;
+               default:
+                  break;
+            }
+         });
+         this.copyShapes = [];
+         this.draw();
+      } else if (e.ctrlKey && e.key === "d") {
+         if (e.ctrlKey && e.key === "d") {
+            const padding = 5;
+            e.preventDefault();
+            this.rectMap.forEach((rect) => {
+               if (rect.isActive) {
+                  let newRect = new Rect(
+                     rect.x + padding,
+                     rect.y + padding,
+                     rect.width,
+                     rect.height,
+                     rect.text,
+                     rect.textSize,
+                     true,
+                  );
+                  this.rectMap.set(newRect.id, newRect);
+                  this.breakPoints.set(newRect.id, {
+                     minX: rect.x,
+                     minY: rect.y,
+                     maxX: rect.x + rect.width,
+                     maxY: rect.y + rect.height,
+                  });
+                  rect.isActive = false;
+               }
             });
-            sphere.isActive = false;
-         });
-         this.textMap.forEach((text) => {
-            if (!text.isActive) return;
-            const newText = new Text(
-               text.x + padding,
-               text.y + padding,
-               text.size,
-               text.content,
-               "Arial",
-               true,
-            );
-            this.textMap.set(newText.id, newText);
-            text.isActive = false;
-         });
-         this.lineMap.forEach((line) => {
-            if (line.isActive) {
-               const curvePoints = line.curvePoints.map((p) => ({
-                  x: p.x + padding,
-                  y: p.y + padding,
-               }));
-               const newLine = new Line(
-                  line.lineType,
-                  line.minX + padding,
-                  line.minY + padding,
-                  line.maxX + padding,
-                  line.maxY + padding,
-                  curvePoints,
+
+            this.circleMap.forEach((sphere) => {
+               if (!sphere.isActive) return;
+               const newSphere = new Circle(
+                  sphere.x + padding,
+                  sphere.y + padding,
+                  sphere.xRadius,
+                  sphere.yRadius,
+                  sphere.text,
+                  sphere.textSize,
                   true,
                );
-               this.lineMap.set(newLine.id, newLine);
-               line.isActive = false;
-            }
-         });
-         this.otherShapes.forEach((shape) => {
-            if (shape.isActive) {
-               const newS = new Polygons(
-                  shape.x + padding,
-                  shape.y + padding,
-                  shape.inset,
-                  shape.lines,
-               );
-               newS.radius = shape.radius;
-               newS.width = shape.width;
-               newS.height = shape.height;
-               newS.isActive = true;
-               this.otherShapes.set(newS.id, newS);
-               shape.isActive = false;
-               return;
-            }
-         });
-         this.pencilMap.forEach((pencil) => {
-            if (pencil?.isActive) {
-               const points = pencil.points.map((point) => {
-                  return {
-                     x: point.x + padding,
-                     y: point.y + padding,
-                  };
+               this.circleMap.set(newSphere.id, newSphere);
+               this.breakPoints.set(newSphere.id, {
+                  minX: newSphere.x - newSphere.xRadius,
+                  minY: newSphere.y - newSphere.yRadius,
+                  maxX: newSphere.x + newSphere.xRadius,
+                  maxY: newSphere.y + newSphere.xRadius,
                });
-               const newPencil = new Pencil(
-                  points,
-                  pencil.minX + padding,
-                  pencil.minY + padding,
-                  pencil.maxX + padding,
-                  pencil.maxY + padding,
+               sphere.isActive = false;
+            });
+            this.textMap.forEach((text) => {
+               if (!text.isActive) return;
+               const newText = new Text(
+                  text.x + padding,
+                  text.y + padding,
+                  text.size,
+                  text.content,
+                  "Arial",
+                  true,
                );
-               newPencil.isActive = true;
-               this.pencilMap.set(newPencil.id, newPencil);
-               pencil.isActive = false;
-               return;
-            }
-         });
-         this.draw();
+               this.textMap.set(newText.id, newText);
+               text.isActive = false;
+            });
+            this.lineMap.forEach((line) => {
+               if (line.isActive) {
+                  const curvePoints = line.curvePoints.map((p) => ({
+                     x: p.x + padding,
+                     y: p.y + padding,
+                  }));
+                  const newLine = new Line(
+                     line.lineType,
+                     line.minX + padding,
+                     line.minY + padding,
+                     line.maxX + padding,
+                     line.maxY + padding,
+                     curvePoints,
+                     true,
+                  );
+                  this.lineMap.set(newLine.id, newLine);
+                  line.isActive = false;
+               }
+            });
+            this.otherShapes.forEach((shape) => {
+               if (shape.isActive) {
+                  const newS = new Polygons(
+                     shape.x + padding,
+                     shape.y + padding,
+                     shape.inset,
+                     shape.lines,
+                  );
+                  newS.radius = shape.radius;
+                  newS.width = shape.width;
+                  newS.height = shape.height;
+                  newS.isActive = true;
+                  this.otherShapes.set(newS.id, newS);
+                  shape.isActive = false;
+                  return;
+               }
+            });
+            this.pencilMap.forEach((pencil) => {
+               if (pencil?.isActive) {
+                  const points = pencil.points.map((point) => {
+                     return {
+                        x: point.x + padding,
+                        y: point.y + padding,
+                     };
+                  });
+                  const newPencil = new Pencil(
+                     points,
+                     pencil.minX + padding,
+                     pencil.minY + padding,
+                     pencil.maxX + padding,
+                     pencil.maxY + padding,
+                  );
+                  newPencil.isActive = true;
+                  this.pencilMap.set(newPencil.id, newPencil);
+                  pencil.isActive = false;
+                  return;
+               }
+            });
+            this.draw();
+         }
       }
    }
 
@@ -5523,7 +5600,7 @@ export default class Shapes {
             input.remove();
             this.draw();
             if (this.newShapeParams) this.newShapeParams = null;
-            // config.mode = "free";
+            config.mode = "free";
          };
 
          input.addEventListener("blur", blurEvent);
@@ -5630,12 +5707,21 @@ export default class Shapes {
          this.mouseDownDragAndResize(e);
          this.duplicate(e);
       });
+      document.addEventListener("mousemove", (e) => {
+         const { x, y } = this.getTransformedMouseCoords(e);
+         this.mouseCurrentPosition.x = x;
+         this.mouseCurrentPosition.y = y;
+      });
+      document.addEventListener(
+         "keydown",
+         (e) => {
+            this.documentKeyDown(e);
+         },
+         { passive: false },
+      );
       this.canvas.addEventListener("dblclick", (e) => {
          this.newText(e);
          this.insertNewLine();
-      });
-      window.addEventListener("keydown", this.duplicateCtrl_D.bind(this), {
-         passive: false,
       });
    }
 
@@ -5648,15 +5734,26 @@ export default class Shapes {
          this.insertAPointToLine(x, y);
       });
       this.canvas.removeEventListener("mouseup", this.mouseUp.bind(this));
+
       this.canvas.removeEventListener("mousemove", this.mouseMove.bind(this));
+
       this.canvas.removeEventListener("mousedown", (e) => {
          this.mouseDownDragAndResize(e);
          this.duplicate(e);
       });
+
+      document.removeEventListener("mousemove", (e) => {
+         const { x, y } = this.getTransformedMouseCoords(e);
+         this.mouseCurrentPosition.x = x;
+         this.mouseCurrentPosition.y = y;
+      });
+      document.removeEventListener("keydown", (e) => {
+         this.documentKeyDown(e);
+      });
+
       this.canvas.removeEventListener("dblclick", (e) => {
          this.newText();
          this.insertNewLine();
       });
-      window.removeEventListener("keydown", this.duplicateCtrl_D.bind(this));
    }
 }
