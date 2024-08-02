@@ -265,7 +265,13 @@ export default function Canvas() {
       };
    }, [currentActive, newImage, mode]);
 
-   useEffect(() => {}, []);
+   function checkCurrentShape() {
+      config.currentActive = null;
+      if (config.currentActive !== currentActive) {
+         setCurrentActive(config.currentActive);
+      }
+      console.log(currentActive, config.currentActive);
+   }
 
    return (
       <>
@@ -299,6 +305,7 @@ export default function Canvas() {
                         })} text-xs p-[10px] w-fit h-fit`}
                         onClick={() => {
                            config.mode = button.label;
+                           checkCurrentShape();
                            setMode(button.label);
                            if (
                               shapeClassRef.current &&

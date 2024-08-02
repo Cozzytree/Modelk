@@ -5288,8 +5288,8 @@ export default class Shapes {
       const x = this.mouseCurrentPosition.x;
       const y = this.mouseCurrentPosition.y;
 
-      if (!this.isIn(x, y, 0, 0, 0, 0, this.canvas.width, this.canvas.height))
-         return;
+      // if (!this.isIn(x, y, 0, 0, 0, 0, this.canvas.width, this.canvas.height))
+      //    return;
 
       if (e.ctrlKey && e.key === "c") {
          e.preventDefault();
@@ -5399,123 +5399,122 @@ export default class Shapes {
          this.draw();
       } else if (e.ctrlKey && e.key === "d") {
          e.preventDefault();
-         if (e.ctrlKey && e.key === "d") {
-            const padding = 5;
-            e.preventDefault();
-            this.rectMap.forEach((rect) => {
-               if (rect.isActive) {
-                  let newRect = new Rect(
-                     rect.x + padding,
-                     rect.y + padding,
-                     rect.width,
-                     rect.height,
-                     rect.text,
-                     rect.textSize,
-                     true,
-                  );
-                  this.rectMap.set(newRect.id, newRect);
-                  this.breakPoints.set(newRect.id, {
-                     minX: rect.x,
-                     minY: rect.y,
-                     maxX: rect.x + rect.width,
-                     maxY: rect.y + rect.height,
-                  });
-                  rect.isActive = false;
-               }
-            });
+         const padding = 5;
+         this.rectMap.forEach((rect) => {
+            if (rect.isActive) {
+               let newRect = new Rect(
+                  rect.x + padding,
+                  rect.y + padding,
+                  rect.width,
+                  rect.height,
+                  rect.text,
+                  rect.textSize,
+                  true,
+               );
+               newRect.radius = rect.radius;
+               newRect.text = rect.text;
 
-            this.circleMap.forEach((sphere) => {
-               if (!sphere.isActive) return;
-               const newSphere = new Circle(
-                  sphere.x + padding,
-                  sphere.y + padding,
-                  sphere.xRadius,
-                  sphere.yRadius,
-                  sphere.text,
-                  sphere.textSize,
-                  true,
-               );
-               this.circleMap.set(newSphere.id, newSphere);
-               this.breakPoints.set(newSphere.id, {
-                  minX: newSphere.x - newSphere.xRadius,
-                  minY: newSphere.y - newSphere.yRadius,
-                  maxX: newSphere.x + newSphere.xRadius,
-                  maxY: newSphere.y + newSphere.xRadius,
+               this.rectMap.set(newRect.id, newRect);
+               this.breakPoints.set(newRect.id, {
+                  minX: rect.x,
+                  minY: rect.y,
+                  maxX: rect.x + rect.width,
+                  maxY: rect.y + rect.height,
                });
-               sphere.isActive = false;
+               rect.isActive = false;
+            }
+         });
+         this.circleMap.forEach((sphere) => {
+            if (!sphere.isActive) return;
+            const newSphere = new Circle(
+               sphere.x + padding,
+               sphere.y + padding,
+               sphere.xRadius,
+               sphere.yRadius,
+               sphere.text,
+               sphere.textSize,
+               true,
+            );
+            this.circleMap.set(newSphere.id, newSphere);
+            this.breakPoints.set(newSphere.id, {
+               minX: newSphere.x - newSphere.xRadius,
+               minY: newSphere.y - newSphere.yRadius,
+               maxX: newSphere.x + newSphere.xRadius,
+               maxY: newSphere.y + newSphere.xRadius,
             });
-            this.textMap.forEach((text) => {
-               if (!text.isActive) return;
-               const newText = new Text(
-                  text.x + padding,
-                  text.y + padding,
-                  text.size,
-                  text.content,
-                  "Arial",
+            sphere.isActive = false;
+         });
+         this.textMap.forEach((text) => {
+            if (!text.isActive) return;
+            const newText = new Text(
+               text.x + padding,
+               text.y + padding,
+               text.size,
+               text.content,
+               "Arial",
+               true,
+            );
+            this.textMap.set(newText.id, newText);
+            text.isActive = false;
+         });
+         this.lineMap.forEach((line) => {
+            if (line.isActive) {
+               const curvePoints = line.curvePoints.map((p) => ({
+                  x: p.x + padding,
+                  y: p.y + padding,
+               }));
+               const newLine = new Line(
+                  line.lineType,
+                  line.minX + padding,
+                  line.minY + padding,
+                  line.maxX + padding,
+                  line.maxY + padding,
+                  curvePoints,
                   true,
                );
-               this.textMap.set(newText.id, newText);
-               text.isActive = false;
-            });
-            this.lineMap.forEach((line) => {
-               if (line.isActive) {
-                  const curvePoints = line.curvePoints.map((p) => ({
-                     x: p.x + padding,
-                     y: p.y + padding,
-                  }));
-                  const newLine = new Line(
-                     line.lineType,
-                     line.minX + padding,
-                     line.minY + padding,
-                     line.maxX + padding,
-                     line.maxY + padding,
-                     curvePoints,
-                     true,
-                  );
-                  this.lineMap.set(newLine.id, newLine);
-                  line.isActive = false;
-               }
-            });
-            this.otherShapes.forEach((shape) => {
-               if (shape.isActive) {
-                  const newS = new Polygons(
-                     shape.x + padding,
-                     shape.y + padding,
-                     shape.inset,
-                     shape.lines,
-                  );
-                  newS.radius = shape.radius;
-                  newS.width = shape.width;
-                  newS.height = shape.height;
-                  newS.isActive = true;
-                  this.otherShapes.set(newS.id, newS);
-                  shape.isActive = false;
-                  return;
-               }
-            });
-            this.pencilMap.forEach((pencil) => {
-               if (pencil?.isActive) {
-                  const points = pencil.points.map((point) => {
-                     return {
-                        x: point.x + padding,
-                        y: point.y + padding,
-                     };
-                  });
-                  const newPencil = new Pencil(
-                     points,
-                     pencil.minX + padding,
-                     pencil.minY + padding,
-                     pencil.maxX + padding,
-                     pencil.maxY + padding,
-                  );
-                  newPencil.isActive = true;
-                  this.pencilMap.set(newPencil.id, newPencil);
-                  pencil.isActive = false;
-                  return;
-               }
-            });
-            this.draw();
-         }
+               this.lineMap.set(newLine.id, newLine);
+               line.isActive = false;
+            }
+         });
+         this.otherShapes.forEach((shape) => {
+            if (shape.isActive) {
+               const newS = new Polygons(
+                  shape.x + padding,
+                  shape.y + padding,
+                  shape.inset,
+                  shape.lines,
+               );
+               newS.radius = shape.radius;
+               newS.width = shape.width;
+               newS.height = shape.height;
+               newS.isActive = true;
+               this.otherShapes.set(newS.id, newS);
+               shape.isActive = false;
+               return;
+            }
+         });
+         this.pencilMap.forEach((pencil) => {
+            if (pencil?.isActive) {
+               const points = pencil.points.map((point) => {
+                  return {
+                     x: point.x + padding,
+                     y: point.y + padding,
+                  };
+               });
+               const newPencil = new Pencil(
+                  points,
+                  pencil.minX + padding,
+                  pencil.minY + padding,
+                  pencil.maxX + padding,
+                  pencil.maxY + padding,
+               );
+               newPencil.isActive = true;
+               this.pencilMap.set(newPencil.id, newPencil);
+               pencil.isActive = false;
+               return;
+            }
+         });
+         this.draw();
       }
    }
 

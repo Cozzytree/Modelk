@@ -258,6 +258,7 @@ export function drawLine({ line, headlen, context }) {
                y: curvePoints[0].y,
             },
             headlen,
+            context,
          );
       }
       if (arrowRight) {
