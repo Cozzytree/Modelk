@@ -12,6 +12,16 @@ export const config = {
    currentActive: null,
 };
 
+export const shapeTypes = {
+   rect: "rect",
+   circle: "sphere",
+   line: "line",
+   text: "text",
+   figure: "figure",
+   image: "image",
+   pencil: "pencil"
+}
+
 export const thickness = [
    { size: "S", q: 1 },
    { size: "M", q: 3 },

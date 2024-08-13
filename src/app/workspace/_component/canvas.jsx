@@ -1,9 +1,13 @@
 "use client";
 
-import Shape from "../_canvas/shape.js";
-import CanvasShapeOptions from "../_component/canvasShapeOptions.jsx";
-import Polygon from "../_component/polygon.jsx";
-import CanvasRecord from "../_canvas/canvasRecord.js";
+import { Button, buttonVariants } from "@/components/ui/button.tsx";
+import {
+   Tooltip,
+   TooltipContent,
+   TooltipProvider,
+   TooltipTrigger,
+} from "@/components/ui/tooltip.tsx";
+import { config, Scale, scrollBar } from "@/lib/utils.ts";
 import {
    ArrowBottomRightIcon,
    BoxIcon,
@@ -13,31 +17,16 @@ import {
    HandIcon,
    ImageIcon,
    Pencil1Icon,
-   PlusIcon,
    SlashIcon,
-   StarIcon,
-   TextIcon,
+   TextIcon
 } from "@radix-ui/react-icons";
-import ZoomLabel from "./ZoomLabel.tsx";
 import { useParams } from "next/navigation.js";
 import { useEffect, useRef, useState } from "react";
-import { Button, buttonVariants } from "@/components/ui/button.tsx";
-import { config, Scale, scrollBar } from "@/lib/utils.ts";
-import { Line, Pencil, Rect } from "../_component/stylesClass.js";
-import { useNewRect, useNewSphere } from "@/requests/shapeRequests.ts";
-import {
-   Tooltip,
-   TooltipContent,
-   TooltipProvider,
-   TooltipTrigger,
-} from "@/components/ui/tooltip.tsx";
-import {
-   DropdownMenu,
-   DropdownMenuContent,
-   DropdownMenuItem,
-   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu.tsx";
-import Image from "next/image.js";
+import CanvasRecord from "../_canvas/canvasRecord.js";
+import Shape from "../_canvas/shape.js";
+import CanvasShapeOptions from "../_component/canvasShapeOptions.jsx";
+import Polygon from "../_component/polygon.jsx";
+import ZoomLabel from "./ZoomLabel.tsx";
 
 const buttons = [
    { icon: <HandIcon width={"100%"} />, label: "handsFree" },
@@ -219,6 +208,7 @@ export default function Canvas() {
 
          if (e.ctrlKey) {
             const s = shape.canvasClick(e);
+            if (!s) return;
             s.isActive = true;
             shape.draw();
          }
@@ -270,7 +260,6 @@ export default function Canvas() {
       if (config.currentActive !== currentActive) {
          setCurrentActive(config.currentActive);
       }
-      console.log(currentActive, config.currentActive);
    }
 
    return (
@@ -296,13 +285,12 @@ export default function Canvas() {
                   <Tooltip key={index}>
                      <TooltipTrigger
                         asChild
-                        className={`${
-                           button.label === mode &&
+                        className={`${button.label === mode &&
                            "bg-secondary/70 text-primary-foreground"
-                        } ${buttonVariants({
-                           variant: "ghost",
-                           size: "icon",
-                        })} text-xs p-[10px] w-fit h-fit`}
+                           } ${buttonVariants({
+                              variant: "ghost",
+                              size: "icon",
+                           })} text-xs p-[10px] w-fit h-fit`}
                         onClick={() => {
                            config.mode = button.label;
                            checkCurrentShape();
@@ -329,13 +317,12 @@ export default function Canvas() {
                ))}
                <Tooltip>
                   <TooltipTrigger
-                     className={`${
-                        config.mode === "image" &&
+                     className={`${config.mode === "image" &&
                         "bg-secondary/70 text-primary-foreground"
-                     } ${buttonVariants({
-                        variant: "ghost",
-                        size: "icon",
-                     })} text-xs p-[10px] w-full h-fit`}
+                        } ${buttonVariants({
+                           variant: "ghost",
+                           size: "icon",
+                        })} text-xs p-[10px] w-full h-fit`}
                   >
                      <label
                         onClick={() => {
@@ -377,9 +364,8 @@ export default function Canvas() {
                      config.mode = "figure";
                      setMode(config.mode);
                   }}
-                  className={`${
-                     config.mode === "figure" && "bg-accent"
-                  } text-xs p-2 w-full h-fit`}
+                  className={`${config.mode === "figure" && "bg-accent"
+                     } text-xs p-2 w-full h-fit`}
                   variant="ghost"
                   size="icon"
                >

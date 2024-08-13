@@ -12,8 +12,11 @@ export function drawRect(rect, context) {
       font,
       fontWeight,
       allignVertical,
+      borderColor,
+      lineWidth,
+      fillStyle,
+      strokeStyle
    } = rect;
-
    const path = new Path2D();
    path.moveTo(x + radius, y);
    path.lineTo(x + width - radius, y);
@@ -24,6 +27,12 @@ export function drawRect(rect, context) {
    path.arcTo(x, y + height, x, y + height - radius, radius);
    path.lineTo(x, y + radius);
    path.arcTo(x, y, x + radius, y, radius);
+
+   context.strokeStyle = borderColor || activeColor;
+   context.lineWidth = lineWidth || 1;
+   context.fillStyle = fillStyle || "transparent";
+   context.fill(path);
+   context.stroke(path);
 
    renderText(
       text,
@@ -124,9 +133,20 @@ export function drawSphere(sphere, context) {
       fontVarient,
       font,
       allignVertical,
+      strokeStyle,
+      lineWidth, fillStyle, borderColor
    } = sphere;
    const path = new Path2D();
    path.ellipse(x, y, xRadius, yRadius, 0, 0, 2 * Math.PI);
+
+   context.beginPath();
+   context.strokeStyle = borderColor;
+   context.lineWidth = lineWidth || 1;
+   context.fillStyle = fillStyle;
+   context.fill(path);
+   context.stroke(path);
+   context.closePath();
+
    renderText(
       text,
       x - xRadius,
@@ -150,9 +170,8 @@ export function drawText(text, tolerance, context) {
       text;
    // Set the font size and style before measuring the text
    context.fillStyle = fillStyle;
-   context.font = `${fontVarient} ${fontWeight} ${textSize}px ${
-      font || "Arial"
-   }`;
+   context.font = `${fontVarient} ${fontWeight} ${textSize}px ${font || "Arial"
+      }`;
 
    let maxWidth = 0;
    content.forEach((c) => {

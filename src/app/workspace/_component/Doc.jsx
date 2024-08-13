@@ -1,13 +1,13 @@
+import Checklist from "@editorjs/checklist";
 import EditorJS from "@editorjs/editorjs";
 import Header from "@editorjs/header";
-import RawTool from "@editorjs/raw";
 import ImageTool from "@editorjs/image";
-import Checklist from "@editorjs/checklist";
 import List from "@editorjs/list";
 import Quote from "@editorjs/quote";
+import RawTool from "@editorjs/raw";
+import { useEffect, useRef } from "react";
 import SimpleTool from "../_tools/simpleTool.js";
 import Table from "../_tools/table.js";
-import { useEffect, useRef } from "react";
 
 export default function Doc() {
    const editorRef = useRef(null);
