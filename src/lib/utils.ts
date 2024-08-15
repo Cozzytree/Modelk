@@ -19,8 +19,9 @@ export const shapeTypes = {
    text: "text",
    figure: "figure",
    image: "image",
-   pencil: "pencil"
-}
+   pencil: "pencil",
+   others: "polygon",
+};
 
 export const thickness = [
    { size: "S", q: 1 },

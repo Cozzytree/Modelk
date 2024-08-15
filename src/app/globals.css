@@ -64,8 +64,6 @@ h5.ce-header {
 .ce-toolbar__settings-btn,
 .cdx-button,
 .ce-popover,
-.ce-popover-item,
-.ce-popover-item:hover,
 .ce-toolbar__plus:hover {
    @apply bg-black;
    @apply text-white;
@@ -74,6 +72,11 @@ h5.ce-header {
 .ce-inline-tool--active {
    background: transparent;
 }
+/*
+.ce-popover-item:hover {
+   background: black;
+   color: white;
+} */
 
 .ce-inline-tool,
 .ce-conversion-toolbar__label,
@@ -94,7 +97,7 @@ h5.ce-header {
 .ce-toolbox__button:hover,
 .cdx-button:hover,
 .ce-inline-toolbar__dropdown:hover,
-/* .ce-inline-tool:hover, */
+.ce-inline-tool-input,
 .ce-popover__item:hover,
 .ce-toolbar__settings-btn:hover {
    background-color: #aaaaaa;
@@ -117,11 +120,12 @@ h5.ce-header {
    @apply bg-background;
    padding: 0 10px;
 }
+
 .ce-header::selection,
 .ce-paragraph::selection,
 .ce-list__item::selection {
-   @apply bg-secondary;
-   @apply text-primary;
+   background: grey;
+   color: white;
 }
 
 .cdx-notify--error {

@@ -18,6 +18,7 @@ import {
    drawText,
    findSlope,
 } from "./utilsFunc.js";
+import { Jost } from "next/font/google/index.js";
 
 const getStrokeOptions = {
    size: 3,
@@ -432,8 +433,7 @@ export default class Shapes {
          this.draw();
          this.drawImage();
       } else if (e.key === "Delete") {
-         this.copies = []
-         let total = [];
+         this.copies = [];
          //remove selected square
          this.rectMap.forEach((rect, key) => {
             if (rect.isActive) {
@@ -447,7 +447,6 @@ export default class Shapes {
                   }
                });
                const bp = this.breakPoints.get(key);
-               total.push({ s: rect, bp });
                this.copies.push(rect);
                this.rectMap.delete(key);
                this.breakPoints.delete(key);
@@ -491,8 +490,7 @@ export default class Shapes {
                      image.pointTo.filter((i) => i !== key);
                   }
                }
-               total.push({ s: line, bp: null });
-               total.push(line);
+               this.copies.push(line);
             }
          });
 
@@ -509,7 +507,7 @@ export default class Shapes {
                   }
                });
                const bp = this.breakPoints.get(key);
-               total.push({ s: arc, bp });
+               this.copies.push(arc);
                this.circleMap.delete(key);
                this.breakPoints.delete(key);
             }
@@ -526,7 +524,7 @@ export default class Shapes {
                      line.endTo === null;
                   }
                });
-               total.push({ s: text, bp: null });
+               this.copies.push(text);
                this.textMap.delete(key);
             }
          });
@@ -545,7 +543,7 @@ export default class Shapes {
                   }
 
                   const bp = this.breakPoints.get(key);
-                  total.push({ s: image, bp });
+                  this.copies.push(image);
                   this.imageMap.delete(key);
                   this.breakPoints.delete(key);
                });
@@ -555,7 +553,7 @@ export default class Shapes {
          this.pencilMap.forEach((pencil, key) => {
             if (pencil.isActive) {
                this.pencilMap.delete(key);
-               total.push({ s: pencil, bp: null });
+               this.copies.push(pencil);
             }
          });
          this.massiveSelection = this.massiveSelection;
@@ -566,10 +564,9 @@ export default class Shapes {
             this.canvasbreakPoints.height,
          );
 
-         recycleAndUse.insert(total);
          if (!this.copies.length) return;
 
-         Bin.insert({ type: redoType.delete, shapes: this.copies })
+         Bin.insert({ type: redoType.delete, shapes: this.copies });
          this.draw();
          this.drawImage();
       }
@@ -1140,11 +1137,6 @@ export default class Shapes {
    }
 
    getTransformedMouseCoords(event) {
-      // const rect = this.canvas.getBoundingClientRect();
-      // const mouseX =
-      //   (event.clientX - rect.left + scrollBar.scrollPositionX) / Scale.scale;
-      // const mouseY =
-      //   (event.clientY - rect.top + scrollBar.scrollPositionY) / Scale.scale;
       const rect = this.canvas.getBoundingClientRect();
       const centerX = this.canvas.width / 2;
       const centerY = this.canvas.height / 2;
@@ -1221,6 +1213,7 @@ export default class Shapes {
    mouseDownDragAndResize(e) {
       if (e.altKey || e.ctrlKey || config.mode === "handsFree") return;
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
+      this.copies = [];
 
       this.newShape(mouseX, mouseY);
       if (this.isDrawing || this.newShapeParams) return;
@@ -1438,6 +1431,7 @@ export default class Shapes {
                         index: i,
                      };
                   }
+                  this.copies.push(JSON.parse(JSON.stringify(line)));
                   config.currentActive = line;
                   isResizing = true;
                } else if (!line.containerId) {
@@ -1459,6 +1453,7 @@ export default class Shapes {
                         index: i,
                      };
                   }
+                  this.copies.push(JSON.parse(JSON.stringify(line)));
                   config.currentActive = line;
                   isResizing = true;
                }
@@ -1503,6 +1498,7 @@ export default class Shapes {
                   key,
                   direction: condition.side,
                });
+               this.copies.push(JSON.parse(JSON.stringify(rect)));
                return;
             }
          });
@@ -1557,8 +1553,10 @@ export default class Shapes {
 
          if ((leftEdge || rightEdge) && verticalBounds) {
             checkAndResize({ direction: "horizontel", key });
+            this.copies.push(JSON.parse(JSON.stringify(arc)));
          } else if ((topEdge || bottomEdge) && horizontalBounds) {
             checkAndResize({ direction: "vertical", key });
+            this.copies.push(JSON.parse(JSON.stringify(arc)));
          } else if (
             // Top-left corner
             (mouseX >= forXless - this.tolerance &&
@@ -1582,6 +1580,7 @@ export default class Shapes {
                mouseY <= forYmore + this.tolerance)
          ) {
             checkAndResize({ direction: "corners", key });
+            this.copies.push(JSON.parse(JSON.stringify(arc)));
          }
       });
 
@@ -1606,11 +1605,13 @@ export default class Shapes {
                   };
                   config.currentActive = text;
                }
+               this.copies.push(JSON.parse(JSON.stringify(text)));
             } else if (!text.containerId) {
                isResizing = true;
                this.resizeElement = {
                   key,
                };
+               this.copies.push(JSON.parse(JSON.stringify(text)));
                config.currentActive = text;
             }
          }
@@ -1634,8 +1635,7 @@ export default class Shapes {
                point.offsetX = point.x - mouseX;
                point.offsetY = point.y - mouseY;
             });
-            // inserting last state into recycle bin
-            // recycleAndUse.insertSingle([{ s: rect, bp: null }]);
+            this.copies.push(JSON.parse(JSON.stringify(pencil)));
          };
 
          const checkAndSetActiveResizing = (resizeParams) => {
@@ -1687,6 +1687,8 @@ export default class Shapes {
                this.resizeElement = { initailX: mouseX, key };
                isResizing = true;
                config.currentActive = other;
+               this.copies.push(JSON.parse(JSON.stringify(other)));
+               return;
             }
          });
       });
@@ -1712,7 +1714,6 @@ export default class Shapes {
       let smallestShape = null;
       let smallestShapeKey = null;
 
-      this.copies = [];
       allShapes.forEach(([key, shape]) => {
          if (shape.type === "figure" && !shape.isActive) return;
 
@@ -1755,7 +1756,7 @@ export default class Shapes {
                break;
          }
 
-         this.copies.push(JSON.parse(JSON.stringify(shape)))
+         this.copies.push(JSON.parse(JSON.stringify(shape)));
 
          if (this.isIn(mouseX, mouseY, 0, 0, x, y, width, height)) {
             if (!container || !container.isActive) {
@@ -1875,15 +1876,15 @@ export default class Shapes {
 
             let firstPart =
                mouseX >
-               Math.min(
-                  curvePoints[0].x - this.tolerance,
-                  midPointX - this.tolerance,
-               ) &&
+                  Math.min(
+                     curvePoints[0].x - this.tolerance,
+                     midPointX - this.tolerance,
+                  ) &&
                mouseX <
-               Math.max(
-                  midPointX + this.tolerance,
-                  curvePoints[0].x + this.tolerance,
-               ) &&
+                  Math.max(
+                     midPointX + this.tolerance,
+                     curvePoints[0].x + this.tolerance,
+                  ) &&
                mouseY > curvePoints[0].y - this.tolerance &&
                mouseY < curvePoints[0].y + this.tolerance;
             let secondPart =
@@ -1893,15 +1894,15 @@ export default class Shapes {
                mouseY < curvePoints[1].y + this.tolerance;
             let lastPart =
                mouseX >
-               Math.min(
-                  midPointX - this.tolerance,
-                  curvePoints[1].x - this.tolerance,
-               ) &&
+                  Math.min(
+                     midPointX - this.tolerance,
+                     curvePoints[1].x - this.tolerance,
+                  ) &&
                mouseX <
-               Math.max(
-                  midPointX + this.tolerance,
-                  curvePoints[1].x + this.tolerance,
-               ) &&
+                  Math.max(
+                     midPointX + this.tolerance,
+                     curvePoints[1].x + this.tolerance,
+                  ) &&
                mouseY > curvePoints[1].y - this.tolerance &&
                mouseY < curvePoints[1].y + this.tolerance;
 
@@ -2320,21 +2321,21 @@ export default class Shapes {
                   mid.x == first.x
                      ? this.drawArrows(mid, first, 10)
                      : this.drawArrows(
-                        { x: mid.x, y: first.y },
-                        first,
-                        10,
-                        this.breakPointsCtx,
-                     );
+                          { x: mid.x, y: first.y },
+                          first,
+                          10,
+                          this.breakPointsCtx,
+                       );
                }
                if (obj.arrowRight) {
                   mid.x == first.x
                      ? this.drawArrows(mid, last, 10)
                      : this.drawArrows(
-                        { x: mid.x, y: last.y },
-                        last,
-                        10,
-                        this.breakPointsCtx,
-                     );
+                          { x: mid.x, y: last.y },
+                          last,
+                          10,
+                          this.breakPointsCtx,
+                       );
                }
             } else {
                // Start the path at the first point
@@ -3529,11 +3530,11 @@ export default class Shapes {
             this.massiveSelection.isSelectedMinX - this.tolerance,
             this.massiveSelection.isSelectedMinY - this.tolerance,
             this.massiveSelection.isSelectedMaxX -
-            this.massiveSelection.isSelectedMinX +
-            2 * this.tolerance,
+               this.massiveSelection.isSelectedMinX +
+               2 * this.tolerance,
             this.massiveSelection.isSelectedMaxY -
-            this.massiveSelection.isSelectedMinY +
-            2 * this.tolerance,
+               this.massiveSelection.isSelectedMinY +
+               2 * this.tolerance,
          );
          this.draw();
          this.drawImage();
@@ -3625,7 +3626,7 @@ export default class Shapes {
                if (sphere && sphere.pointTo.length > 0) {
                   const distance = Math.sqrt(
                      (line.curvePoints[0].x - sphere.x) ** 2 -
-                     (line.curvePoints[0].y - sphere.y) ** 2,
+                        (line.curvePoints[0].y - sphere.y) ** 2,
                   );
                   if (distance > sphere.xRadius || distance > sphere.yRadius) {
                      sphere.pointTo = sphere.pointTo.filter((s) => s !== key);
@@ -3738,7 +3739,7 @@ export default class Shapes {
                if (sphere && sphere.pointTo.length > 0) {
                   const distance = Math.sqrt(
                      (line.curvePoints[length].x - sphere.x) ** 2 -
-                     (line.curvePoints[length].y - sphere.y) ** 2,
+                        (line.curvePoints[length].y - sphere.y) ** 2,
                   );
                   if (distance > sphere.xRadius || distance > sphere.yRadius) {
                      sphere.pointTo = sphere.pointTo.filter((s) => s !== key);
@@ -4160,11 +4161,11 @@ export default class Shapes {
          this.massiveSelection.isSelectedMinX - this.tolerance,
          this.massiveSelection.isSelectedMinY - this.tolerance,
          this.massiveSelection.isSelectedMaxX -
-         this.massiveSelection.isSelectedMinX +
-         2 * this.tolerance,
+            this.massiveSelection.isSelectedMinX +
+            2 * this.tolerance,
          this.massiveSelection.isSelectedMaxY -
-         this.massiveSelection.isSelectedMinY +
-         2 * this.tolerance,
+            this.massiveSelection.isSelectedMinY +
+            2 * this.tolerance,
       );
 
       this.draw();
@@ -4487,8 +4488,9 @@ export default class Shapes {
             );
             // Set the font size and style before measuring the text
             this.renderCanvasCtx.fillStyle = object.fillStyle;
-            this.renderCanvasCtx.font = `${object.textSize}px ${object.font || "Arial"
-               }`;
+            this.renderCanvasCtx.font = `${object.textSize}px ${
+               object.font || "Arial"
+            }`;
 
             let maxWidth = 0;
             object.content.forEach((c) => {
@@ -4800,7 +4802,10 @@ export default class Shapes {
       const sphere = this.circleMap.get(key);
       const text = this.textMap.get(key);
       const image = this.imageMap.get(key);
-      return { rect, sphere, text, image };
+      const line = this.lineMap.get(key);
+      const otherShapes = this.otherShapes.get(key);
+      const pencil = this.pencilMap.get(key);
+      return { rect, sphere, text, image, line, otherShapes, pencil };
    }
 
    updateLineMinMax(key) {
@@ -5038,7 +5043,7 @@ export default class Shapes {
             this.canvasbreakPoints.height,
          );
       }
-      path = null
+      path = null;
       this.breakPointsCtx.restore();
    }
 
@@ -5080,11 +5085,11 @@ export default class Shapes {
                this.massiveSelection.isSelectedMinX - this.tolerance,
                this.massiveSelection.isSelectedMinY - this.tolerance,
                this.massiveSelection.isSelectedMaxX -
-               this.massiveSelection.isSelectedMinX +
-               2 * this.tolerance,
+                  this.massiveSelection.isSelectedMinX +
+                  2 * this.tolerance,
                this.massiveSelection.isSelectedMaxY -
-               this.massiveSelection.isSelectedMinY +
-               2 * this.tolerance,
+                  this.massiveSelection.isSelectedMinY +
+                  2 * this.tolerance,
             );
          }
       }
@@ -5094,15 +5099,10 @@ export default class Shapes {
       current.isActive = false;
       switch (current.type) {
          case "rect":
-            const newShape = new Rect(
-               current.x,
-               current.y,
-               current.width,
-               current.height,
-               current.text,
-               current.textSize,
-               true,
-            );
+            const newShape = new Rect();
+            const id = newShape.id;
+            Object.assign(newShape, current);
+            newShape.id = id;
             this.rectMap.set(newShape.id, newShape);
             return newShape;
          case "sphere":
@@ -5545,46 +5545,93 @@ export default class Shapes {
       this.copies = [];
 
       arr.forEach((shape) => {
-         const { rect, sphere, text, image } = this.getShape(shape.id)
+         const { rect, sphere, text, image, line, otherShapes, pencil } =
+            this.getShape(shape.id);
 
+         let id = null;
          switch (shape.type) {
             case shapeTypes.rect:
                if (rect) {
-                  this.copies.push({ ...rect })
-                  Object.assign(rect, shape)
+                  this.copies.push({ ...rect });
+                  Object.assign(rect, shape);
                } else {
                   const newRect = new Rect();
-                  this.copies.push({ ...newRect })
-                  Object.assign(newRect, shape)
-                  this.rectMap.set(1, newRect);
+                  id = newRect.id;
+                  Object.assign(newRect, shape);
+                  newRect.id = id;
+                  this.copies.push({ ...newRect });
+                  this.rectMap.set(newRect.id, newRect);
                }
                break;
             case shapeTypes.circle:
                if (sphere) {
-                  this.copies.push({ ...sphere })
-                  Object.assign(sphere, shape)
+                  this.copies.push({ ...sphere });
+                  Object.assign(sphere, shape);
                } else {
                   const newSphere = new Circle();
+                  id = newSphere.id;
                   Object.assign(newSphere, shape);
+                  newSphere.id = id;
                   this.copies.push({ ...newSphere });
-                  this.circleMap.set(newSphere.id, newSphere)
+                  this.circleMap.set(newSphere.id, newSphere);
                }
                break;
             case shapeTypes.text:
                if (text) {
-                  this.copies.push({ ...text })
-                  Object.assign(text, shape)
+                  this.copies.push({ ...text });
+                  Object.assign(text, shape);
                } else {
                   const newText = new Text();
+                  id = newText.id;
                   Object.assign(newText, shape);
+                  newText.id = id;
                   this.copies.push({ ...newText });
                   this.textMap.set(newText.id, newText);
                }
                break;
+            case shapeTypes.line:
+               if (line) {
+                  this.copies.push({ ...line });
+                  Object.assign(line, shape);
+               } else {
+                  const newLine = new Line();
+                  id = newLine.id;
+                  Object.assign(newLine, shape);
+                  newLine.id = id;
+                  this.copies.push({ ...newLine });
+                  this.lineMap.set(newLine.id, newLine);
+               }
+               break;
+            case shapeTypes.others:
+               if (otherShapes) {
+                  this.copies.push({ ...otherShapes });
+                  Object.assign(otherShapes, shape);
+               } else {
+                  const newO = new Polygons();
+                  id = newO.id;
+                  Object.assign(newO, shape);
+                  newO.id = id;
+                  this.copies.push({ ...newO });
+                  this.lineMap.set(newO.id, newO);
+               }
+               break;
+            case shapeTypes.pencil:
+               if (pencil) {
+                  this.copies.push({ ...pencil });
+                  Object.assign(pencil, shape);
+               } else {
+                  const newPencil = new Pencil();
+                  id = newPencil.id;
+                  Object.assign(newPencil, shape);
+                  newPencil.id = id;
+                  this.copies.push({ ...newPencil });
+                  this.pencilMap.set(newPencil.id, shape);
+               }
+               break;
          }
-      })
+      });
 
-      Restore.insert({ type: type, shapes: this.copies })
+      Restore.insert({ type: type, shapes: this.copies });
    }
 
    redo(arr = [], type) {
@@ -5601,25 +5648,31 @@ export default class Shapes {
             this.circleMap.delete(val.id);
          },
          [shapeTypes.text]: (val) => {
-            this.copies.push({ ...newText });
+            this.copies.push({ ...val });
             this.textMap.delete(val.id);
-         }
+         },
+         [shapeTypes.others]: (val) => {
+            this.copies.push({ ...val });
+            this.otherShapes.delete(val.id);
+         },
+         [shapeTypes.pencil]: (val) => {
+            this.copies.push({ ...val });
+            this.pencilMap.delete(val.id);
+         },
       };
 
       const updateShape = (val) => {
-         const { rect, sphere, text } = this.getShape(val.id);
-         if (rect) {
-            this.copies.push({ ...rect })
-            Object.assign(rect, val);
-         }
-         if (sphere) {
-            this.copies.push({ ...sphere })
-            Object.assign(sphere, val)
-         }
-         if (text) {
-            this.copies.push({ ...text });
-            Object.assign(text, val);
-         }
+         const { rect, sphere, text, otherShapes, line, pencil } =
+            this.getShape(val.id);
+         const values = this.getShape(val.id);
+         const shapes = Object.values(values);
+
+         shapes.forEach((v) => {
+            if (v) {
+               this.copies.push({ ...v });
+               Object.assign(v, val);
+            }
+         });
       };
 
       arr.forEach((val) => {
@@ -5632,21 +5685,21 @@ export default class Shapes {
       });
       if (!this.copies.length) return;
 
-      Bin.insert({ type: type, shapes: this.copies })
+      Bin.insert({ type: type, shapes: this.copies });
    }
 
    redoEvent(e) {
       if (e.ctrlKey && e.key === "z") {
-         const last = Bin.popOut()
-
+         const last = Bin.popOut();
          if (!last) return;
+
          this.undo(last.shapes, last.type);
          this.draw();
          this.drawImage();
       } else if (e.ctrlKey && e.key === "y") {
-
-         const redo = Restore.popOut()
+         const redo = Restore.popOut();
          if (!redo) return;
+
          this.redo(redo.shapes, redo.type);
          this.draw();
          this.drawImage();

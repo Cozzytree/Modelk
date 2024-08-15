@@ -6,8 +6,6 @@ import List from "@editorjs/list";
 import Quote from "@editorjs/quote";
 import RawTool from "@editorjs/raw";
 import { useEffect, useRef } from "react";
-import SimpleTool from "../_tools/simpleTool.js";
-import Table from "../_tools/table.js";
 
 export default function Doc() {
    const editorRef = useRef(null);
@@ -53,16 +51,31 @@ export default function Doc() {
                   captionPlaceholder: "Quote's author",
                },
             },
-            simpleTool: SimpleTool,
-            table: Table,
          },
       });
       editorRef.current = editor;
    }, []);
+
+   const handleSave = () => {
+      if (!editorRef.current) return;
+      editorRef.current
+         .save()
+         .then((outputData) => {
+            console.log("Article data: ", outputData);
+         })
+         .catch((error) => {
+            console.log("Saving failed: ", error);
+         });
+   };
+
    return (
       <div
          id="editorjs"
-         className="h-screen sm:container py-5 mx-auto overflow-y-auto hide-scrollbars-element "
-      ></div>
+         className="h-screen w-full px-2 sm:px-0 py-5 mx-auto overflow-y-auto hide-scrollbars-element "
+      >
+         <button className="absolute top-10 left-0 " onClick={handleSave}>
+            save
+         </button>
+      </div>
    );
 }
