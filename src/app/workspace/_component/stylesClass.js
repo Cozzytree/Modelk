@@ -24,6 +24,7 @@ class DefaultStyles {
 export class Polygons extends DefaultStyles {
    constructor(x, y, inset, lines) {
       super();
+      this.pointTo = [];
       this.x = x;
       this.y = y;
       this.lines = lines;

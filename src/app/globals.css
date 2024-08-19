@@ -168,7 +168,7 @@ h5.ce-header {
       --destructive: 14 86% 33%;
       --destructive-foreground: 14 86% 93%;
       --ring: 335 78% 49%;
-      --radius: 0.4rem;
+      --radius: 0.3rem;
    }
 
    .dark {

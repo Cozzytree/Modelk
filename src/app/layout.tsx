@@ -1,12 +1,17 @@
 import "./globals.css";
 import Provider from "@/components/queryclientprovider";
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
+import { Poppins, Balsamiq_Sans } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { GlocalContextProvider } from "@/components/contextProvoder";
 
 const poppins = Poppins({ subsets: ["latin", "latin-ext"], weight: "400" });
+const balsamiq = Balsamiq_Sans({
+   style: "normal",
+   weight: "400",
+   subsets: ["cyrillic"],
+});
 
 export const metadata: Metadata = {
    title: "Modlk",
@@ -21,7 +26,7 @@ export default function RootLayout({
    return (
       <html lang="en">
          <Provider>
-            <body className={`${poppins.className} w-screen min-h-[100dvh]`}>
+            <body className={`${balsamiq.className} w-screen min-h-[100dvh]`}>
                <GlocalContextProvider>
                   <ThemeProvider
                      attribute="class"

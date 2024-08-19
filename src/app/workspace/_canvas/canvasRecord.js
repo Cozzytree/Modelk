@@ -1,60 +1,84 @@
 class CanvasRecord {
    constructor() {
-      this.records = [];
-      this.intervalId = null;
+      this.initialState = new Map(); // Key: shape ID, Value: shape data
+      this.currentState = new Map(); // Key: shape ID, Value: shape data
+      this.newShapes = new Map(); // Key: shape ID, Value: shape data
+      this.updatedShapes = new Map(); // Key: shape ID, Value: shape data
+      this.deletedShapes = new Set(); // Set of shape IDs
    }
 
-   // Method to insert a new record
-   insertNewRecord(value = []) {
-      if (!value.length) return;
-      value.forEach((v) => {
-         this.records.push(v);
+   // Method to set initial state
+   setInitialState(state) {
+      this.initialState = new Map(state.map((shape) => [shape.id, shape]));
+   }
+
+   // Method to update the current state
+   updateCurrentState(...maps) {
+      this.currentState = new Map();
+      maps.forEach((map) => {
+         map.forEach((value, key) => {
+            this.currentState.set(key, value);
+         });
       });
    }
 
-   // Method to update a record based on its id
-   updateRecord(values = []) {
-      if (!values.length) return;
-      values.forEach((v) => {
-         const index = this.records.findIndex((record) => record.id === v.id);
-         if (index !== -1) {
-            this.records[index] = v;
+   // Method to compare states and determine changes
+   compareStates() {
+      this.updatedShapes = new Map();
+      this.newShapes = new Map();
+      this.deletedShapes = new Set();
+      // Determine deleted shapes
+      this.initialState.forEach((shape, id) => {
+         if (!this.currentState.has(id)) {
+            this.deletedShapes.add(id);
+            // if (this.updatedShapes.has(id)) {
+            //    this.updatedShapes.delete(id);
+            // }
+         }
+         // else if (this.deletedShapes.has(id)) {
+         //    this.deletedShapes.delete(id);
+         // }
+      });
+
+      // Determine updated shapes and new shapes
+      this.currentState.forEach((shape, id) => {
+         const initialShape = this.initialState.get(id);
+         if (!initialShape) {
+            // New shape
+            this.newShapes.set(id, shape);
+         } else if (JSON.stringify(initialShape) !== JSON.stringify(shape)) {
+            // Updated shape
+            this.updatedShapes.set(id, shape);
          }
       });
    }
 
-   deleteRecord(values = []) {
-      if (!values.length) return;
-
-      // Create a Set of ids to delete for O(1) lookup
-      const idsToDelete = new Set(values.map((v) => v.id));
-
-      // Filter out records whose id is not in idsToDelete
-      this.records = this.records.filter(
-         (record) => !idsToDelete.has(record.id),
-      );
+   // Method to check if a shape has changed (e.g., by comparing properties)
+   shapeHasChanged(initialShape, updatedShape) {
+      return JSON.stringify(initialShape) !== JSON.stringify(updatedShape);
    }
 
-   async pushRecords(handler) {
+   getUpdatedShapes() {
+      let newShape = [];
+      let updated = [];
+
+      this.newShapes.forEach((v) => {
+         newShape.push(v);
+      });
+      this.updatedShapes.forEach((s, id) => {
+         updated.push({ shapedId: id, params: s });
+      });
+      return { newShape, updated };
+   }
+
+   async pushRecords(handler, interval = 10000) {
+      this.compareStates();
+      const { newShape, updated } = this.getUpdatedShapes();
+
       try {
-         await handler(this.records);
-      } catch (error) {
-         throw error;
-      }
-
-      // Clear previous interval if exists
-      if (this.intervalId) {
-         clearInterval(this.intervalId);
-      }
-
-      // Set new interval
-      // this.intervalId = setInterval(() => this.pushRecords(handler), 10000);
-   }
-
-   stopPushRecords() {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
+         handler({ newShape, updated });
+      } catch (err) {}
    }
 }
 
-export default CanvasRecord;
+export const canvasRecord = new CanvasRecord();

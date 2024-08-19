@@ -3,11 +3,12 @@
 export const redoType = {
    revert: "revert",
    revert_deleted: "revert_delete",
-   delete: "delete"
-}
+   delete: "delete",
+   fresh: "new and fresh",
+};
 
 class Stack {
-   store = []
+   store = [];
 
    insert(val) {
       if (this.store.length >= 40) return;

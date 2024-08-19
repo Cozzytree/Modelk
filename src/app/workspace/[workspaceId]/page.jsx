@@ -70,15 +70,15 @@ export default function Workspace() {
       <div className="w-screen h-screen overflow-hidden">
          <div className="fixed top-0 left-0 w-screen flex justify-between items-center border-b py-1 bg-background border-b-zinc-800 z-[999] px-4">
             <h1 className="text-sm font-semibold">Project_Name</h1>
-            <div className="h-fir p-[2px] gap-[2px] flex items-center justify-center divide-x-2 border border-zinc-800 rounded-sm">
+            <div className="h-fir p-[2px] gap-[2px] flex items-center justify-center divide-x-2 border border-zinc-800 rounded-sm bg-background">
                {boardView.map((view) => (
                   <Button
                      onClick={() => setWorksapceMode(view.name)}
                      key={view.name}
-                     className={`${view.name === workspaceMode
-                           ? "bg-secondary/80 text-secondary-foreground"
-                           : "bg-muted"
-                        } text-xs h-3 py-3`}
+                     className={`${
+                        view.name === workspaceMode &&
+                        "bg-secondary/80 text-secondary-foreground"
+                     } text-sm h-3 py-3`}
                      variant="ghost"
                      size="sm"
                   >
@@ -99,13 +99,17 @@ export default function Workspace() {
          </div>
 
          <div
-            className={`h-screen w-screen grid ${workspaceMode === "Both" ? "grid-cols-[0.6fr_1fr]" : "grid-cols-1"
-               } overflow-hidden divide-x`}
+            className={`h-screen w-screen grid ${
+               workspaceMode === "Both"
+                  ? "grid-cols-[0.6fr_1fr]"
+                  : "grid-cols-1"
+            } overflow-hidden divide-x`}
          >
             {/* document */}
             <div
-               className={`${workspaceMode === "Canvas" ? "hidden" : "block"
-                  } flex justify-center w-full mt-12`}
+               className={`${
+                  workspaceMode === "Canvas" ? "hidden" : "block"
+               } flex justify-center w-full mt-12`}
             >
                <Doc />
             </div>
@@ -113,8 +117,9 @@ export default function Workspace() {
             {/* canvas */}
             <div
                id="canvas-div"
-               className={`relative w-full ${workspaceMode === "Document" ? "hidden" : "block"
-                  } h-screen`}
+               className={`relative w-full ${
+                  workspaceMode === "Document" ? "hidden" : "block"
+               } h-screen`}
             >
                <main className="w-full h-full">
                   {/* <Canvas shapes={projectData?.data[0]?.projectShapes} /> */}

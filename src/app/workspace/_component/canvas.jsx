@@ -1,13 +1,14 @@
 "use client";
 
 import { Button, buttonVariants } from "@/components/ui/button.tsx";
+import { canvasRecord } from "../_canvas/canvasRecord.js";
 import {
    Tooltip,
    TooltipContent,
    TooltipProvider,
    TooltipTrigger,
 } from "@/components/ui/tooltip.tsx";
-import { config, Scale, scrollBar } from "@/lib/utils.ts";
+import { config, Scale, scrollBar, shapeTypes } from "@/lib/utils.ts";
 import {
    ArrowBottomRightIcon,
    BoxIcon,
@@ -18,11 +19,10 @@ import {
    ImageIcon,
    Pencil1Icon,
    SlashIcon,
-   TextIcon
+   TextIcon,
 } from "@radix-ui/react-icons";
 import { useParams } from "next/navigation.js";
 import { useEffect, useRef, useState } from "react";
-import CanvasRecord from "../_canvas/canvasRecord.js";
 import Shape from "../_canvas/shape.js";
 import CanvasShapeOptions from "../_component/canvasShapeOptions.jsx";
 import Polygon from "../_component/polygon.jsx";
@@ -42,89 +42,39 @@ const buttons = [
 const width = window.innerWidth;
 const height = 1200;
 
-function drawCurve(line, tempPoint, canvas, context) {
-   context.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas before re-drawing
-
-   context.save();
-   context.translate(-scrollBar.scrollPositionX, -scrollBar.scrollPositionY);
-   context.scale(Scale.scale, Scale.scale);
-
-   context.beginPath();
-   context.strokeStyle = "white";
-   context.lineWidth = 1;
-
-   // Start the path at the first point
-   context.moveTo(line.curvePoints[0].x, line.curvePoints[0].y);
-
-   // Draw the curve through all the points
-   for (let i = 0; i < line.curvePoints.length - 1; i++) {
-      const cp1 = line.curvePoints[i];
-      const cp2 = line.curvePoints[i + 1];
-
-      //   context.arcTo(cp1.x, cp1.y, cp2.x, cp2.y, 50);
-      // Calculate the weighted midpoint (e.g., 75% closer to cp2)
-      const t = 0.8; // Weighting factor, 0.5 for halfway, closer to 1 for closer to cp2
-      const midPointX = (1 - t) * cp1.x + t * cp2.x;
-      const midPointY = (1 - t) * cp1.y + t * cp2.y;
-
-      // Use cp1 as the control point and the adjusted midpoint as the end point
-      context.quadraticCurveTo(cp1.x, cp1.y, midPointX, midPointY);
-   }
-
-   //    Handle the last segment, if tempPoint is provided
-   if (tempPoint) {
-      const lastCp = line.curvePoints[line.curvePoints.length - 1];
-      //   context.arcTo(lastCp.x, lastCp.y, tempPoint.x, tempPoint.y, 50);
-
-      context.quadraticCurveTo(lastCp.x, lastCp.y, tempPoint.x, tempPoint.y);
-   }
-
-   context.stroke();
-   context.closePath();
-   context.restore();
-}
-
-function pencilDraw(x, y, context, lastPoint) {
-   // Line width and style settings
-   context.save();
-   context.scale(Scale.scale, Scale.scale);
-   context.translate(-scrollBar.scrollPositionX, -scrollBar.scrollPositionY);
-   context.lineWidth = 1.6;
-   context.strokeStyle = "white";
-   context.lineCap = "round";
-   context.lineJoin = "round";
-
-   // Linear interpolation function
-   function lerp(start, end, amt) {
-      return (1 - amt) * start + amt * end;
-   }
-
-   // Number of interpolation steps
-   const steps = 10;
-
-   for (let i = 1; i <= steps; i++) {
-      const t = i / steps;
-      const interpolatedX = lerp(lastPoint.x, x, t);
-      const interpolatedY = lerp(lastPoint.y, y, t);
-
-      context.beginPath();
-      context.moveTo(lastPoint.x, lastPoint.y);
-      context.lineTo(interpolatedX, interpolatedY);
-      context.stroke();
-      context.closePath();
-
-      // Update lastPoint for next iteration
-      lastPoint.x = interpolatedX;
-      lastPoint.y = interpolatedY;
-   }
-   context.restore();
-}
+const initialData = [
+   {
+      allignVertical: "center",
+      angle: 0,
+      borderColor: "white",
+      containerId: null,
+      fillStyle: "transparent",
+      fillType: "full",
+      font: "Arial",
+      fontVarient: "normal",
+      fontWeight: "normal",
+      height: 330,
+      id: 1723987825532,
+      isActive: false,
+      lineWidth: 1.7,
+      offsetX: 239,
+      offsetY: 196,
+      pointTo: [],
+      radius: 10,
+      text: ["Let's ", "Start"],
+      textPosition: "center",
+      textSize: 35,
+      type: "rect",
+      width: 464,
+      x: width / 2 - 464 / 2,
+      y: 146,
+   },
+];
 
 export default function Canvas() {
    // shapes
    //   const { mutate: createNewRect, isPending } = useNewRect();
    //   const { newSphere: createNewSphere } = useNewSphere();
-   const records = new CanvasRecord();
    const params = useParams();
 
    const [newImage, setImage] = useState(null);
@@ -133,10 +83,14 @@ export default function Canvas() {
    const [scale, setScale] = useState(Scale.scale);
 
    const canvasRef = useRef(null);
-   const canvasRecord = useRef(records);
+   const canvasR = useRef(canvasRecord);
    const breakPointsRef = useRef(null);
    const shapeClassRef = useRef(null);
    const renderCanvasRef = useRef(null);
+
+   // useEffect(() => {
+   //    canvasR.current.startPushRecords(() => {});
+   // }, []);
 
    useEffect(() => {
       const canvas = canvasRef.current;
@@ -154,19 +108,12 @@ export default function Canvas() {
          canvas,
          breakPointsCanvas,
          renderCanvas,
-         (data) => {
-            canvasRecord.current.insertNewRecord([data]);
-         },
+         initialData,
       );
       shapeClassRef.current = shape;
 
-      if (canvasRecord.current)
-         canvasRecord.current.pushRecords((data) => {
-            if (!data.length) return;
-            // console.log(data);
-         });
-
       shape.initialize();
+      shape.draw();
       return () => {
          shape.cleanup();
       };
@@ -255,6 +202,27 @@ export default function Canvas() {
       };
    }, [currentActive, newImage, mode]);
 
+   // useEffect(() => {
+   //    if (!shapeClassRef.current) return;
+   //    canvasRecord.setInitialState(JSON.parse(JSON.stringify(initialData)));
+   //    const shape = shapeClassRef.current;
+   //    let interval;
+   //    interval = setInterval(() => {
+   //       canvasRecord.updateCurrentState(
+   //          shape.rectMap,
+   //          shape.circleMap,
+   //          shape.lineMap,
+   //          shape.textMap,
+   //       );
+   //       canvasRecord.pushRecords((val) => {
+   //          console.log(canvasRecord.updatedShapes, canvasRecord.deletedShapes);
+   //       });
+   //    }, 3000);
+   //    return () => {
+   //       clearInterval(interval);
+   //    };
+   // }, []);
+
    function checkCurrentShape() {
       config.currentActive = null;
       if (config.currentActive !== currentActive) {
@@ -285,12 +253,13 @@ export default function Canvas() {
                   <Tooltip key={index}>
                      <TooltipTrigger
                         asChild
-                        className={`${button.label === mode &&
+                        className={`${
+                           button.label === mode &&
                            "bg-secondary/70 text-primary-foreground"
-                           } ${buttonVariants({
-                              variant: "ghost",
-                              size: "icon",
-                           })} text-xs p-[10px] w-fit h-fit`}
+                        } ${buttonVariants({
+                           variant: "ghost",
+                           size: "icon",
+                        })} text-xs p-[10px] w-fit h-fit`}
                         onClick={() => {
                            config.mode = button.label;
                            checkCurrentShape();
@@ -317,12 +286,13 @@ export default function Canvas() {
                ))}
                <Tooltip>
                   <TooltipTrigger
-                     className={`${config.mode === "image" &&
+                     className={`${
+                        config.mode === "image" &&
                         "bg-secondary/70 text-primary-foreground"
-                        } ${buttonVariants({
-                           variant: "ghost",
-                           size: "icon",
-                        })} text-xs p-[10px] w-full h-fit`}
+                     } ${buttonVariants({
+                        variant: "ghost",
+                        size: "icon",
+                     })} text-xs p-[10px] w-full h-fit`}
                   >
                      <label
                         onClick={() => {
@@ -364,8 +334,9 @@ export default function Canvas() {
                      config.mode = "figure";
                      setMode(config.mode);
                   }}
-                  className={`${config.mode === "figure" && "bg-accent"
-                     } text-xs p-2 w-full h-fit`}
+                  className={`${
+                     config.mode === "figure" && "bg-accent"
+                  } text-xs p-2 w-full h-fit`}
                   variant="ghost"
                   size="icon"
                >

@@ -1,5 +1,6 @@
 import { Scale, config, scrollBar, shapeTypes } from "@/lib/utils.ts";
 import getStroke from "perfect-freehand";
+import { canvasRecord } from "../_canvas/canvasRecord";
 import {
    Circle,
    Figure,
@@ -18,7 +19,7 @@ import {
    drawText,
    findSlope,
 } from "./utilsFunc.js";
-import { Jost } from "next/font/google/index.js";
+import { lineResizeLogic } from "./resize/lineResize";
 
 const getStrokeOptions = {
    size: 3,
@@ -39,76 +40,11 @@ const getStrokeOptions = {
    },
 };
 
-class RevFor {
-   constructor() {
-      this.recycleBin = [];
-      this.redo = [];
-   }
-
-   insert(value) {
-      if (!value || !value.length) return;
-      if (this.getLength() >= 10) {
-         this.recycleBin.shift();
-      }
-      // Deep copy of value
-      this.recycleBin.push(JSON.parse(JSON.stringify(value)));
-   }
-
-   insertSingle(value) {
-      if (!value || !value.length) return;
-      const lastElement = this.recycleBin[this.getLength() - 1];
-      // Deep comparison of the objects
-      if (
-         lastElement &&
-         lastElement.length === 1 &&
-         JSON.stringify(lastElement[0]) === JSON.stringify(value[0])
-      )
-         return;
-      if (this.getLength() >= 10) {
-         this.recycleBin.shift();
-      }
-      // Deep copy of value
-      this.recycleBin.push(JSON.parse(JSON.stringify(value)));
-   }
-
-   getBackInTime() {
-      if (!this.getLength()) return;
-      const last = this.recycleBin.pop();
-      if (this.redo.length >= 10) {
-         this.redo.shift();
-      }
-      console.log(this.recycleBin);
-      this.redo.push(JSON.parse(JSON.stringify(last)));
-      return last;
-   }
-
-   redoLastUndo() {
-      if (this.redo.length === 0) return;
-      const lastRedo = this.redo.pop();
-      if (lastRedo.length === 1) {
-         this.insertSingle(lastRedo);
-      } else {
-         this.insert(lastRedo);
-      }
-      return lastRedo;
-   }
-
-   getLength() {
-      return this.recycleBin.length;
-   }
-
-   getbin() {
-      return this.recycleBin;
-   }
-}
-
-export const recycleAndUse = new RevFor();
-
 export default class Shapes {
    lastPoint = null;
    mouseCurrentPosition = { x: 0, y: 0 };
-   constructor(canvas, canvasbreakPoints, renderCanvas, handler) {
-      this.handler = handler;
+   constructor(canvas, canvasbreakPoints, renderCanvas, initialData) {
+      this.initialData = initialData;
       this.canvas = canvas;
       this.canvasDiv = document.getElementById("canvas-div");
       this.canvasbreakPoints = canvasbreakPoints;
@@ -147,12 +83,21 @@ export default class Shapes {
          height: null,
       };
       this.copyShapes = [];
+      this.setupInitialData();
+   }
+
+   setupInitialData() {
+      this.initialData.forEach((val) => {
+         if (val.type === shapeTypes.rect) {
+            this.rectMap.set(val.id, val);
+         }
+      });
    }
 
    newShape(x, y) {
       if (
          config.mode == "free" ||
-         config.mode == "handsFRee" ||
+         config.mode == "handsFree" ||
          config.mode == "image"
       )
          return;
@@ -235,7 +180,7 @@ export default class Shapes {
       }
    }
 
-   insertNew(func) {
+   insertNew() {
       if (
          this.newShapeParams &&
          this.newShapeParams.type !== "line" &&
@@ -341,8 +286,8 @@ export default class Shapes {
                this.canvasbreakPoints.height,
             );
          }
+         canvasRecord.updateCurrentState();
          config.currentActive = this.newShapeParams;
-         func(this.newShapeParams);
          this.newShapeParams = null;
          this.lastPoint = null;
          this.draw();
@@ -394,6 +339,43 @@ export default class Shapes {
             this.newShapeParams.curvePoints.push({ x, y });
 
             if (this.newShapeParams.curvePoints.length === 2) {
+               const distance = Math.sqrt(
+                  (this.newShapeParams.maxX - this.newShapeParams.minX) ** 2 +
+                     (this.newShapeParams.maxY - this.newShapeParams.minY) ** 2,
+               );
+               // adding points
+               let last = {
+                  x: this.newShapeParams.curvePoints[1].x,
+                  y: this.newShapeParams.curvePoints[1].y,
+               };
+               if (distance >= 250) {
+                  const p1 = {
+                     x:
+                        (this.newShapeParams.curvePoints[0].x +
+                           this.newShapeParams.curvePoints[1].x) /
+                        2,
+                     y: this.newShapeParams.curvePoints[0].y,
+                  };
+                  const p2 = {
+                     x:
+                        (this.newShapeParams.curvePoints[0].x +
+                           this.newShapeParams.curvePoints[1].x) /
+                        2,
+                     y: this.newShapeParams.curvePoints[1].y,
+                  };
+
+                  this.newShapeParams.curvePoints[1] = p1;
+                  this.newShapeParams.curvePoints[2] = p2;
+                  this.newShapeParams.curvePoints[3] = last;
+               } else {
+                  const midpoint = {
+                     x: this.newShapeParams.curvePoints[1].x,
+                     y: this.newShapeParams.curvePoints[0].y,
+                  };
+                  this.newShapeParams.curvePoints[1] = midpoint;
+                  this.newShapeParams.curvePoints[2] = last;
+               }
+               console.log(this.newShapeParams);
                this.lineMap.set(this.newShapeParams.id, this.newShapeParams);
                this.isDrawing = false;
                config.mode = "free";
@@ -429,10 +411,18 @@ export default class Shapes {
          this.pencilMap.forEach((pencil) => {
             pencil.isActive = true;
          });
+         this.otherShapes.forEach((o) => {
+            o.isActive = true;
+         });
 
          this.draw();
          this.drawImage();
       } else if (e.key === "Delete") {
+         const deletebp = (key) => {
+            if (this.breakPoints.has(key)) {
+               this.breakPoints.delete(key);
+            }
+         };
          this.copies = [];
          //remove selected square
          this.rectMap.forEach((rect, key) => {
@@ -446,10 +436,9 @@ export default class Shapes {
                      line.endTo === null;
                   }
                });
-               const bp = this.breakPoints.get(key);
+               deletebp(key);
                this.copies.push(rect);
                this.rectMap.delete(key);
-               this.breakPoints.delete(key);
             }
          });
 
@@ -491,6 +480,7 @@ export default class Shapes {
                   }
                }
                this.copies.push(line);
+               this.lineMap.delete(key);
             }
          });
 
@@ -506,10 +496,9 @@ export default class Shapes {
                      line.endTo === null;
                   }
                });
-               const bp = this.breakPoints.get(key);
+               deletebp(key);
                this.copies.push(arc);
                this.circleMap.delete(key);
-               this.breakPoints.delete(key);
             }
          });
 
@@ -517,11 +506,13 @@ export default class Shapes {
             if (text.isActive) {
                text.pointTo.forEach((p) => {
                   let line = this.lineMap.get(p);
-                  if (line.startTo === key && !line.isActive) {
-                     line.startTo = null;
-                  }
-                  if (line.endTo === key && !line.isActive) {
-                     line.endTo === null;
+                  if (line) {
+                     if (line.startTo === key && !line.isActive) {
+                        line.startTo = null;
+                     }
+                     if (line.endTo === key && !line.isActive) {
+                        line.endTo === null;
+                     }
                   }
                });
                this.copies.push(text);
@@ -541,11 +532,9 @@ export default class Shapes {
                   if (line?.endTo === key && !line.isActive) {
                      line.endTo === null;
                   }
-
-                  const bp = this.breakPoints.get(key);
+                  deletebp(key);
                   this.copies.push(image);
                   this.imageMap.delete(key);
-                  this.breakPoints.delete(key);
                });
             }
          });
@@ -556,7 +545,28 @@ export default class Shapes {
                this.copies.push(pencil);
             }
          });
+
+         this.otherShapes.forEach((o, key) => {
+            if (!o.isActive) return;
+            if (o.pointTo.length > 0) {
+               o.pointTo.forEach((p) => {
+                  const point = this.lineMap.get(p);
+                  if (point) {
+                     if (point.startTo === key) {
+                        point.startTo = null;
+                     } else {
+                        point.endTo = null;
+                     }
+                  }
+               });
+            }
+            deletebp(key);
+            this.copies.push(JSON.parse(JSON.stringify(o)));
+            this.otherShapes.delete(key);
+         });
+
          this.massiveSelection = this.massiveSelection;
+
          this.breakPointsCtx.clearRect(
             0,
             0,
@@ -876,21 +886,37 @@ export default class Shapes {
 
          if (isActive) {
             if (lineType === "curve") {
-               this.context.beginPath();
-               this.context.lineWidth = 0.8;
-               this.context.strokeStyle = "red";
+               // Apply dotted line style
+               this.context.setLineDash([5, 15]); // Adjust the pattern if needed
+               this.context.lineWidth = 1; // Ensure this is the desired width for dotted lines
+               this.context.strokeStyle = "red"; // Use a specific color for dotted lines
+
+               // Draw the curve with the dotted line style
                this.context.moveTo(curvePoints[0].x, curvePoints[0].y);
                for (let i = 1; i < curvePoints.length; i++) {
                   this.context.lineTo(curvePoints[i].x, curvePoints[i].y);
                }
                this.context.stroke();
+               this.context.setLineDash([]); // Reset the line dash to solid lines for other drawing operations
                this.context.closePath();
             }
 
             this.context.strokeStyle = this.activeColor;
-
-            if (!this.massiveSelection.isSelected)
-               this.dots(...curvePoints, { context: this.context });
+            if (!this.massiveSelection.isSelected) {
+               if (lineType === "curve") {
+                  this.dots(...curvePoints, { context: this.context });
+               } else {
+                  if (curvePoints[curvePoints.length - 1])
+                     this.dots(
+                        { x: curvePoints[0].x, y: curvePoints[0].y },
+                        {
+                           x: curvePoints[curvePoints.length - 1].x,
+                           y: curvePoints[curvePoints.length - 1].y,
+                        },
+                        { context: this.context },
+                     );
+               }
+            }
          } else {
             this.context.strokeStyle = borderColor;
          }
@@ -1298,7 +1324,6 @@ export default class Shapes {
             }
          });
 
-         recycleAndUse.insert(total);
          this.massiveSelection.isSelectedDown = true;
          //calculatin offset and width
          this.massiveSelection.offsetX =
@@ -1474,9 +1499,6 @@ export default class Shapes {
             isResizing = true;
             config.currentActive = rect;
             this.resizeElement = resizeParams;
-
-            // inserting last state into recycle bin
-            recycleAndUse.insertSingle([{ s: rect, bp: null }]);
          };
 
          const checkAndSetActiveResizing = (resizeParams) => {
@@ -1538,7 +1560,6 @@ export default class Shapes {
             isResizing = true;
             this.resizeElement = resizeParams;
             config.currentActive = arc;
-            recycleAndUse.insertSingle([{ s: arc, bg: null }]);
          };
 
          const checkAndResize = (resizeParams) => {
@@ -1695,17 +1716,16 @@ export default class Shapes {
 
       if (isResizing) return;
 
+      // drag logi for shapes
       const allShapes = [
          ...Array.from(this.rectMap.entries()),
          ...Array.from(this.circleMap.entries()),
          ...Array.from(this.textMap.entries()),
-         ...Array.from(this.lineMap.entries()),
          ...Array.from(this.pencilMap.entries()),
          ...Array.from(this.otherShapes.entries()),
          ...Array.from(this.imageMap.entries()),
          ...Array.from(this.figureMap.entries()),
       ];
-
       const setDragging = (obj) => {
          obj.isActive = true;
          obj.offsetX = mouseX - obj.x;
@@ -1713,7 +1733,6 @@ export default class Shapes {
       };
       let smallestShape = null;
       let smallestShapeKey = null;
-
       allShapes.forEach(([key, shape]) => {
          if (shape.type === "figure" && !shape.isActive) return;
 
@@ -1724,25 +1743,25 @@ export default class Shapes {
          let width = 0;
          let height = 0;
          switch (shape.type) {
-            case "polygon":
+            case shapeTypes.others:
                x = shape.x - shape.radius;
                y = shape.y - shape.radius;
                width = shape.width;
                height = shape.height;
                break;
-            case "sphere":
+            case shapeTypes.circle:
                x = shape.x - shape.xRadius;
                y = shape.y - shape.yRadius;
                width = 2 * shape.xRadius;
                height = 2 * shape.xRadius;
                break;
-            case "line":
-               x = shape.minX;
-               y = shape.minY;
-               width = shape.maxX - shape.minX;
-               height = shape.maxY - shape.minY;
-               break;
-            case "pencil":
+            // case shapeTypes.line:
+            //    x = shape.minX;
+            //    y = shape.minY;
+            //    width = shape.maxX - shape.minX;
+            //    height = shape.maxY - shape.minY;
+            //    break;
+            case shapeTypes.pencil:
                x = shape.minX;
                y = shape.minY;
                width = shape.maxX - shape.minX;
@@ -1767,12 +1786,10 @@ export default class Shapes {
             }
          }
       });
-
       if (smallestShape && smallestShapeKey) {
          config.currentActive = smallestShape;
-
          switch (smallestShape.type) {
-            case "image":
+            case shapeTypes.image:
                const img = new Image();
                img.src = smallestShape.src;
                img.style.borderRadius = smallestShape.radius + "px";
@@ -1787,21 +1804,7 @@ export default class Shapes {
                this.draw();
                this.drawImage();
                return;
-            case "line":
-               if (smallestShape.startTo && smallestShape.endTo) {
-                  smallestShape.isActive = true;
-                  this.draw();
-                  return;
-               }
-               smallestShape.isActive = true;
-               smallestShape.curvePoints.forEach((e) => {
-                  e.offsetX = mouseX - e.x;
-                  e.offsetY = mouseY - e.y;
-               });
-               smallestShape.isActive = true;
-               this.dragElement = smallestShapeKey;
-               break;
-            case "pencil":
+            case shapeTypes.pencil:
                smallestShape.isActive = true;
                smallestShape.offsetX = smallestShape.minX - mouseX;
                smallestShape.offsetY = smallestShape.minY - mouseY;
@@ -1814,7 +1817,7 @@ export default class Shapes {
                });
                this.dragElement = smallestShapeKey;
                break;
-            case "figure":
+            case shapeTypes.figure:
                this.dragElement = smallestShapeKey;
                setDragging(smallestShape);
 
@@ -1868,98 +1871,74 @@ export default class Shapes {
          }
       }
 
+      //drag for line
+      let smallestLine = null;
       const simpleLine = (l, key) => {
-         const { curvePoints, lineType } = l;
+         const { curvePoints, lineType, minX, maxX, minY, maxY } = l;
 
-         if (lineType === "elbow") {
-            let midPointX = (curvePoints[0].x + curvePoints[1].x) / 2;
-
-            let firstPart =
-               mouseX >
-                  Math.min(
-                     curvePoints[0].x - this.tolerance,
-                     midPointX - this.tolerance,
-                  ) &&
-               mouseX <
-                  Math.max(
-                     midPointX + this.tolerance,
-                     curvePoints[0].x + this.tolerance,
-                  ) &&
-               mouseY > curvePoints[0].y - this.tolerance &&
-               mouseY < curvePoints[0].y + this.tolerance;
-            let secondPart =
-               mouseX > midPointX - this.tolerance &&
-               mouseX < midPointX + this.tolerance &&
-               mouseY > curvePoints[0].y - this.tolerance &&
-               mouseY < curvePoints[1].y + this.tolerance;
-            let lastPart =
-               mouseX >
-                  Math.min(
-                     midPointX - this.tolerance,
-                     curvePoints[1].x - this.tolerance,
-                  ) &&
-               mouseX <
-                  Math.max(
-                     midPointX + this.tolerance,
-                     curvePoints[1].x + this.tolerance,
-                  ) &&
-               mouseY > curvePoints[1].y - this.tolerance &&
-               mouseY < curvePoints[1].y + this.tolerance;
-
-            if (firstPart || secondPart || lastPart) {
-               if (l.containerId) {
-                  const container = this.figureMap.get(l.containerId);
-                  if (container && !container.isActive) {
-                     line = { l, key };
-                  }
-               } else if (!l.containerId) {
-                  line = { l, key };
-               }
-            } else {
-               l.isActive = false;
-            }
-         } else if (lineType === "straight") {
+         let inside = false;
+         if (l.isActive) l.isActive = false;
+         for (let i = 0; i < curvePoints.length - 1; i++) {
             const slope1 = findSlope(
-               curvePoints[0].y,
+               curvePoints[i].y,
                mouseY,
-               curvePoints[0].x,
+               curvePoints[i].x,
                mouseX,
             );
             const slope2 = findSlope(
-               curvePoints[curvePoints.length - 1].y,
+               curvePoints[i + 1].y,
                mouseY,
-               curvePoints[curvePoints.length - 1].x,
+               curvePoints[i + 1].x,
                mouseX,
             );
-         } else {
-            const width = l.maxX - l.minX;
-            let horizontelParams =
-               width < 5 ? -this.tolerance : +this.tolerance;
-            let verticalParams =
-               l.maxY - l.minY < 5 ? -this.tolerance : +this.tolerance;
-            const mouseInSphere =
-               mouseX >= l.minX + horizontelParams &&
-               mouseX <= l.maxX - horizontelParams &&
-               mouseY >= l.minY + verticalParams &&
-               mouseY <= l.maxY - verticalParams;
-            if (l.isActive) l.isActive = false;
-            if (mouseInSphere) {
-               if (l.containerId) {
-                  const container = this.figureMap.get(l.containerId);
-                  if (
-                     !container.isActive &&
-                     (line === null || line.l.maxX - line.l.minX > width)
-                  ) {
-                     line = { l, key };
-                  }
-               } else {
-                  if (line === null || line.l.maxX - line.l.minX > width) {
-                     line = { l, key };
-                  }
+            if (Math.abs(slope1 - slope2) <= 0.2) {
+               inside = true;
+               break;
+            }
+         }
+         if (
+            inside &&
+            mouseX > minX &&
+            mouseX < maxX &&
+            mouseY > minY &&
+            mouseY < maxY
+         ) {
+            if (l.containerId) {
+               const container = this.figureMap.get(l.containerId);
+               if (
+                  !container.isActive &&
+                  (smallestLine === null ||
+                     smallestLine.l.maxX - smallestLine.l.minX > width)
+               ) {
+                  smallestLine = { l, key };
+               }
+            } else {
+               if (
+                  smallestLine === null ||
+                  smallestLine.l.maxX - smallestLine.l.minX > l.maxX - l.minX
+               ) {
+                  smallestLine = { l, key };
                }
             }
          }
       };
+      this.lineMap.forEach(simpleLine);
+      if (smallestLine && smallestLine.l && smallestLine.key) {
+         config.currentActive = smallestLine.l;
+         if (smallestLine.l.startTo && smallestLine.l.endTo) {
+            smallestLine.l.isActive = true;
+            this.draw();
+            return;
+         } else {
+            smallestLine.l.isActive = true;
+            smallestLine.l.curvePoints.forEach((e) => {
+               e.offsetX = mouseX - e.x;
+               e.offsetY = mouseY - e.y;
+            });
+            if (smallestShape) smallestShape.isActive = false;
+            this.dragElement = smallestLine.key;
+         }
+      }
 
       // for massSelection
       if (!this.dragElement && !this.resizeElement && config.mode === "free") {
@@ -2030,29 +2009,32 @@ export default class Shapes {
          let arrowEndRect = [];
          let arrowStartRect = [];
 
+         // get all the connected lines to the shape
          object.pointTo.forEach((a) => {
             let l = this.lineMap.get(a);
             if (l) line.push(l);
          });
 
-         // get all the arrows connected to rect
-
+         // get all the arrows connected to shape
          if (line.length > 0) {
             line.forEach((l) => {
                let start = null;
                let end = null;
-               if (object.type === "rect") {
+               if (object.type === shapeTypes.rect) {
                   start = this.rectMap.get(l.startTo);
                   end = this.rectMap.get(l.endTo);
-               } else if (object.type === "text") {
+               } else if (object.type === shapeTypes.text) {
                   start = this.textMap.get(l.startTo);
                   end = this.textMap.get(l.endTo);
-               } else if (object.type === "sphere") {
+               } else if (object.type === shapeTypes.circle) {
                   start = this.circleMap.get(l.startTo);
                   end = this.circleMap.get(l.endTo);
-               } else if (object.type === "image") {
+               } else if (object.type === shapeTypes.circle) {
                   start = this.imageMap.get(l.startTo);
                   end = this.imageMap.get(l.endTo);
+               } else if (object.type === shapeTypes.others) {
+                  start = this.otherShapes.get(l.startTo);
+                  end = this.otherShapes.get(l.endTo);
                }
 
                if (start && !arrowStartRect.includes(start)) {
@@ -2066,14 +2048,16 @@ export default class Shapes {
 
          const whichMap = (type, pos) => {
             switch (type) {
-               case "rect":
+               case shapeTypes.rect:
                   return this.rectMap.get(pos);
-               case "text":
+               case shapeTypes.text:
                   return this.textMap.get(pos);
-               case "sphere":
+               case shapeTypes.circle:
                   return this.circleMap.get(pos);
-               case "image":
+               case shapeTypes.image:
                   return this.imageMap.get(pos);
+               case shapeTypes.others:
+                  return this.otherShapes.get(pos);
                default:
                   break;
             }
@@ -2089,12 +2073,13 @@ export default class Shapes {
                            text: t,
                            sphere: s,
                            image: i,
+                           otherShapes: o,
                         } = this.getShape(l.endTo);
 
-                        const { curvePoints, lineType } = l;
+                        const { curvePoints } = l;
                         const last = curvePoints.length - 1;
 
-                        if (object.type === "sphere") {
+                        if (object.type === shapeTypes.circle) {
                            const { x, y } = this.getClosestPointOnSphere(
                               object,
                               {
@@ -2132,6 +2117,12 @@ export default class Shapes {
                            this.updateCurvePoint(l, x, y, last);
                         } else if (i) {
                            const { x, y } = this.getClosestPoints(i, {
+                              x: curvePoints[last - 1].x,
+                              y: curvePoints[last - 1].y,
+                           });
+                           this.updateCurvePoint(l, x, y, last);
+                        } else if (o) {
+                           const { x, y } = this.getClosestPoints(o, {
                               x: curvePoints[last - 1].x,
                               y: curvePoints[last - 1].y,
                            });
@@ -2234,7 +2225,7 @@ export default class Shapes {
    }
 
    drawNewShape(shape, obj, x, y) {
-      if (shape !== "pencil") {
+      if (shape !== shapeTypes.pencil) {
          this.breakPointsCtx.clearRect(
             0,
             0,
@@ -2260,11 +2251,11 @@ export default class Shapes {
       this.breakPointsCtx.strokeStyle = "grey";
       this.breakPointsCtx.lineWidth = 1;
       switch (shape) {
-         case "rect":
+         case shapeTypes.rect:
             rectPath = drawRect(obj, this.breakPointsCtx);
             this.breakPointsCtx.stroke(rectPath);
             break;
-         case "sphere":
+         case shapeTypes.circle:
             this.breakPointsCtx.ellipse(
                this.newShapeParams.x,
                this.newShapeParams.y,
@@ -2276,7 +2267,7 @@ export default class Shapes {
                false,
             );
             break;
-         case "pencil":
+         case shapeTypes.pencil:
             const outlinePath = getStroke(
                this.newShapeParams.points,
                getStrokeOptions,
@@ -2289,7 +2280,7 @@ export default class Shapes {
 
             this.lastPoint = { x, y };
             break;
-         case "line":
+         case shapeTypes.line:
             if (obj.lineType === "elbow") {
                const first = obj.curvePoints[0] || { x, y };
                const last = { x, y };
@@ -2371,11 +2362,11 @@ export default class Shapes {
                this.breakPointsCtx.quadraticCurveTo(lastCp.x, lastCp.y, x, y);
             }
             break;
-         case "figure":
+         case shapeTypes.figure:
             rectPath = drawRect(obj, this.breakPointsCtx);
             this.breakPointsCtx.stroke(rectPath);
             break;
-         case "polygon":
+         case shapeTypes.others:
             drawSHapes(obj, this.breakPointsCtx);
             break;
          default:
@@ -2394,16 +2385,6 @@ export default class Shapes {
          sy > oy &&
          sy + sheight < oy + oheight
       );
-      // if (
-      //   sx > ox &&
-      //   sx + swidth < ox + owidth &&
-      //   sy > oy &&
-      //   sy + sheight < oy + oheight
-      // ) {
-      //   obj.isActive = true;
-      // } else {
-      //   obj.isActive = false;
-      // }
    }
 
    mouseMove(e) {
@@ -2848,38 +2829,14 @@ export default class Shapes {
 
          this.updateLinesPointTo(textResize);
       } else if (lineResize) {
-         if (this.resizeElement.direction === null) {
-            lineResize.curvePoints[this.resizeElement.index].x = mouseX;
-            lineResize.curvePoints[this.resizeElement.index].y = mouseY;
-            this.updateLineMinMax(this.resizeElement?.key);
-         } else if (this.resizeElement.direction === "resizeStart") {
-            lineResize.curvePoints[0].x = mouseX;
-            lineResize.curvePoints[0].y = mouseY;
-            if (mouseX > lineResize.maxX) {
-               lineResize.maxX = mouseX;
-            }
-            if (mouseX < lineResize.minX) {
-               lineResize.minX = mouseX;
-            }
-            if (mouseY > lineResize.maxY) {
-               lineResize.maxY = mouseY;
-            }
-            if (mouseY < lineResize.minY) {
-               lineResize.minY = mouseY;
-            }
-            this.lineConnectParams(mouseX, mouseY);
-         } else if (this.resizeElement.direction === "resizeEnd") {
-            lineResize.curvePoints[lineResize.curvePoints.length - 1].x =
-               mouseX;
-            if (Math.abs(lineResize.curvePoints[0].y - mouseY) <= 10) {
-               lineResize.curvePoints[lineResize.curvePoints.length - 1].y =
-                  lineResize.curvePoints[0].y;
-            } else
-               lineResize.curvePoints[lineResize.curvePoints.length - 1].y =
-                  mouseY;
-            this.lineConnectParams(mouseX, mouseY);
-            this.updateLineMinMax(this.resizeElement?.key);
-         }
+         lineResizeLogic({
+            mouseX,
+            mouseY,
+            line: lineResize,
+            direction: this.resizeElement.direction,
+            index: this.resizeElement.index,
+         });
+         this.lineConnectParams(mouseX, mouseY);
       } else if (figResize) {
          squareResize(figResize);
          for (const [_, rect] of this.rectMap) {
@@ -3086,6 +3043,7 @@ export default class Shapes {
          otherResize.radius = Math.abs(otherResize.x - mouseX);
          otherResize.width = 2 * otherResize.radius;
          otherResize.height = 2 * otherResize.radius;
+         this.updateLinesPointTo(otherResize);
       }
 
       if (this.resizeElement?.key) {
@@ -3305,6 +3263,7 @@ export default class Shapes {
             this.dragElement,
             otherDrag,
          );
+         this.updateLinesPointTo(otherDrag);
       }
       this.draw();
       this.drawImage();
@@ -3312,7 +3271,7 @@ export default class Shapes {
 
    mouseUp(e) {
       if (config.mode == "handsFree" || e.altKey) return;
-      this.insertNew(this.handler);
+      this.insertNew();
 
       if (this.copies.length > 0) {
          Bin.insert({ type: redoType.revert, shapes: this.copies });
@@ -3606,8 +3565,9 @@ export default class Shapes {
       } else if (line) {
          const key = this.resizeElement.key;
          if (this.resizeElement.direction === "resizeStart") {
+            let keyUsed = false;
             if (line.startTo) {
-               const { rect, sphere, text, image } = this.getShape(
+               const { rect, sphere, text, image, otherShapes } = this.getShape(
                   line.startTo,
                );
 
@@ -3625,7 +3585,7 @@ export default class Shapes {
 
                if (sphere && sphere.pointTo.length > 0) {
                   const distance = Math.sqrt(
-                     (line.curvePoints[0].x - sphere.x) ** 2 -
+                     (line.curvePoints[0].x - sphere.x) ** 2 +
                         (line.curvePoints[0].y - sphere.y) ** 2,
                   );
                   if (distance > sphere.xRadius || distance > sphere.yRadius) {
@@ -3659,15 +3619,33 @@ export default class Shapes {
                      line.startTo = null;
                   }
                }
+
+               if (otherShapes && otherShapes.pointTo.length > 0) {
+                  if (
+                     line.curvePoints[0].x <
+                        otherShapes.x - otherShapes.radius ||
+                     line.curvePoints[0].x >
+                        otherShapes.x + otherShapes.radius ||
+                     line.curvePoints[0].y <
+                        otherShapes.y - otherShapes.radius ||
+                     line.curvePoints[0].y > otherShapes.y + otherShapes.radius
+                  ) {
+                     otherShapes.pointTo = otherShapes.pointTo.filter(
+                        (p) => p !== key,
+                     );
+                     line.startTo = null;
+                  }
+               }
             }
 
             this.rectMap.forEach((rect, rectKey) => {
-               if (this.squareLineParams(rect, mouseX, mouseY)) {
+               if (this.squareLineParams(rect, mouseX, mouseY) && !keyUsed) {
                   if (rect.pointTo.includes(key) || line.endTo === rectKey) {
                      return;
                   }
                   rect.pointTo.push(key);
                   line.startTo = rectKey;
+                  keyUsed = true;
                }
             });
 
@@ -3678,8 +3656,9 @@ export default class Shapes {
                );
 
                if (
-                  Math.abs(distance - xRadius) <= this.tolerance &&
-                  Math.abs(distance - yRadius) <= this.tolerance
+                  (Math.abs(distance - xRadius) <= this.tolerance ||
+                     Math.abs(distance - yRadius) <= this.tolerance) &&
+                  !keyUsed
                ) {
                   if (
                      circle.pointTo.includes(key) ||
@@ -3689,6 +3668,7 @@ export default class Shapes {
                   }
                   circle.pointTo.push(key);
                   line.startTo = circleKey;
+                  keyUsed = true;
                }
             });
 
@@ -3697,31 +3677,53 @@ export default class Shapes {
                   line.curvePoints[0].x >= text.x &&
                   line.curvePoints[0].x <= text.x + text.width &&
                   line.curvePoints[0].y >= text.y &&
-                  line.curvePoints[0].y <= text.y + text.height
+                  line.curvePoints[0].y <= text.y + text.height &&
+                  !keyUsed
                ) {
                   if (text.pointTo.includes(key) || textKey === line.endTo)
                      return;
                   text.pointTo.push(key);
                   line.startTo = textKey;
+                  keyUsed = true;
                }
             });
 
             this.imageMap.forEach((image, imageKey) => {
-               if (this.squareLineParams(image, mouseX, mouseY)) {
+               if (this.squareLineParams(image, mouseX, mouseY) && !keyUsed) {
                   if (image.pointTo.includes(key) || line.endTo === imageKey) {
                      return;
                   }
-
                   image.pointTo.push(key);
                   line.startTo = imageKey;
-                  console.log(image);
+                  keyUsed = true;
                }
             });
+
+            this.otherShapes.forEach((o, okey) => {
+               const { radius, x, y } = o;
+               if (
+                  mouseX > x - radius &&
+                  mouseX < x + radius &&
+                  mouseY > y - radius &&
+                  mouseY < y + radius &&
+                  !keyUsed
+               ) {
+                  if (o.pointTo.includes(key) || line.endTo === okey) return;
+                  o.pointTo.push(key);
+                  line.startTo = okey;
+                  keyUsed = true;
+               }
+            });
+
+            keyUsed = false;
          } else if (this.resizeElement.direction === "resizeEnd") {
             const length = line.curvePoints.length - 1;
+            let keyUsed = false;
 
             if (line.endTo) {
-               const { rect, sphere, text, image } = this.getShape(line.endTo);
+               const { rect, sphere, text, image, otherShapes } = this.getShape(
+                  line.endTo,
+               );
                if (rect && rect.pointTo.length > 0) {
                   if (
                      line.curvePoints[length].x < rect.x ||
@@ -3738,7 +3740,7 @@ export default class Shapes {
 
                if (sphere && sphere.pointTo.length > 0) {
                   const distance = Math.sqrt(
-                     (line.curvePoints[length].x - sphere.x) ** 2 -
+                     (line.curvePoints[length].x - sphere.x) ** 2 +
                         (line.curvePoints[length].y - sphere.y) ** 2,
                   );
                   if (distance > sphere.xRadius || distance > sphere.yRadius) {
@@ -3761,7 +3763,7 @@ export default class Shapes {
                   }
                }
 
-               if (image && image.length > 0) {
+               if (image && image.pointTo.length > 0) {
                   if (
                      line.curvePoints[length].x < image.x ||
                      line.curvePoints[length].x > image.x + image.width ||
@@ -3772,14 +3774,29 @@ export default class Shapes {
                      line.endTo = null;
                   }
                }
+
+               if (otherShapes && otherShapes.pointTo.length > 0) {
+                  if (
+                     mouseX < otherShapes.x - otherShapes.radius ||
+                     mouseX > otherShapes.x + otherShapes.radius ||
+                     mouseY < otherShapes.y - otherShapes.radius ||
+                     mouseY > otherShapes.y + otherShapes.radius
+                  ) {
+                     otherShapes.pointTo = otherShapes.pointTo.filter(
+                        (p) => p !== key,
+                     );
+                     line.endTo = null;
+                  }
+               }
             }
 
             this.rectMap.forEach((rect, rectKey) => {
                const { pointTo } = rect;
-               if (this.squareLineParams(rect, mouseX, mouseY)) {
+               if (this.squareLineParams(rect, mouseX, mouseY) && !keyUsed) {
                   if (line.startTo === rectKey || pointTo.includes(key)) return;
                   pointTo.push(key);
                   line.endTo = rectKey;
+                  keyUsed = true;
                }
             });
 
@@ -3790,13 +3807,15 @@ export default class Shapes {
                );
 
                if (
-                  Math.abs(distance - xRadius) <= this.tolerance &&
-                  Math.abs(distance - yRadius) <= this.tolerance
+                  (Math.abs(distance - xRadius) <= this.tolerance ||
+                     Math.abs(distance - yRadius) <= this.tolerance) &&
+                  !keyUsed
                ) {
                   if (pointTo.includes(key) || circleKey === line.startTo)
                      return;
                   pointTo.push(key);
                   line.endTo = circleKey;
+                  keyUsed = true;
                }
             });
 
@@ -3805,23 +3824,45 @@ export default class Shapes {
                   line.curvePoints[length].x >= text.x &&
                   line.curvePoints[length].x <= text.x + text.width &&
                   line.curvePoints[length].y >= text.y &&
-                  line.curvePoints[length].y <= text.y + text.height
+                  line.curvePoints[length].y <= text.y + text.height &&
+                  !keyUsed
                ) {
                   if (text.pointTo.includes(key) || textKey === line.startTo)
                      return;
                   text.pointTo.push(key);
                   line.endTo = textKey;
+                  keyUsed = true;
                }
             });
 
             this.imageMap.forEach((img, imgKey) => {
-               if (this.squareLineParams(img, mouseX, mouseY)) {
+               if (this.squareLineParams(img, mouseX, mouseY) && !keyUsed) {
                   if (line.startTo === imgKey || img.pointTo.includes(key))
                      return;
                   img.pointTo = img.pointTo.push(key);
                   line.endTo = imgKey;
+                  keyUsed = false;
                }
             });
+
+            this.otherShapes.forEach((o, okey) => {
+               const { x, y, radius } = o;
+               if (
+                  mouseX > x - radius &&
+                  mouseX < x + radius &&
+                  mouseY > y - radius &&
+                  mouseY < y + radius &&
+                  !keyUsed
+               ) {
+                  if (o.pointTo.includes(key) || line.startTo === okey) return;
+
+                  o.pointTo.push(key);
+                  line.endTo = okey;
+                  keyUsed = false;
+               }
+            });
+
+            keyUsed = false;
          }
 
          line.isActive = true;
@@ -4865,37 +4906,45 @@ export default class Shapes {
    }
 
    lineConnectParams(mouseX, mouseY) {
-      let letsDraw = false;
-      let path = new Path2D();
-      this.breakPointsCtx.clearRect(
-         0,
-         0,
-         this.canvasbreakPoints.width,
-         this.canvasbreakPoints.height,
-      );
+      const {
+         breakPointsCtx,
+         canvasbreakPoints,
+         tolerance,
+         rectMap,
+         circleMap,
+         textMap,
+         imageMap,
+         otherShapes,
+      } = this;
 
-      this.breakPointsCtx.save();
-      const centerX = this.canvasbreakPoints.width / 2;
-      const centerY = this.canvasbreakPoints.height / 2;
-      this.breakPointsCtx.translate(
+      breakPointsCtx.clearRect(
+         0,
+         0,
+         canvasbreakPoints.width,
+         canvasbreakPoints.height,
+      );
+      breakPointsCtx.save();
+
+      // Center and scale transformations
+      const centerX = canvasbreakPoints.width / 2;
+      const centerY = canvasbreakPoints.height / 2;
+      breakPointsCtx.translate(
          -scrollBar.scrollPositionX,
          -scrollBar.scrollPositionY,
       );
+      breakPointsCtx.translate(centerX, centerY);
+      breakPointsCtx.scale(Scale.scale, Scale.scale);
+      breakPointsCtx.translate(-centerX, -centerY);
 
-      this.breakPointsCtx.translate(centerX, centerY);
-      this.breakPointsCtx.scale(Scale.scale, Scale.scale);
-      this.breakPointsCtx.translate(-centerX, -centerY);
+      // Define styles and path
+      breakPointsCtx.lineWidth = 1.3;
+      breakPointsCtx.strokeStyle = "grey";
+      const path = new Path2D();
 
-      this.breakPointsCtx.beginPath();
-      const padding = this.tolerance; // padding
-      this.breakPointsCtx.lineWidth = 1.3;
-      this.breakPointsCtx.strokeStyle = "grey";
-
-      const draw = (obj) => {
-         const { x, y, width, height } = obj;
-         // Start from the top-left corner, slightly offset by padding
+      // Function to draw a rounded rectangle
+      const drawRoundedRect = ({ x, y, width, height }) => {
+         const padding = this.tolerance;
          path.moveTo(x - padding + 5, y - padding);
-         // Top-right corner
          path.arcTo(
             x + width + padding,
             y - padding,
@@ -4903,7 +4952,6 @@ export default class Shapes {
             y - padding + 5,
             5,
          );
-         // Bottom-right corner
          path.arcTo(
             x + width + padding,
             y + height + padding,
@@ -4911,7 +4959,6 @@ export default class Shapes {
             y + height + padding,
             5,
          );
-         // Bottom-left corner
          path.arcTo(
             x - padding,
             y + height + padding,
@@ -4919,132 +4966,101 @@ export default class Shapes {
             y + height + padding - 5,
             5,
          );
-         // Top-left corner to close the path
          path.arcTo(x - padding, y - padding, x - padding + 5, y - padding, 5);
          path.closePath();
       };
 
-      this.rectMap.forEach((rect) => {
+      // Check and draw rectangles
+      rectMap.forEach((rect) => {
          if (this.squareLineParams(rect, mouseX, mouseY)) {
-            draw(rect);
-            letsDraw = true;
-         } else {
-            letsDraw = false;
+            drawRoundedRect(rect);
          }
       });
 
-      this.circleMap.forEach((circle) => {
+      // Check and draw circles
+      circleMap.forEach((circle) => {
          const { x, y, xRadius, yRadius } = circle;
-         const dx = mouseX - x;
-         const dy = mouseY - y;
-         const distance = Math.sqrt(dx * dx + dy * dy);
-
+         const distance = Math.sqrt((mouseX - x) ** 2 + (mouseY - y) ** 2);
          if (
-            Math.abs(distance - xRadius) <= 2 * this.tolerance &&
-            Math.abs(distance - yRadius) <= 2 * this.tolerance
+            Math.abs(distance - xRadius) <= 2 * tolerance &&
+            Math.abs(distance - yRadius) <= 2 * tolerance
          ) {
             path.ellipse(
-               circle.x,
-               circle.y,
-               circle.xRadius + padding,
-               circle.yRadius + padding,
+               x,
+               y,
+               xRadius + tolerance,
+               yRadius + tolerance,
                0,
                0,
                Math.PI * 2,
                false,
             );
-            letsDraw = true;
-         } else {
-            letsDraw = false;
          }
       });
 
-      this.textMap.forEach((text) => {
+      // Check and draw text rectangles
+      textMap.forEach((text) => {
          const { x, y, width, height } = text;
          if (
             (mouseX >= x &&
                mouseX <= x + width &&
                mouseY >= y &&
-               mouseY <= y + this.tolerance) ||
-            (mouseX >= x + width - this.tolerance &&
+               mouseY <= y + tolerance) ||
+            (mouseX >= x + width - tolerance &&
                mouseX <= x + width &&
                mouseY >= y &&
                mouseY <= y + height) ||
             (mouseX >= x &&
-               mouseX <= x + this.tolerance &&
+               mouseX <= x + tolerance &&
                mouseY >= y &&
                mouseY <= y + height) ||
             (mouseX >= x &&
                mouseX <= x + width &&
-               mouseY >= y + height - this.tolerance &&
+               mouseY >= y + height - tolerance &&
                mouseY <= y + height)
          ) {
-            // Start from the top-left corner, slightly offset by padding
-            path.moveTo(x - padding + 5, y - padding);
-
-            // Top-right corner
-            path.arcTo(
-               x + width + padding,
-               y - padding,
-               x + width + padding,
-               y - padding + 5,
-               5,
-            );
-
-            // Bottom-right corner
-            path.arcTo(
-               x + width + padding,
-               y + height + padding,
-               x + width + padding - 5,
-               y + height + padding,
-               5,
-            );
-
-            // Bottom-left corner
-            path.arcTo(
-               x - padding,
-               y + height + padding,
-               x - padding,
-               y + height + padding - 5,
-               5,
-            );
-
-            // Top-left corner to close the path
-            path.arcTo(
-               x - padding,
-               y - padding,
-               x - padding + 5,
-               y - padding,
-               5,
-            );
-
-            path.closePath();
+            drawRoundedRect(text);
          }
       });
 
-      this.imageMap.forEach((image) => {
+      // Check and draw images
+      imageMap.forEach((image) => {
          if (this.squareLineParams(image, mouseX, mouseY)) {
-            draw(image);
-            letsDraw = true;
-         } else {
-            letsDraw = false;
+            drawRoundedRect(image);
          }
       });
 
-      if (letsDraw) {
-         this.breakPointsCtx.stroke(path);
+      // other shapes
+      otherShapes.forEach((sh) => {
+         const { radius, x, y } = sh;
+         if (
+            mouseX > x - radius &&
+            mouseX < x + radius &&
+            mouseY > y - radius &&
+            mouseY < y + radius
+         ) {
+            drawRoundedRect({
+               x: x - radius,
+               y: y - radius,
+               width: 2 * radius,
+               height: 2 * radius,
+            });
+         }
+      });
+
+      // Draw or clear the path
+      if (path) {
+         breakPointsCtx.stroke(path);
       } else {
-         path = new Path2D();
-         letsDraw = false;
-         this.breakPointsCtx.clearRect(
+         breakPointsCtx.clearRect(
             0,
             0,
-            this.canvasbreakPoints.width,
-            this.canvasbreakPoints.height,
+            canvasbreakPoints.width,
+            canvasbreakPoints.height,
          );
       }
-      path = null;
-      this.breakPointsCtx.restore();
+
+      breakPointsCtx.restore();
    }
 
    canvasZoomInOutAndScroll(e, setScale) {
@@ -5349,6 +5365,8 @@ export default class Shapes {
          this.draw();
       } else if (e.ctrlKey && e.key === "d") {
          e.preventDefault();
+         this.copies = [];
+         let id = null;
          const padding = 5;
          this.rectMap.forEach((rect) => {
             if (rect.isActive) {
@@ -5374,6 +5392,7 @@ export default class Shapes {
                   maxY: rect.y + rect.height,
                });
                rect.isActive = false;
+               this.copies.push(JSON.parse(JSON.stringify(rect)));
             }
          });
          this.circleMap.forEach((sphere) => {
@@ -5399,19 +5418,19 @@ export default class Shapes {
                maxY: newSphere.y + newSphere.xRadius,
             });
             sphere.isActive = false;
+            this.copies.push(JSON.parse(JSON.stringify(sphere)));
          });
          this.textMap.forEach((text) => {
             if (!text.isActive) return;
-            const newText = new Text(
-               text.x + padding,
-               text.y + padding,
-               text.size,
-               text.content,
-               "Arial",
-               true,
-            );
+            const newText = new Text();
+            id = newText.id;
+            Object.assign(newText, text);
+            newText.x = text.x + padding;
+            newText.y = text.y + padding;
+            newText.id = id;
             this.textMap.set(newText.id, newText);
             text.isActive = false;
+            this.copies.push(JSON.parse(JSON.stringify(text)));
          });
          this.lineMap.forEach((line) => {
             if (line.isActive) {
@@ -5430,6 +5449,7 @@ export default class Shapes {
                );
                this.lineMap.set(newLine.id, newLine);
                line.isActive = false;
+               this.copies.push(JSON.parse(JSON.stringify(line)));
             }
          });
          this.otherShapes.forEach((shape) => {
@@ -5446,7 +5466,7 @@ export default class Shapes {
                newS.isActive = true;
                this.otherShapes.set(newS.id, newS);
                shape.isActive = false;
-               return;
+               this.copies.push(JSON.parse(JSON.stringify(shape)));
             }
          });
          this.pencilMap.forEach((pencil) => {
@@ -5467,9 +5487,11 @@ export default class Shapes {
                newPencil.isActive = true;
                this.pencilMap.set(newPencil.id, newPencil);
                pencil.isActive = false;
-               return;
+               this.copies.push(JSON.parse(JSON.stringify(pencil)));
             }
          });
+         Bin.insert({ type: redoType.fresh, shapes: this.copies });
+         this.copies = [];
          this.draw();
       }
    }
@@ -5545,90 +5567,9 @@ export default class Shapes {
       this.copies = [];
 
       arr.forEach((shape) => {
-         const { rect, sphere, text, image, line, otherShapes, pencil } =
-            this.getShape(shape.id);
-
-         let id = null;
-         switch (shape.type) {
-            case shapeTypes.rect:
-               if (rect) {
-                  this.copies.push({ ...rect });
-                  Object.assign(rect, shape);
-               } else {
-                  const newRect = new Rect();
-                  id = newRect.id;
-                  Object.assign(newRect, shape);
-                  newRect.id = id;
-                  this.copies.push({ ...newRect });
-                  this.rectMap.set(newRect.id, newRect);
-               }
-               break;
-            case shapeTypes.circle:
-               if (sphere) {
-                  this.copies.push({ ...sphere });
-                  Object.assign(sphere, shape);
-               } else {
-                  const newSphere = new Circle();
-                  id = newSphere.id;
-                  Object.assign(newSphere, shape);
-                  newSphere.id = id;
-                  this.copies.push({ ...newSphere });
-                  this.circleMap.set(newSphere.id, newSphere);
-               }
-               break;
-            case shapeTypes.text:
-               if (text) {
-                  this.copies.push({ ...text });
-                  Object.assign(text, shape);
-               } else {
-                  const newText = new Text();
-                  id = newText.id;
-                  Object.assign(newText, shape);
-                  newText.id = id;
-                  this.copies.push({ ...newText });
-                  this.textMap.set(newText.id, newText);
-               }
-               break;
-            case shapeTypes.line:
-               if (line) {
-                  this.copies.push({ ...line });
-                  Object.assign(line, shape);
-               } else {
-                  const newLine = new Line();
-                  id = newLine.id;
-                  Object.assign(newLine, shape);
-                  newLine.id = id;
-                  this.copies.push({ ...newLine });
-                  this.lineMap.set(newLine.id, newLine);
-               }
-               break;
-            case shapeTypes.others:
-               if (otherShapes) {
-                  this.copies.push({ ...otherShapes });
-                  Object.assign(otherShapes, shape);
-               } else {
-                  const newO = new Polygons();
-                  id = newO.id;
-                  Object.assign(newO, shape);
-                  newO.id = id;
-                  this.copies.push({ ...newO });
-                  this.lineMap.set(newO.id, newO);
-               }
-               break;
-            case shapeTypes.pencil:
-               if (pencil) {
-                  this.copies.push({ ...pencil });
-                  Object.assign(pencil, shape);
-               } else {
-                  const newPencil = new Pencil();
-                  id = newPencil.id;
-                  Object.assign(newPencil, shape);
-                  newPencil.id = id;
-                  this.copies.push({ ...newPencil });
-                  this.pencilMap.set(newPencil.id, shape);
-               }
-               break;
-         }
+         if (type === redoType.fresh) {
+            this.checkShapeAndDelete(shape, shape.type);
+         } else this.checkShapeExistandMake(shape.id, shape);
       });
 
       Restore.insert({ type: type, shapes: this.copies });
@@ -5638,49 +5579,11 @@ export default class Shapes {
       if (!arr.length) return;
       this.copies = [];
 
-      const shapeHandlers = {
-         [shapeTypes.rect]: (val) => {
-            this.copies.push({ ...val });
-            this.rectMap.delete(val.id);
-         },
-         [shapeTypes.circle]: (val) => {
-            this.copies.push({ ...val });
-            this.circleMap.delete(val.id);
-         },
-         [shapeTypes.text]: (val) => {
-            this.copies.push({ ...val });
-            this.textMap.delete(val.id);
-         },
-         [shapeTypes.others]: (val) => {
-            this.copies.push({ ...val });
-            this.otherShapes.delete(val.id);
-         },
-         [shapeTypes.pencil]: (val) => {
-            this.copies.push({ ...val });
-            this.pencilMap.delete(val.id);
-         },
-      };
-
-      const updateShape = (val) => {
-         const { rect, sphere, text, otherShapes, line, pencil } =
-            this.getShape(val.id);
-         const values = this.getShape(val.id);
-         const shapes = Object.values(values);
-
-         shapes.forEach((v) => {
-            if (v) {
-               this.copies.push({ ...v });
-               Object.assign(v, val);
-            }
-         });
-      };
-
       arr.forEach((val) => {
          if (type === redoType.delete) {
-            const handler = shapeHandlers[val.type];
-            if (handler) handler(val);
+            this.checkShapeAndDelete(val, val.type);
          } else {
-            updateShape(val);
+            this.checkShapeExistandMake(val.id, val);
          }
       });
       if (!this.copies.length) return;
@@ -5706,6 +5609,138 @@ export default class Shapes {
       }
    }
 
+   checkShapeExistandMake(shapeId, shape) {
+      const { rect, line, sphere, text, image, otherShapes, pencil } =
+         this.getShape(shapeId);
+
+      switch (shape.type) {
+         case shapeTypes.rect:
+            if (rect) {
+               this.copies.push({ ...rect });
+               Object.assign(rect, shape);
+            } else {
+               const newRect = new Rect();
+               Object.assign(newRect, shape);
+               newRect.id = shape.id;
+               this.copies.push({ ...newRect });
+               this.rectMap.set(newRect.id, newRect);
+            }
+
+            this.makenewBreakpoint(
+               shape.id,
+               shape.x + shape.width,
+               shape.x,
+               shape.y,
+               shape.y + shape.height,
+            );
+            break;
+         case shapeTypes.text:
+            if (text) {
+               this.copies.push({ ...text });
+               Object.assign(text, shape);
+            } else {
+               const newText = new Text();
+               Object.assign(newText, shape);
+               newText.id = shape.id;
+               this.copies.push({ ...newText });
+               this.textMap.set(newText.id, newText);
+            }
+            this.makenewBreakpoint(
+               shape.id,
+               shape.x + shape.width,
+               shape.x,
+               shape.y,
+               shape.y + shape.height,
+            );
+            break;
+         case shapeTypes.circle:
+            if (sphere) {
+               this.copies.push({ ...sphere });
+               Object.assign(sphere, shape);
+            } else {
+               const newSphere = new Circle();
+               Object.assign(newSphere, shape);
+               newSphere.id = shape.id;
+               this.copies.push({ ...newSphere });
+               this.circleMap.set(newSphere.id, newSphere);
+            }
+            this.makenewBreakpoint(
+               shape.id,
+               shape.x + shape.xRadius,
+               shape.x - shape.xRadius,
+               shape.y + shape.yRadius,
+               shape.y - shape.yRadius,
+            );
+            break;
+         case shapeTypes.line:
+            if (line) {
+               this.copies.push({ ...line });
+               Object.assign(line, shape);
+            } else {
+               const newLine = new Line();
+               Object.assign(newLine, shape);
+               newLine.id = shape.id;
+               this.copies.push({ ...newLine });
+               this.lineMap.set(newLine.id, newLine);
+            }
+            break;
+         case shapeTypes.others:
+            if (otherShapes) {
+               this.copies.push({ ...otherShapes });
+               Object.assign(otherShapes, shape);
+            } else {
+               const newO = new Polygons();
+               Object.assign(newO, shape);
+               newO.id = shape.id;
+               this.copies.push({ ...newO });
+               this.otherShapes.set(newO.id, newO);
+            }
+            break;
+         case shapeTypes.pencil:
+            if (pencil) {
+               this.copies.push({ ...pencil });
+               Object.assign(pencil, shape);
+            } else {
+               const newPencil = new Pencil();
+               Object.assign(newPencil, shape);
+               newPencil.id = shape.id;
+               this.copies.push({ ...newPencil });
+               this.pencilMap.set(newPencil.id, newPencil);
+            }
+            break;
+      }
+   }
+
+   checkShapeAndDelete(shape, type) {
+      const shapeHandlers = {
+         [shapeTypes.rect]: (shape) => {
+            this.copies.push({ ...shape });
+            this.rectMap.delete(shape.id);
+         },
+         [shapeTypes.circle]: (shape) => {
+            this.copies.push({ ...shape });
+            this.circleMap.delete(shape.id);
+         },
+         [shapeTypes.text]: (shape) => {
+            this.copies.push({ ...shape });
+            this.textMap.delete(shape.id);
+         },
+         [shapeTypes.others]: (shape) => {
+            this.copies.push({ ...shape });
+            this.otherShapes.delete(shape.id);
+         },
+         [shapeTypes.pencil]: (shape) => {
+            this.copies.push({ ...shape });
+            this.pencilMap.delete(shape.id);
+         },
+      };
+
+      const checkifexist = shapeHandlers[type];
+      if (checkifexist) {
+         checkifexist(shape);
+      }
+   }
+
    inputText(mouseX, mouseY, html) {
       if (config.mode === "free" || config.mode === "text") {
          console.log(mouseX, mouseY, html);
@@ -5728,6 +5763,16 @@ export default class Shapes {
 
          input.addEventListener("blur", blurEvent);
       }
+   }
+
+   makenewBreakpoint(id, maxX, minX, minY, maxY) {
+      const alreadyExist = this.breakPoints.get(id);
+      if (alreadyExist) {
+         alreadyExist.minX = minX;
+         alreadyExist.maxX = maxX;
+         alreadyExist.maxY = maxY;
+         alreadyExist.minY = minY;
+      } else this.breakPoints.set(id, { maxX, minY, minY, maxY });
    }
 
    newText(event) {
