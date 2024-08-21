@@ -2126,6 +2126,12 @@ export default class Shapes {
                               y,
                               curvePoints.length - 1,
                            );
+                        } else {
+                           lineResizeWhenConnected({
+                              line: l,
+                              endShape: null,
+                              startShape: object,
+                           });
                         }
 
                         if (object.type === shapeTypes.circle) {
@@ -2210,6 +2216,8 @@ export default class Shapes {
                               y: curvePoints[1].y,
                            });
                            this.updateCurvePoint(l, x, y, 0);
+                        } else {
+                           lineResizeWhenConnected({ line: l, endShape: null, startShape: object, storEn: "end" })
                         }
 
                         if (object.type == shapeTypes.circle) {
@@ -2350,21 +2358,21 @@ export default class Shapes {
                   mid.x == first.x
                      ? this.drawArrows(mid, first, 10)
                      : this.drawArrows(
-                          { x: mid.x, y: first.y },
-                          first,
-                          10,
-                          this.breakPointsCtx,
-                       );
+                        { x: mid.x, y: first.y },
+                        first,
+                        10,
+                        this.breakPointsCtx,
+                     );
                }
                if (obj.arrowRight) {
                   mid.x == first.x
                      ? this.drawArrows(mid, last, 10)
                      : this.drawArrows(
-                          { x: mid.x, y: last.y },
-                          last,
-                          10,
-                          this.breakPointsCtx,
-                       );
+                        { x: mid.x, y: last.y },
+                        last,
+                        10,
+                        this.breakPointsCtx,
+                     );
                }
             } else {
                // Start the path at the first point
@@ -3544,11 +3552,11 @@ export default class Shapes {
             this.massiveSelection.isSelectedMinX - this.tolerance,
             this.massiveSelection.isSelectedMinY - this.tolerance,
             this.massiveSelection.isSelectedMaxX -
-               this.massiveSelection.isSelectedMinX +
-               2 * this.tolerance,
+            this.massiveSelection.isSelectedMinX +
+            2 * this.tolerance,
             this.massiveSelection.isSelectedMaxY -
-               this.massiveSelection.isSelectedMinY +
-               2 * this.tolerance,
+            this.massiveSelection.isSelectedMinY +
+            2 * this.tolerance,
          );
          this.draw();
          this.drawImage();
@@ -3641,7 +3649,7 @@ export default class Shapes {
                if (sphere && sphere.pointTo.length > 0) {
                   const distance = Math.sqrt(
                      (line.curvePoints[0].x - sphere.x) ** 2 +
-                        (line.curvePoints[0].y - sphere.y) ** 2,
+                     (line.curvePoints[0].y - sphere.y) ** 2,
                   );
                   if (distance > sphere.xRadius || distance > sphere.yRadius) {
                      sphere.pointTo = sphere.pointTo.filter((s) => s !== key);
@@ -3678,11 +3686,11 @@ export default class Shapes {
                if (otherShapes && otherShapes.pointTo.length > 0) {
                   if (
                      line.curvePoints[0].x <
-                        otherShapes.x - otherShapes.radius ||
+                     otherShapes.x - otherShapes.radius ||
                      line.curvePoints[0].x >
-                        otherShapes.x + otherShapes.radius ||
+                     otherShapes.x + otherShapes.radius ||
                      line.curvePoints[0].y <
-                        otherShapes.y - otherShapes.radius ||
+                     otherShapes.y - otherShapes.radius ||
                      line.curvePoints[0].y > otherShapes.y + otherShapes.radius
                   ) {
                      otherShapes.pointTo = otherShapes.pointTo.filter(
@@ -3796,7 +3804,7 @@ export default class Shapes {
                if (sphere && sphere.pointTo.length > 0) {
                   const distance = Math.sqrt(
                      (line.curvePoints[length].x - sphere.x) ** 2 +
-                        (line.curvePoints[length].y - sphere.y) ** 2,
+                     (line.curvePoints[length].y - sphere.y) ** 2,
                   );
                   if (distance > sphere.xRadius || distance > sphere.yRadius) {
                      sphere.pointTo = sphere.pointTo.filter((s) => s !== key);
@@ -4257,11 +4265,11 @@ export default class Shapes {
          this.massiveSelection.isSelectedMinX - this.tolerance,
          this.massiveSelection.isSelectedMinY - this.tolerance,
          this.massiveSelection.isSelectedMaxX -
-            this.massiveSelection.isSelectedMinX +
-            2 * this.tolerance,
+         this.massiveSelection.isSelectedMinX +
+         2 * this.tolerance,
          this.massiveSelection.isSelectedMaxY -
-            this.massiveSelection.isSelectedMinY +
-            2 * this.tolerance,
+         this.massiveSelection.isSelectedMinY +
+         2 * this.tolerance,
       );
 
       this.draw();
@@ -4584,9 +4592,8 @@ export default class Shapes {
             );
             // Set the font size and style before measuring the text
             this.renderCanvasCtx.fillStyle = object.fillStyle;
-            this.renderCanvasCtx.font = `${object.textSize}px ${
-               object.font || "Arial"
-            }`;
+            this.renderCanvasCtx.font = `${object.textSize}px ${object.font || "Arial"
+               }`;
 
             let maxWidth = 0;
             object.content.forEach((c) => {
@@ -5156,11 +5163,11 @@ export default class Shapes {
                this.massiveSelection.isSelectedMinX - this.tolerance,
                this.massiveSelection.isSelectedMinY - this.tolerance,
                this.massiveSelection.isSelectedMaxX -
-                  this.massiveSelection.isSelectedMinX +
-                  2 * this.tolerance,
+               this.massiveSelection.isSelectedMinX +
+               2 * this.tolerance,
                this.massiveSelection.isSelectedMaxY -
-                  this.massiveSelection.isSelectedMinY +
-                  2 * this.tolerance,
+               this.massiveSelection.isSelectedMinY +
+               2 * this.tolerance,
             );
          }
       }

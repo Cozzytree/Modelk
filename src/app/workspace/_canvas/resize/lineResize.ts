@@ -106,32 +106,31 @@ export function lineResizeWhenConnected({
    const { curvePoints } = line;
    let sx, sy, swidth, sheight, ex, ey, ewidth, eheight;
 
-   if (startShape.type === shapeTypes.circle) {
-      sx = startShape.x - startShape.xRadius;
-      sy = startShape.y - startShape.yRadius;
-      swidth = startShape.xRadius * 2;
-      sheight = startShape.yRadius * 2;
-   } else {
-      sx = startShape.x;
-      sy = startShape.y;
-      swidth = startShape.width;
-      sheight = startShape.height;
-   }
-
-   if (endShape.type === shapeTypes.circle) {
-      ex = endShape.x - endShape.xRadius;
-      ey = endShape.y - endShape.yRadius;
-      ewidth = endShape.xRadius * 2;
-      eheight = endShape.yRadius * 2;
-   } else {
-      ex = endShape.x;
-      ey = endShape.y;
-      ewidth = endShape.width;
-      eheight = endShape.height;
-   }
-
    if (line.lineType === "elbow") {
-      if (endShape) {
+      if (endShape !== null) {
+         if (startShape.type === shapeTypes.circle) {
+            sx = startShape.x - startShape.xRadius;
+            sy = startShape.y - startShape.yRadius;
+            swidth = startShape.xRadius * 2;
+            sheight = startShape.yRadius * 2;
+         } else {
+            sx = startShape.x;
+            sy = startShape.y;
+            swidth = startShape.width;
+            sheight = startShape.height;
+         }
+         if (endShape.type === shapeTypes.circle) {
+            ex = endShape.x - endShape.xRadius;
+            ey = endShape.y - endShape.yRadius;
+            ewidth = endShape.xRadius * 2;
+            eheight = endShape.yRadius * 2;
+         } else {
+            ex = endShape.x;
+            ey = endShape.y;
+            ewidth = endShape.width;
+            eheight = endShape.height;
+         }
+
          if (sx > ex && sx < ex + ewidth && swidth < ewidth) {
             line.curvePoints.length = 4;
             if (storEn === "start") {
@@ -163,45 +162,63 @@ export function lineResizeWhenConnected({
             }
          } else if (sx + swidth < endShape.x) {
             line.curvePoints.length = 3;
-            line.curvePoints[2] = {
-               x: sx + swidth / 2,
-               y:
-                  endShape.type === shapeTypes.circle
-                     ? endShape.y
-                     : endShape.y + endShape.height / 2,
-            };
 
-            line.curvePoints[1] = {
-               x: sx + swidth / 2,
-               y:
-                  endShape.type === shapeTypes.circle
-                     ? endShape.y
-                     : endShape.y + endShape.height / 2,
-            };
+            if (sy + sheight / 2 > ey && sy + sheight < ey + eheight) {
+               line.curvePoints[2] = {
+                  x: sx + swidth / 2,
+                  y: ey + eheight / 2
+               };
+               line.curvePoints[1] = {
+                  x: sx + swidth / 2,
+                  y: ey + eheight / 2
+               };
+            } else {
+               line.curvePoints[2] = {
+                  x: sx + swidth / 2,
+                  y: ey + eheight / 2
+               };
+
+               line.curvePoints[1] = {
+                  x: sx + swidth / 2,
+                  y: ey + eheight / 2
+               };
+            }
+
          } else if (sx + swidth > endShape.x + endShape.width) {
             line.curvePoints.length = 3;
-            line.curvePoints[2] = {
-               // x:
-               //    endShape.type === shapeTypes.circle
-               //       ? endShape.x
-               //       : endShape.x + endShape.xRadius,
-               x: ex + ewidth / 2,
-               y: sy + sheight / 2,
-            };
-            line.curvePoints[1] = {
-               // x:
-               //    endShape.type === shapeTypes.circle
-               //       ? endShape.x
-               //       : endShape.x + endShape.xRadius,
-               x: ex + ewidth / 2,
-               y: sy + sheight / 2,
-            };
+
+            if (sy < ey && sy + swidth > ey + eheight) {
+               line.curvePoints[2] = {
+                  x: ex + ewidth / 2,
+                  y: sy + sheight / 2,
+               };
+               line.curvePoints[1] = {
+                  x: ex + ewidth / 2,
+                  y: sy + sheight / 2,
+               };
+            } else {
+               line.curvePoints[2] = {
+                  x: sx + swidth / 2,
+                  y: ey + eheight / 2,
+               };
+               line.curvePoints[1] = {
+                  x: sx + swidth / 2,
+                  y: ey + eheight / 2,
+               };
+            }
          }
       } else {
-         line.curvePoints[1] = {
-            x: sx + swidth / 2,
-            y: curvePoints[curvePoints.length - 1].y,
-         };
+         if (storEn === "start") {
+            line.curvePoints[1] = {
+               x: startShape.x + startShape.width / 2,
+               y: curvePoints[curvePoints.length - 1].y,
+            };
+         } else {
+            line.curvePoints[1] = {
+               x: startShape.x + startShape.width / 2,
+               y: curvePoints[0].y,
+            };
+         }
       }
    }
 }

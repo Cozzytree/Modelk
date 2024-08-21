@@ -172,9 +172,8 @@ export function drawText(text, tolerance, context) {
       text;
    // Set the font size and style before measuring the text
    context.fillStyle = fillStyle;
-   context.font = `${fontVarient} ${fontWeight} ${textSize}px ${
-      font || "Arial"
-   }`;
+   context.font = `${fontVarient} ${fontWeight} ${textSize}px ${font || "Arial"
+      }`;
 
    let maxWidth = 0;
    content.forEach((c) => {
@@ -269,84 +268,22 @@ export function drawLine({ line, headlen, context }) {
       for (let i = 1; i < curvePoints.length; i++) {
          path.lineTo(curvePoints[i].x, curvePoints[i].y);
       }
-      // if (arrowLeft) {
-      //    drawArrows(
-      //       {
-      //          x: curvePoints[curvePoints.length - 1].x,
-      //          y: curvePoints[curvePoints.length - 1].y,
-      //       },
-      //       {
-      //          x: curvePoints[0].x,
-      //          y: curvePoints[0].y,
-      //       },
-      //       headlen,
-      //       context,
-      //    );
-      // }
-      // if (arrowRight) {
-      //    drawArrows(
-      //       {
-      //          x: curvePoints[0].x,
-      //          y: curvePoints[0].y,
-      //       },
-      //       {
-      //          x: curvePoints[curvePoints.length - 1].x,
-      //          y: curvePoints[curvePoints.length - 1].y,
-      //       },
-      //       headlen,
-      //       context,
-      //    );
-      // }
    } else if (lineType === "elbow") {
-      const first = curvePoints[0];
+      // Initialize the path at the first point
       path.moveTo(curvePoints[0].x, curvePoints[0].y);
-      for (let i = 0; i < curvePoints.length; i++) {
+
+      // Loop through the curvePoints array to draw arcs
+      for (let i = 1; i < curvePoints.length; i++) {
+         const startPoint = curvePoints[i - 1];
+         const endPoint = curvePoints[i];
+
          path.arcTo(
-            curvePoints[i].x,
-            curvePoints[i].y,
-            curvePoints[i].y,
-            curvePoints[i].y,
-            line.radius,
+            startPoint.x, startPoint.y, // Start point of the arc
+            endPoint.x, endPoint.y,     // End point of the arc
+            line.radius                 // Radius of the arc
          );
       }
-
-      // const last = curvePoints[curvePoints.length - 1];
-      // const mid = {
-      //    x: (first.x + last.x) / 2,
-      //    y: (first.y + last.y) / 2,
-      // };
-
-      // const distance = Math.sqrt(
-      //    (first.x - last.x) ** 2 + (first.y - last.y) ** 2,
-      // );
-
-      // path.moveTo(first.x, first.y);
-      // if (distance >= 250) {
-      //    path.arcTo(mid.x, first.y, mid.x, mid.y, radius);
-      //    path.arcTo(mid.x, last.y, last.x, last.y, radius);
-      //    if (arrowLeft) {
-      //       mid.x == first.x
-      //          ? drawArrows(mid, first, headlen, context)
-      //          : drawArrows({ x: mid.x, y: first.y }, first, headlen, context);
-      //    }
-      //    if (arrowRight) {
-      //       mid.x == first.x
-      //          ? drawArrows(mid, last, headlen, context)
-      //          : drawArrows({ x: mid.x, y: last.y }, last, headlen, context);
-      //    }
-      // } else {
-      //    path.arcTo(last.x, first.y, first.x, first.y, radius);
-      //    if (arrowLeft) {
-      //       last.x == first.x
-      //          ? drawArrows(mid, first, headlen, context)
-      //          : drawArrows({ x: last.x, y: first.y }, first, headlen, context);
-      //    }
-      //    if (arrowRight) {
-      //       last.x == first.x
-      //          ? drawArrows(mid, first, headlen, context)
-      //          : drawArrows({ x: last.x, y: first.y }, last, headlen, context);
-      //    }
-      // }
+      path.lineTo(curvePoints[curvePoints.length - 1].x, curvePoints[curvePoints.length - 1].y)
    } else {
       path.moveTo(curvePoints[0].x, curvePoints[0].y);
       const t = 0.8;
