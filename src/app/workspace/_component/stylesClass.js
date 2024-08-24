@@ -147,6 +147,15 @@ export class Pencil extends DefaultStyles {
    }
 }
 
+export class ImageShape extends DefaultStyles {
+   constructor(src) {
+      super();
+      this.src = src;
+      this.type = "image";
+      this.pointTo = [];
+   }
+}
+
 // save as image option
 // const canvas = document.getElementById("myCanvas");
 // const saveButton = document.getElementById("saveButton");

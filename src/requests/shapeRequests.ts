@@ -1,114 +1,134 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
-export function useNewRect() {
-  const { mutate: newRect, isPending } = useMutation({
-    mutationFn: async ({
-      projectId,
-      type,
-      params,
-    }: {
-      projectId: String;
-      type: String;
-      params: Object;
-    }) => {
-      try {
-        const res = await fetch(
-          `http://localhost:8000/api/v1/shape/new_rect/${projectId}`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ type, params }),
-            credentials: "include",
-          }
-        );
-        const data = await res.json();
-        if (!data.success) {
-          throw new Error(data?.message);
-        }
-        return data;
-      } catch (error: any) {
-        if (error) throw new Error(error?.message);
-      }
-    },
-  });
-
-  return { mutate: newRect, isPending };
+export function useInsertShapes() {
+   useMutation({
+      mutationFn: async ({
+         shapes,
+         projectId,
+         teamId,
+      }: {
+         shapes: object[];
+         projectId: string;
+         teamId: string;
+      }) => {
+         try {
+            const res = await fetch(
+               `${process.env.URL}/insert_many/${projectId}/${teamId}`,
+               {
+                  method: "POST",
+                  credentials: "include",
+                  headers: {
+                     "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ shapes }),
+               },
+            );
+            const data = await res.json();
+            if (!data.success)
+               throw new Error(data?.message || "unknown error");
+            return data;
+         } catch (err: any) {
+            if (err) {
+               throw err?.message;
+            }
+         }
+      },
+   });
 }
 
-export function useNewSphere() {
-  const { mutate: newSphere, isPending } = useMutation({
-    mutationFn: async ({
-      projectId,
-      sphereData,
-    }: {
-      projectId: String;
-      sphereData: {
-        shapeType: String;
-        params: any;
-      };
-    }) => {
-      try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_APIURL}/shape/new_sphere/${projectId}`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              type: sphereData.shapeType,
-              params: sphereData.params,
-            }),
-            credentials: "include",
-          }
-        );
-        const data = await res.json();
-        if (!data.success) {
-          throw new Error(data?.message);
-        }
-        return data;
-      } catch (error: any) {
-        if (error) throw new Error(error?.message);
-      }
-    },
-  });
-  return { newSphere, isPending };
+export function useDeleteSHapes() {
+   useMutation({
+      mutationFn: async ({
+         projectId,
+         teamId,
+         shapes,
+      }: {
+         projectId: string;
+         teamId: string;
+         shapes: string[];
+      }) => {
+         try {
+            const res = await fetch(
+               `${process.env.URL}/delete_shapes/${projectId}/${teamId}`,
+               {
+                  method: "DELETE",
+                  credentials: "include",
+                  headers: {
+                     "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ shapes }),
+               },
+            );
+            const data = await res.json();
+            if (!data.success)
+               throw new Error(data?.message || "unknown error");
+            return data;
+         } catch (err: any) {
+            if (err) {
+               throw err.message;
+            }
+         }
+      },
+   });
 }
 
-export function useNewLine() {
-  const { mutate: newSphere, isPending } = useMutation({
-    mutationFn: async ({
-      projectId,
-      lineData,
-    }: {
-      projectId: String;
-      lineData: {
-        shapeType: String;
-        params: any;
-      };
-    }) => {
-      try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_APIURL}/shape/new_line/${projectId}`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": JSON.stringify(lineData),
-            },
-            credentials: "include",
-          }
-        );
-        const data = await res.json();
-        if (!data.success) {
-          throw new Error(data?.message);
-        }
-        return data;
-      } catch (error: any) {
-        if (error) throw new Error(error?.message);
-      }
-    },
-  });
-  return { newSphere, isPending };
+export function useUpdateShapes() {
+   useMutation({
+      mutationFn: async ({
+         projectId,
+         teamId,
+         shapes,
+      }: {
+         projectId: string;
+         teamId: string;
+         shapes: { shapeId: string; params: Object }[];
+      }) => {
+         try {
+            const res = await fetch(
+               `${process.env.URL}/update_shapes/${projectId}/${teamId}`,
+               {
+                  method: "PATCH",
+                  credentials: "include",
+                  headers: {
+                     "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ shapes }),
+               },
+            );
+            const data = await res.json();
+            if (!data.success)
+               throw new Error(data?.message || "unknown error");
+            return data;
+         } catch (err: any) {
+            if (err) {
+               throw err.message;
+            }
+         }
+      },
+   });
+}
+
+export function useGetShapes(projectId: string) {
+   useQuery({
+      queryFn: async () => {
+         try {
+            const res = await fetch(
+               `${process.env.URL}/get_project_shapes/${projectId}`,
+               {
+                  method: "GET",
+                  credentials: "include",
+               },
+            );
+            const data = await res.json();
+            if (!data.success)
+               throw new Error(data?.message || "unknown error");
+            return data;
+         } catch (err: any) {
+            if (err) {
+               throw err.message;
+            }
+         }
+      },
+      queryKey: ["shapes"],
+   });
 }

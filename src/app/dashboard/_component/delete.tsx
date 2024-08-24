@@ -10,7 +10,7 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { ArchiveIcon } from "@radix-ui/react-icons";
 
-const Delete = () => {
+const Delete = ({ handler }: { handler: Function }) => {
    return (
       <div
          role="menuitem"
@@ -36,6 +36,7 @@ const Delete = () => {
                   </AlertDialogCancel>
 
                   <AlertDialogAction
+                     onClick={() => handler()}
                      className={`${buttonVariants({
                         variant: "destructive",
                         size: "sm",

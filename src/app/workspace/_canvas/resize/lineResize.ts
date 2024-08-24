@@ -161,50 +161,39 @@ export function lineResizeWhenConnected({
                };
             }
          } else if (sx + swidth < endShape.x) {
+            // if start box before end
             line.curvePoints.length = 3;
 
-            if (sy + sheight / 2 > ey && sy + sheight < ey + eheight) {
-               line.curvePoints[2] = {
-                  x: sx + swidth / 2,
-                  y: ey + eheight / 2
-               };
+            if (sy > ey && sy < ey + eheight) {
+               line.curvePoints[1] = { x: sx + swidth, y: ey + eheight / 2 };
+            } else {
                line.curvePoints[1] = {
                   x: sx + swidth / 2,
-                  y: ey + eheight / 2
+                  y: ey + eheight / 2,
+               };
+            }
+         } else if (sx + swidth > endShape.x + endShape.width) {
+            // if start box after end
+            line.curvePoints.length = 3;
+
+            if (sy > ey && sy < ey + eheight) {
+               line.curvePoints[1] = {
+                  x: ex + ewidth + 10,
+                  y: sy + sheight / 2,
                };
             } else {
-               line.curvePoints[2] = {
-                  x: sx + swidth / 2,
-                  y: ey + eheight / 2
-               };
-
                line.curvePoints[1] = {
-                  x: sx + swidth / 2,
-                  y: ey + eheight / 2
+                  x: ex + ewidth / 2,
+                  y: sy + sheight / 2,
                };
             }
 
-         } else if (sx + swidth > endShape.x + endShape.width) {
-            line.curvePoints.length = 3;
-
-            if (sy < ey && sy + swidth > ey + eheight) {
-               line.curvePoints[2] = {
-                  x: ex + ewidth / 2,
-                  y: sy + sheight / 2,
-               };
-               line.curvePoints[1] = {
-                  x: ex + ewidth / 2,
-                  y: sy + sheight / 2,
-               };
-            } else {
-               line.curvePoints[2] = {
-                  x: sx + swidth / 2,
-                  y: ey + eheight / 2,
-               };
-               line.curvePoints[1] = {
-                  x: sx + swidth / 2,
-                  y: ey + eheight / 2,
-               };
+            if (storEn === "start") {
+               if (sy > ey && sy < ey + eheight) {
+                  line.curvePoints[2] = { x: ex + ewidth, y: sy + sheight / 2 };
+               } else {
+                  line.curvePoints[2] = { x: ex + ewidth / 2, y: ey };
+               }
             }
          }
       } else {
@@ -215,7 +204,10 @@ export function lineResizeWhenConnected({
             };
          } else {
             line.curvePoints[1] = {
-               x: startShape.x + startShape.width / 2,
+               x:
+                  startShape.type === shapeTypes.circle
+                     ? startShape.x
+                     : startShape.x + startShape.width / 2,
                y: curvePoints[0].y,
             };
          }

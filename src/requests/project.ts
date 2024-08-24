@@ -1,4 +1,9 @@
-import { useMutation, useQuery, QueryClient } from "@tanstack/react-query";
+import {
+   useMutation,
+   useQuery,
+   QueryClient,
+   useQueryClient,
+} from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 
@@ -10,13 +15,13 @@ export const useCreateProject = () => {
          projectdata,
       }: {
          teamId: String;
-         projectdata: Object;
+         projectdata: { name: string; description: string };
       }) => {
          try {
             const res = await fetch(
-               `http://localhost:8000/api/v1/project/create_project/${teamId}`,
+               `http://localhost:4000/v1/project/create_new_project/${teamId}`,
                {
-                  method: "POST",
+                  method: "PUT",
                   body: JSON.stringify(projectdata),
                   credentials: "include",
                   headers: {
@@ -24,11 +29,12 @@ export const useCreateProject = () => {
                   },
                   cache: "no-store",
                   signal: AbortSignal.timeout(20000),
-               }
+               },
             );
             const data = await res.json();
-            if (!data?.success) throw new Error(data?.message);
-            return data;
+            if (!data?.success)
+               throw new Error(data?.message || "invalid error");
+            return data?.data;
          } catch (error: any) {
             if (error?.type === "AbortSignal") {
                throw new Error("timeout");
@@ -41,8 +47,7 @@ export const useCreateProject = () => {
          toast.success("File Successfully created", {
             position: "bottom-left",
          });
-         // @ts-ignore
-         queryClient.invalidateQueries("teamProjects");
+         queryClient.invalidateQueries();
       },
       onError: (err) => {
          if (err) toast.error(err?.message, { position: "bottom-left" });
@@ -56,17 +61,17 @@ export const useTeamFiles = (teamId: String) => {
       queryFn: async () => {
          try {
             const res = await fetch(
-               `http://localhost:8000/api/v1/project/get_projects/${teamId}`,
+               `http://localhost:4000/v1/project/get_team_projects/${teamId}`,
                {
                   method: "GET",
                   credentials: "include",
                   signal: AbortSignal.timeout(20000),
-               }
+               },
             );
             const data = await res.json();
-            if (!data?.success) throw new Error(data?.message);
-
-            return data;
+            if (!data?.success)
+               throw new Error(data?.message || "unknow error");
+            return data?.data;
          } catch (error: any) {
             if (error?.type === "AbortSignal") {
                throw new Error("timeout");
@@ -81,30 +86,74 @@ export const useTeamFiles = (teamId: String) => {
    return { data, isLoading, refetch };
 };
 
-export const useGetProjectAssets = () => {
-   const params = useParams();
-   const {
-      data: projectData,
-      isLoading,
-      error,
-   } = useQuery({
-      queryFn: async () => {
+export const useUpdateProjectName = () => {
+   const { mutate, isPending, data } = useMutation({
+      mutationFn: async ({
+         projectId,
+         name,
+      }: {
+         projectId: string;
+         name: string;
+      }) => {
          try {
             const res = await fetch(
-               `${process.env.NEXT_PUBLIC_APIURL}/project/getProjectAssets/${params?.workspaceId}`,
+               `http://localhost:4000/v1/project/update_name/${projectId}`,
                {
-                  method: "GET",
+                  method: "POST",
                   credentials: "include",
-               }
+                  headers: {
+                     "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ name }),
+               },
             );
             const data = await res.json();
-
+            if (!data?.success)
+               throw new Error(data?.message || "unknow error");
             return data;
-         } catch (error: any) {
-            if (error) throw new Error(error?.message);
+         } catch (err: any) {
+            if (err) {
+               throw err?.message;
+            }
          }
       },
-      queryKey: ["projectAssets"],
    });
-   return { projectData, isLoading, error };
+   return { mutate, isPending, data };
+};
+
+export const useDeleteProject = () => {
+   const queryClient = useQueryClient();
+   const { mutate, isPending, data } = useMutation({
+      mutationFn: async ({
+         projectId,
+         teamId,
+      }: {
+         teamId: string;
+         projectId: string;
+      }) => {
+         try {
+            const res = await fetch(
+               `http://localhost:4000/v1/project/delete_project/${projectId}/${teamId}`,
+               { method: "DELETE", credentials: "include" },
+            );
+            const data = await res.json();
+            if (!data.success)
+               throw new Error(data?.message || "error while deleting");
+            return data?.data;
+         } catch (err: any) {
+            if (err) {
+               throw err?.message;
+            }
+         }
+      },
+      onSuccess: () => {
+         queryClient.invalidateQueries();
+         toast.success("successfully deleted", { position: "bottom-right" });
+      },
+      onError(error) {
+         toast.error(error.message);
+      },
+   });
+
+   return { mutate, isPending, data };
 };
