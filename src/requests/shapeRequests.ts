@@ -1,19 +1,17 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 export function useInsertShapes() {
-   useMutation({
+   const { mutate, isPending } = useMutation({
       mutationFn: async ({
          shapes,
          projectId,
-         teamId,
       }: {
          shapes: object[];
          projectId: string;
-         teamId: string;
       }) => {
          try {
             const res = await fetch(
-               `${process.env.URL}/insert_many/${projectId}/${teamId}`,
+               `${process.env.NEXT_PUBLIC_API_URL}/shapes/insert_many/${projectId}`,
                {
                   method: "POST",
                   credentials: "include",
@@ -34,6 +32,7 @@ export function useInsertShapes() {
          }
       },
    });
+   return { mutate, isPending };
 }
 
 export function useDeleteSHapes() {
@@ -49,7 +48,7 @@ export function useDeleteSHapes() {
       }) => {
          try {
             const res = await fetch(
-               `${process.env.URL}/delete_shapes/${projectId}/${teamId}`,
+               `${process.env.NEXT_PUBLIC_API_URL}/shapes/delete_shapes/${projectId}/${teamId}`,
                {
                   method: "DELETE",
                   credentials: "include",
@@ -85,7 +84,7 @@ export function useUpdateShapes() {
       }) => {
          try {
             const res = await fetch(
-               `${process.env.URL}/update_shapes/${projectId}/${teamId}`,
+               `${process.env.NEXT_PUBLIC_API_URL}/shapes/update_shapes/${projectId}/${teamId}`,
                {
                   method: "PATCH",
                   credentials: "include",
@@ -109,11 +108,11 @@ export function useUpdateShapes() {
 }
 
 export function useGetShapes(projectId: string) {
-   useQuery({
+   const { data, isLoading } = useQuery({
       queryFn: async () => {
          try {
             const res = await fetch(
-               `${process.env.URL}/get_project_shapes/${projectId}`,
+               `${process.env.NEXT_PUBLIC_API_URL}/shapes/get_project_shapes/${projectId}`,
                {
                   method: "GET",
                   credentials: "include",
@@ -122,7 +121,7 @@ export function useGetShapes(projectId: string) {
             const data = await res.json();
             if (!data.success)
                throw new Error(data?.message || "unknown error");
-            return data;
+            return data?.data;
          } catch (err: any) {
             if (err) {
                throw err.message;
@@ -131,4 +130,6 @@ export function useGetShapes(projectId: string) {
       },
       queryKey: ["shapes"],
    });
+
+   return { data, isLoading };
 }

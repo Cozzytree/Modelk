@@ -31,13 +31,7 @@ class CanvasRecord {
       this.initialState.forEach((shape, id) => {
          if (!this.currentState.has(id)) {
             this.deletedShapes.add(id);
-            // if (this.updatedShapes.has(id)) {
-            //    this.updatedShapes.delete(id);
-            // }
          }
-         // else if (this.deletedShapes.has(id)) {
-         //    this.deletedShapes.delete(id);
-         // }
       });
 
       // Determine updated shapes and new shapes
@@ -71,13 +65,10 @@ class CanvasRecord {
       return { newShape, updated };
    }
 
-   async pushRecords(handler, interval = 10000) {
+   pushRecords() {
       this.compareStates();
       const { newShape, updated } = this.getUpdatedShapes();
-
-      try {
-         handler({ newShape, updated });
-      } catch (err) {}
+      return { newShape, updated };
    }
 }
 

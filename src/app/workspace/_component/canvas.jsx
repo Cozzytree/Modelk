@@ -28,6 +28,7 @@ import CanvasShapeOptions from "../_component/canvasShapeOptions.jsx";
 import Polygon from "../_component/polygon.jsx";
 import ZoomLabel from "./ZoomLabel.tsx";
 import { ImageShape } from "./stylesClass.js";
+import { useGetShapes, useInsertShapes } from "@/requests/shapeRequests.ts";
 
 const buttons = [
    { icon: <HandIcon width={"100%"} />, label: "handsFree" },
@@ -43,7 +44,7 @@ const buttons = [
 const width = window.innerWidth;
 const height = 1200;
 
-const initialData = [
+const startupData = [
    {
       allignVertical: "center",
       angle: 0,
@@ -195,24 +196,25 @@ const initialData = [
    },
 ];
 
-export default function Canvas() {
-   // shapes
-   //   const { mutate: createNewRect, isPending } = useNewRect();
-   //   const { newSphere: createNewSphere } = useNewSphere();
-   const params = useParams();
+export default function Canvas({ id }) {
+   const { data: shapesfromDB, isLoading } = useGetShapes(id);
+   const { mutate: insertShape, isPending } = useInsertShapes();
 
+   let initialData = startupData;
    const [newImage, setImage] = useState(null);
    const [mode, setMode] = useState("free");
    const [currentActive, setCurrentActive] = useState(null);
    const [scale, setScale] = useState(Scale.scale);
+   const [shapeInitialized, setShapeInitialized] = useState(false);
 
    const canvasRef = useRef(null);
    const canvasR = useRef(canvasRecord);
    const breakPointsRef = useRef(null);
-   const shapeClassRef = useRef(null);
+   const shapeClassRef = useRef();
    const renderCanvasRef = useRef(null);
 
    useEffect(() => {
+      if (isLoading) return;
       const canvas = canvasRef.current;
       const breakPointsCanvas = breakPointsRef.current;
       const renderCanvas = renderCanvasRef.current;
@@ -224,6 +226,22 @@ export default function Canvas() {
       renderCanvas.width = width;
       renderCanvas.height = height;
 
+      if (shapesfromDB !== null && shapesfromDB?.length !== 0) {
+         initialData = shapesfromDB;
+      }
+      console.log(shapesfromDB);
+
+      // store initial data;
+      if (canvasR.current) {
+         if (shapesfromDB === null || shapesfromDB.length === 0) {
+            canvasR.current.setInitialState(JSON.parse(JSON.stringify([])));
+         } else {
+            canvasR.current.setInitialState(
+               JSON.parse(JSON.stringify(shapesfromDB)),
+            );
+         }
+      }
+
       const shape = new Shape(
          canvas,
          breakPointsCanvas,
@@ -232,12 +250,13 @@ export default function Canvas() {
       );
       shapeClassRef.current = shape;
 
+      setShapeInitialized(true);
       shape.initialize();
       shape.draw();
       return () => {
          shape.cleanup();
       };
-   }, []);
+   }, [isLoading, shapesfromDB]);
 
    useEffect(() => {
       const canvas = canvasRef.current;
@@ -318,29 +337,28 @@ export default function Canvas() {
    }, [currentActive, newImage, mode]);
 
    useEffect(() => {
-      if (!shapeClassRef.current) return;
-      canvasRecord.setInitialState(JSON.parse(JSON.stringify(initialData)));
+      if (!shapeClassRef.current || !shapeInitialized) return;
       const shape = shapeClassRef.current;
+      const record = canvasR.current;
       let interval;
       interval = setInterval(() => {
-         canvasRecord.updateCurrentState(
+         record.updateCurrentState(
             shape.rectMap,
             shape.circleMap,
             shape.lineMap,
             shape.textMap,
          );
-         canvasRecord.pushRecords((val) => {
-            // console.log(
-            //    canvasRecord.newShapes,
-            //    canvasRecord.updatedShapes,
-            //    canvasRecord.deletedShapes,
-            // );
-         });
+         const { newShape } = record.pushRecords();
+         if (newShape.length > 0) {
+            console.log(record.newShapes, newShape);
+            insertShape({ shapes: newShape, projectId: id });
+            record.initialState = record.currentState;
+         }
       }, 10000);
       return () => {
          clearInterval(interval);
       };
-   }, []);
+   }, [id, shapeInitialized, insertShape]);
 
    function checkCurrentShape() {
       config.currentActive = null;
