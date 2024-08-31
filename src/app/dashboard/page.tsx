@@ -36,6 +36,7 @@ import Copy from "./_component/copy";
 import Delete from "./_component/delete";
 import Share from "./_component/share";
 import Rename from "./_component/rename";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Home() {
   const [activeTeam, setActiveTeam] = useState<any>(null);
@@ -159,7 +160,7 @@ function Files({
 
   function handleDeleteProject(projectId: string) {
     if (!projectId) return;
-    mutate({ projectId, teamId: activeTeam });
+    mutate({ projectId });
   }
 
   function handleRenameProject({

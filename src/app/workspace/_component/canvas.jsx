@@ -20,7 +20,6 @@ import {
    SlashIcon,
    TextIcon,
 } from "@radix-ui/react-icons";
-import { useParams } from "next/navigation.js";
 import { useEffect, useRef, useState } from "react";
 import { canvasRecord } from "../_canvas/canvasRecord.js";
 import Shape from "../_canvas/shape.js";
@@ -28,7 +27,12 @@ import CanvasShapeOptions from "../_component/canvasShapeOptions.jsx";
 import Polygon from "../_component/polygon.jsx";
 import ZoomLabel from "./ZoomLabel.tsx";
 import { ImageShape } from "./stylesClass.js";
-import { useGetShapes, useInsertShapes } from "@/requests/shapeRequests.ts";
+import {
+   useDeleteSHapes,
+   useGetShapes,
+   useInsertShapes,
+   useUpdateShapes,
+} from "@/requests/shapeRequests.ts";
 
 const buttons = [
    { icon: <HandIcon width={"100%"} />, label: "handsFree" },
@@ -46,159 +50,172 @@ const height = 1200;
 
 const startupData = [
    {
-      allignVertical: "center",
-      angle: 0,
-      borderColor: "#33FFF5",
-      containerId: null,
-      fillStyle: "transparent",
-      fillType: "full",
-      font: "Verdana",
-      fontVarient: "normal",
-      fontWeight: "bold",
-      height: 169,
-      id: 1723987825532,
-      isActive: false,
-      lineWidth: 5,
-      offsetX: -191.5,
-      offsetY: -182,
-      pointTo: [1724326688219, 1724326699169],
-      radius: 10,
-      text: ["LET'S BEGIN", ""],
-      textPosition: "center",
-      textSize: 35,
-      type: "rect",
-      width: 285.5,
-      x: 526.5,
-      y: 213,
+      Params: {
+         allignVertical: "center",
+         angle: 0,
+         borderColor: "#33FFF5",
+         containerId: null,
+         fillStyle: "transparent",
+         fillType: "full",
+         font: "Verdana",
+         fontVarient: "normal",
+         fontWeight: "bold",
+         height: 169,
+         id: 1723987825532,
+         isActive: false,
+         lineWidth: 5,
+         offsetX: -191.5,
+         offsetY: -182,
+         pointTo: [1724326688219, 1724326699169],
+         radius: 10,
+         text: ["LET'S BEGIN", ""],
+         textPosition: "center",
+         textSize: 35,
+         type: "rect",
+         width: 285.5,
+         x: 526.5,
+         y: 213,
+      },
    },
    {
-      allignVertical: "center",
-      angle: 0,
-      borderColor: "white",
-      containerId: null,
-      fillStyle: "#FF33A180",
-      fillType: "full",
-      font: "sans-serif",
-      fontVarient: "normal",
-      fontWeight: "bold",
-      height: 89,
-      id: 1724326685079,
-      isActive: false,
-      lineWidth: 1.7,
-      offsetX: -395,
-      offsetY: 4,
-      pointTo: [1724326688219],
-      radius: 10,
-      text: ["DRAW"],
-      textPosition: "center",
-      textSize: 20,
-      type: "rect",
-      width: 136,
-      x: 323,
-      y: 399,
+      Params: {
+         allignVertical: "center",
+         angle: 0,
+         borderColor: "white",
+         containerId: null,
+         fillStyle: "#FF33A180",
+         fillType: "full",
+         font: "sans-serif",
+         fontVarient: "normal",
+         fontWeight: "bold",
+         height: 89,
+         id: 1724326685079,
+         isActive: false,
+         lineWidth: 1.7,
+         offsetX: -395,
+         offsetY: 4,
+         pointTo: [1724326688219],
+         radius: 10,
+         text: ["DRAW"],
+         textPosition: "center",
+         textSize: 20,
+         type: "rect",
+         width: 136,
+         x: 323,
+         y: 399,
+      },
    },
    {
-      allignVertical: "top",
-      angle: 0,
-      arrowLeft: false,
-      arrowRight: true,
-      borderColor: "white",
-      containerId: null,
-      curvePoints: [
-         { offsetX: -327, offsetY: 4, x: 391, y: 399 },
-         { offsetX: -327, offsetY: -97.5, x: 391, y: 297.5 },
-         { offsetX: -191.5, offsetY: -97.5, x: 526.5, y: 297.5 },
-      ],
-      endTo: 1723987825532,
-      fillStyle: "transparent",
-      fillType: "full",
-      font: "Arial",
-      fontVarient: "normal",
-      fontWeight: "normal",
-      height: 100,
-      id: 1724326688219,
-      isActive: false,
-      lineType: "elbow",
-      lineWidth: 1,
-      maxX: 526.5,
-      maxY: 399,
-      minX: 391,
-      minY: 297.5,
-      radius: 10,
-      startTo: 1724326685079,
-      text: [],
-      textPosition: "center",
-      textSize: 15,
-      type: "line",
-      width: 100,
+      Params: {
+         allignVertical: "top",
+         angle: 0,
+         arrowLeft: false,
+         arrowRight: true,
+         borderColor: "white",
+         containerId: null,
+         curvePoints: [
+            { offsetX: -327, offsetY: 4, x: 391, y: 399 },
+            { offsetX: -327, offsetY: -97.5, x: 391, y: 297.5 },
+            { offsetX: -191.5, offsetY: -97.5, x: 526.5, y: 297.5 },
+         ],
+         endTo: 1723987825532,
+         fillStyle: "transparent",
+         fillType: "full",
+         font: "Arial",
+         fontVarient: "normal",
+         fontWeight: "normal",
+         height: 100,
+         id: 1724326688219,
+         isActive: false,
+         lineType: "elbow",
+         lineWidth: 1,
+         maxX: 526.5,
+         maxY: 399,
+         minX: 391,
+         minY: 297.5,
+         radius: 10,
+         startTo: 1724326685079,
+         text: [],
+         textPosition: "center",
+         textSize: 15,
+         type: "line",
+         width: 100,
+      },
    },
    {
-      allignVertical: "top",
-      angle: 0,
-      arrowLeft: false,
-      arrowRight: true,
-      borderColor: "white",
-      containerId: null,
-      curvePoints: [
-         { offsetX: 94, offsetY: -97.5, x: 812, y: 297.5 },
-         { offsetX: 236, offsetY: -97.5, x: 954, y: 297.5 },
-         { offsetX: 236, offsetY: -183, x: 954, y: 212 },
-      ],
-      endTo: 1724326695660,
-      fillStyle: "transparent",
-      fillType: "full",
-      font: "Arial",
-      fontVarient: "normal",
-      fontWeight: "normal",
-      height: 100,
-      id: 1724326699169,
-      isActive: false,
-      lineType: "elbow",
-      lineWidth: 1,
-      maxX: 954,
-      maxY: 297.5,
-      minX: 812,
-      minY: 212,
-      radius: 10,
-      startTo: 1723987825532,
-      text: [],
-      textPosition: "center",
-      textSize: 15,
-      type: "line",
-      width: 100,
+      Params: {
+         allignVertical: "top",
+         angle: 0,
+         arrowLeft: false,
+         arrowRight: true,
+         borderColor: "white",
+         containerId: null,
+         curvePoints: [
+            { offsetX: 94, offsetY: -97.5, x: 812, y: 297.5 },
+            { offsetX: 236, offsetY: -97.5, x: 954, y: 297.5 },
+            { offsetX: 236, offsetY: -183, x: 954, y: 212 },
+         ],
+         endTo: 1724326695660,
+         fillStyle: "transparent",
+         fillType: "full",
+         font: "Arial",
+         fontVarient: "normal",
+         fontWeight: "normal",
+         height: 100,
+         id: 1724326699169,
+         isActive: false,
+         lineType: "elbow",
+         lineWidth: 1,
+         maxX: 954,
+         maxY: 297.5,
+         minX: 812,
+         minY: 212,
+         radius: 10,
+         startTo: 1723987825532,
+         text: [],
+         textPosition: "center",
+         textSize: 15,
+         type: "line",
+         width: 100,
+      },
    },
    {
-      allignVertical: "top",
-      angle: 0,
-      borderColor: "white",
-      containerId: null,
-      content: ["Hello", "World"],
-      fillStyle: "white",
-      fillType: "full",
-      font: "Monoscope",
-      fontVarient: "normal",
-      fontWeight: "normal",
-      height: 5,
-      id: 1724326701959,
-      isActive: false,
-      lineWidth: 1.7,
-      offsetX: 241,
-      offsetY: -232,
-      pointTo: [],
-      radius: 10,
-      text: ["Hello", "World"],
-      textPosition: "center",
-      textSize: 15,
-      type: "text",
-      width: 0,
-      x: 959,
-      y: 163,
+      Params: {
+         allignVertical: "top",
+         angle: 0,
+         borderColor: "white",
+         containerId: null,
+         content: ["Hello", "World"],
+         fillStyle: "white",
+         fillType: "full",
+         font: "Monoscope",
+         fontVarient: "normal",
+         fontWeight: "normal",
+         height: 5,
+         id: 1724326701959,
+         isActive: false,
+         lineWidth: 1.7,
+         offsetX: 241,
+         offsetY: -232,
+         pointTo: [],
+         radius: 10,
+         text: ["Hello", "World"],
+         textPosition: "center",
+         textSize: 15,
+         type: "text",
+         width: 0,
+         x: 959,
+         y: 163,
+      },
    },
 ];
 
 export default function Canvas({ id }) {
    const { data: shapesfromDB, isLoading } = useGetShapes(id);
    const { mutate: insertShape, isPending } = useInsertShapes();
+   const { mutate: updateShapes, isPending: updatingShapes } =
+      useUpdateShapes();
+   const { mutate: deleteShapes } = useDeleteSHapes();
 
    let initialData = startupData;
    const [newImage, setImage] = useState(null);
@@ -229,7 +246,6 @@ export default function Canvas({ id }) {
       if (shapesfromDB !== null && shapesfromDB?.length !== 0) {
          initialData = shapesfromDB;
       }
-      console.log(shapesfromDB);
 
       // store initial data;
       if (canvasR.current) {
@@ -237,7 +253,7 @@ export default function Canvas({ id }) {
             canvasR.current.setInitialState(JSON.parse(JSON.stringify([])));
          } else {
             canvasR.current.setInitialState(
-               JSON.parse(JSON.stringify(shapesfromDB)),
+               JSON.parse(JSON.stringify(initialData)),
             );
          }
       }
@@ -256,7 +272,7 @@ export default function Canvas({ id }) {
       return () => {
          shape.cleanup();
       };
-   }, [isLoading, shapesfromDB]);
+   }, [isLoading]);
 
    useEffect(() => {
       const canvas = canvasRef.current;
@@ -288,6 +304,7 @@ export default function Canvas({ id }) {
          }
 
          if (e.ctrlKey) {
+            if (!shape) return;
             const s = shape.canvasClick(e);
             if (!s) return;
             s.isActive = true;
@@ -312,6 +329,7 @@ export default function Canvas({ id }) {
       };
 
       const keyDownHandler = (e) => {
+         if (!shape) return;
          const v = shape.redoEvent(e);
          shape.deleteAndSeletAll(e);
          const convertToNumber = Number(e.key);
@@ -348,17 +366,34 @@ export default function Canvas({ id }) {
             shape.lineMap,
             shape.textMap,
          );
-         const { newShape } = record.pushRecords();
-         if (newShape.length > 0) {
-            console.log(record.newShapes, newShape);
-            insertShape({ shapes: newShape, projectId: id });
+         const { newShape, updated } = record.pushRecords();
+         if (
+            newShape.length > 0 ||
+            updated.length > 0 ||
+            record.deletedShapes.size > 0
+         ) {
+            console.log(updated, newShape);
+            // insert
+            if (newShape.length > 0) {
+               insertShape({ shapes: newShape, projectId: id });
+            }
+
+            if (updated.length > 0) {
+               updateShapes({ projectId: id, shapes: updated });
+            }
+            // if (record.deletedShapes.size) {
+            //    deleteShapes({
+            //       projectId: id,
+            //       shapes: Array.from(record.deletedShapes.values()),
+            //    });
+            // }
             record.initialState = record.currentState;
          }
       }, 10000);
       return () => {
          clearInterval(interval);
       };
-   }, [id, shapeInitialized, insertShape]);
+   }, [id, shapeInitialized, insertShape, updateShapes]);
 
    function checkCurrentShape() {
       config.currentActive = null;

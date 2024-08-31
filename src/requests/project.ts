@@ -1,5 +1,4 @@
 import {
-  QueryClient,
   useMutation,
   useQuery,
   useQueryClient,
@@ -9,7 +8,6 @@ import { toast } from "sonner";
 const teamProjects = "teamProjects";
 
 export const useCreateProject = () => {
-  const queryClient = useQueryClient();
   const { mutate, isPending } = useMutation({
     mutationFn: async ({
       teamId,
@@ -45,7 +43,6 @@ export const useCreateProject = () => {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries();
       toast.success("File Successfully created", {
         position: "bottom-left",
       });
@@ -136,15 +133,13 @@ export const useDeleteProject = () => {
   const queryClient = useQueryClient();
   const { mutate, isPending, data } = useMutation({
     mutationFn: async ({
-      projectId,
-      teamId,
+      projectId
     }: {
-      teamId: string;
       projectId: string;
     }) => {
       try {
         const res = await fetch(
-          `http://localhost:4000/v1/project/delete_project/${projectId}/${teamId}`,
+          `http://localhost:4000/v1/project/delete_project/${projectId}`,
           { method: "DELETE", credentials: "include" },
         );
         const data = await res.json();

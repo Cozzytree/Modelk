@@ -36,19 +36,17 @@ export function useInsertShapes() {
 }
 
 export function useDeleteSHapes() {
-   useMutation({
+   const { mutate, isPending } = useMutation({
       mutationFn: async ({
          projectId,
-         teamId,
          shapes,
       }: {
          projectId: string;
-         teamId: string;
          shapes: string[];
       }) => {
          try {
             const res = await fetch(
-               `${process.env.NEXT_PUBLIC_API_URL}/shapes/delete_shapes/${projectId}/${teamId}`,
+               `${process.env.NEXT_PUBLIC_API_URL}/shapes/delete_shapes/${projectId}`,
                {
                   method: "DELETE",
                   credentials: "include",
@@ -69,22 +67,21 @@ export function useDeleteSHapes() {
          }
       },
    });
+   return { mutate, isPending };
 }
 
 export function useUpdateShapes() {
-   useMutation({
+   const { mutate, isPending } = useMutation({
       mutationFn: async ({
          projectId,
-         teamId,
          shapes,
       }: {
          projectId: string;
-         teamId: string;
          shapes: { shapeId: string; params: Object }[];
       }) => {
          try {
             const res = await fetch(
-               `${process.env.NEXT_PUBLIC_API_URL}/shapes/update_shapes/${projectId}/${teamId}`,
+               `${process.env.NEXT_PUBLIC_API_URL}/shapes/update_shapes/${projectId}`,
                {
                   method: "PATCH",
                   credentials: "include",
@@ -105,6 +102,8 @@ export function useUpdateShapes() {
          }
       },
    });
+
+   return { mutate, isPending };
 }
 
 export function useGetShapes(projectId: string) {

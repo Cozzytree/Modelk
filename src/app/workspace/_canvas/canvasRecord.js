@@ -9,7 +9,13 @@ class CanvasRecord {
 
    // Method to set initial state
    setInitialState(state) {
-      this.initialState = new Map(state.map((shape) => [shape.id, shape]));
+      this.initialState = new Map(
+         state.map((shape) => [
+            shape.Params.id,
+            { Params: { ...shape.Params, shapeId: shape._id } },
+         ]),
+      );
+      console.log("state", this.initialState);
    }
 
    // Method to update the current state
@@ -17,7 +23,10 @@ class CanvasRecord {
       this.currentState = new Map();
       maps.forEach((map) => {
          map.forEach((value, key) => {
-            this.currentState.set(key, value);
+            this.currentState.set(
+               key,
+               JSON.parse(JSON.stringify({ Params: value })),
+            );
          });
       });
    }
@@ -40,7 +49,7 @@ class CanvasRecord {
          if (!initialShape) {
             // New shape
             this.newShapes.set(id, shape);
-         } else if (JSON.stringify(initialShape) !== JSON.stringify(shape)) {
+         } else if (this.shapeHasChanged(initialShape?.Params, shape?.Params)) {
             // Updated shape
             this.updatedShapes.set(id, shape);
          }
@@ -59,8 +68,8 @@ class CanvasRecord {
       this.newShapes.forEach((v) => {
          newShape.push(v);
       });
-      this.updatedShapes.forEach((s, id) => {
-         updated.push({ shapedId: id, params: s });
+      this.updatedShapes.forEach((s) => {
+         updated.push({ shapeId: s.Params.shapeId, params: s.Params });
       });
       return { newShape, updated };
    }

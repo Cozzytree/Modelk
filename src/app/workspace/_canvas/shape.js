@@ -88,14 +88,19 @@ export default class Shapes {
 
    setupInitialData() {
       this.initialData.forEach((val) => {
-         if (val.type === shapeTypes.rect) {
-            this.rectMap.set(val.id, val);
-         } else if (val.type === shapeTypes.line) {
-            this.lineMap.set(val.id, val);
-         } else if (val.type === shapeTypes.circle) {
-            this.circleMap.set(val.id, val);
-         } else if (val.type === shapeTypes.text) {
-            this.textMap.set(val.id, val);
+         const { Params, _id } = val;
+         if (Params.type === shapeTypes.rect) {
+            this.rectMap.set(Params.id, { ...Params, shapeId: _id });
+         } else if (Params.type === shapeTypes.line) {
+            this.lineMap.set(Params.id, { ...Params, shapeId: _id });
+         } else if (Params.type === shapeTypes.circle) {
+            this.circleMap.set(Params.id, { ...Params, shapeId: _id });
+         } else if (Params.type === shapeTypes.text) {
+            this.textMap.set(Params.id, { ...Params, shapeId: _id });
+         } else if (Params.type === shapeTypes.figure) {
+            this.figureMap.set(Params.id, { ...Params, shapeId: _id });
+         } else if (Params.type === shapeTypes.image) {
+            this.imageMap.set(Params.id, { ...Params, shapeId: _id });
          }
       });
    }

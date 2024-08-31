@@ -1,5 +1,5 @@
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { toast } from "sonner";
@@ -9,7 +9,7 @@ export const useGetUserTeams = () => {
     queryFn: async () => {
       try {
         const res = await fetch(
-          `http://localhost:4000/v1/team/get_user_teams`,
+          `${process.env.NEXT_PUBLIC_API_URL}/team/get_user_teams`,
           {
             method: "GET",
             credentials: "include",
@@ -44,7 +44,7 @@ export const useCreateTeam = () => {
     mutationFn: async (details: { name: String }) => {
       try {
         const res = await fetch(
-          `http://localhost:4000/v1/team/create_new_team`,
+          `${process.env.NEXT_PUBLIC_API_URL}/team/create_new_team`,
           {
             method: "POST",
             credentials: "include",
@@ -93,7 +93,7 @@ export const useGetTeams = () => {
   useQuery({
     queryFn: async () => {
       try {
-        const res = await fetch(`${process.env.URL}/teams/get_user_teams`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/teams/get_user_teams`, {
           method: "GET",
           credentials: "include",
         });
@@ -120,7 +120,7 @@ export const useAddMembers = () => {
     }) => {
       try {
         const res = await fetch(
-          `${process.env.URL}/team/add_members/${teamId}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/team/add_members/${teamId}`,
           {
             method: "POST",
             headers: {
@@ -152,7 +152,7 @@ export const useRemoveMembers = () => {
     }) => {
       try {
         const res = await fetch(
-          `http://localhost:4000/v1/team/remove_members/${teamId}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/team/remove_members/${teamId}`,
           {
             method: "PATCH",
             headers: {
@@ -171,3 +171,35 @@ export const useRemoveMembers = () => {
     },
   });
 };
+
+
+export const useDeleteTeam = () => {
+  const queryClient = useQueryClient();
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: async ({ teamId }: { teamId: string }) => {
+      try {
+        const res = await fetch(`http://localhost:4000/v1/team/delete_team/${teamId}`,
+          {
+            method: "DELETE",
+            credentials: "include"
+          })
+
+        const data = await res.json();
+        if (!data.success) throw new Error(data?.message || "error while deleting");
+        return data?.data;
+      } catch (error: any) {
+        if (error) throw error?.message
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      toast.success("team successfully deleted", { position: "bottom-left" })
+    },
+    onError: (err) => {
+      toast.error(err.message, { position: "bottom-left" })
+    }
+  })
+
+  return { mutate, isPending }
+}

@@ -2,7 +2,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -22,11 +21,12 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
+  AlertDialogDescription,
   AlertDialogHeader,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useCreateProject } from "@/requests/project";
 import { useLogout } from "@/requests/authRequests";
@@ -34,11 +34,14 @@ import { ReloadIcon } from "@radix-ui/react-icons";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AvatarImage } from "@radix-ui/react-avatar";
 import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs";
+import { useDeleteTeam } from "@/requests/teams";
+import { useQueryClient } from "@tanstack/react-query";
 
 const Sidebar = ({ userTeams, activeTeam, setActiveTeam, user }: any) => {
+  const queryClient = useQueryClient()
   const { mutate: createProject, isPending: creatingProject } =
     useCreateProject();
-
+  const { mutate: deleteTeam, isPending: deletingTeam } = useDeleteTeam();
   const { mutate, isPending } = useLogout();
 
   const handleCreateProject = ({
@@ -50,12 +53,19 @@ const Sidebar = ({ userTeams, activeTeam, setActiveTeam, user }: any) => {
     name: string;
     description: string;
   }) => {
-    createProject({ teamId: id, projectdata: { name, description } });
+    createProject({ teamId: id, projectdata: { name, description } }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries()
+      }
+    });
   };
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
+  const handleDeleteTeam = () => {
+    deleteTeam({ teamId: activeTeam.ID })
+  }
   return (
     <div className="grid min-w-[14rem] grid-rows-2 h-[100dvh] py-5 px-5 border-r">
       <div className="flex flex-col gap-4 items-start">
@@ -103,6 +113,30 @@ const Sidebar = ({ userTeams, activeTeam, setActiveTeam, user }: any) => {
                       <button className="text-md px-1 py-[2px] hover:bg-secondary w-full text-start rounded-sm">
                         Apperance
                       </button>
+
+                      <div>
+                        <AlertDialog>
+                          <AlertDialogTrigger className={`${buttonVariants({ variant: "destructive", size: "sm" })}`}>
+                            Delete team
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              Delete Project !!
+                            </AlertDialogHeader>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete the team ? It is irreversable ?
+                            </AlertDialogDescription>
+                            <div className="w-full justify-end gap-2">
+                              <AlertDialogCancel>
+                                cancel
+                              </AlertDialogCancel>
+                              <AlertDialogAction onClick={handleDeleteTeam}>
+                                Yes
+                              </AlertDialogAction>
+                            </div>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </nav>
 
                     <div>Username</div>
