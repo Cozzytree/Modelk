@@ -33,6 +33,7 @@ import {
    useInsertShapes,
    useUpdateShapes,
 } from "@/requests/shapeRequests.ts";
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 
 const buttons = [
    { icon: <HandIcon width={"100%"} />, label: "handsFree" },
@@ -212,10 +213,10 @@ const startupData = [
 
 export default function Canvas({ id }) {
    const { data: shapesfromDB, isLoading } = useGetShapes(id);
-   const { mutate: insertShape, isPending } = useInsertShapes();
-   const { mutate: updateShapes, isPending: updatingShapes } =
-      useUpdateShapes();
+   const { mutate: insertShape } = useInsertShapes();
+   const { mutate: updateShapes } = useUpdateShapes();
    const { mutate: deleteShapes } = useDeleteSHapes();
+   const { user } = useKindeBrowserClient();
 
    let initialData = startupData;
    const [newImage, setImage] = useState(null);
@@ -243,13 +244,13 @@ export default function Canvas({ id }) {
       renderCanvas.width = width;
       renderCanvas.height = height;
 
-      if (shapesfromDB !== null && shapesfromDB?.length !== 0) {
+      if (shapesfromDB && shapesfromDB?.length !== 0 && user) {
          initialData = shapesfromDB;
       }
 
       // store initial data;
-      if (canvasR.current) {
-         if (shapesfromDB === null || shapesfromDB.length === 0) {
+      if (canvasR.current && user) {
+         if (!shapesfromDB) {
             canvasR.current.setInitialState(JSON.parse(JSON.stringify([])));
          } else {
             canvasR.current.setInitialState(
@@ -269,7 +270,10 @@ export default function Canvas({ id }) {
       setShapeInitialized(true);
       shape.initialize();
       shape.draw();
+      shape.drawImage();
       return () => {
+         shape.drawImage();
+         shape.draw();
          shape.cleanup();
       };
    }, [isLoading]);
@@ -330,7 +334,6 @@ export default function Canvas({ id }) {
 
       const keyDownHandler = (e) => {
          if (!shape) return;
-         const v = shape.redoEvent(e);
          shape.deleteAndSeletAll(e);
          const convertToNumber = Number(e.key);
          if (convertToNumber !== NaN) {
@@ -355,7 +358,7 @@ export default function Canvas({ id }) {
    }, [currentActive, newImage, mode]);
 
    useEffect(() => {
-      if (!shapeClassRef.current || !shapeInitialized) return;
+      if (!shapeClassRef.current || !shapeInitialized || !user) return;
       const shape = shapeClassRef.current;
       const record = canvasR.current;
       let interval;
@@ -365,6 +368,9 @@ export default function Canvas({ id }) {
             shape.circleMap,
             shape.lineMap,
             shape.textMap,
+            shape.pencilMap,
+            shape.imageMap,
+            shape.figureMap,
          );
          const { newShape, updated } = record.pushRecords();
          if (
@@ -372,7 +378,6 @@ export default function Canvas({ id }) {
             updated.length > 0 ||
             record.deletedShapes.size > 0
          ) {
-            console.log(updated, newShape);
             // insert
             if (newShape.length > 0) {
                insertShape({ shapes: newShape, projectId: id });
@@ -381,19 +386,20 @@ export default function Canvas({ id }) {
             if (updated.length > 0) {
                updateShapes({ projectId: id, shapes: updated });
             }
-            // if (record.deletedShapes.size) {
-            //    deleteShapes({
-            //       projectId: id,
-            //       shapes: Array.from(record.deletedShapes.values()),
-            //    });
-            // }
+
+            if (record.deletedShapes.size > 0) {
+               deleteShapes({
+                  shapes: Array.from(record.deletedShapes.values()),
+                  projectId: id,
+               });
+            }
             record.initialState = record.currentState;
          }
       }, 10000);
       return () => {
          clearInterval(interval);
       };
-   }, [id, shapeInitialized, insertShape, updateShapes]);
+   }, [id, shapeInitialized, insertShape, updateShapes, deleteShapes, user]);
 
    function checkCurrentShape() {
       config.currentActive = null;
@@ -477,7 +483,6 @@ export default function Canvas({ id }) {
                      </label>
                      <input
                         onChange={(e) => {
-                           const shape = shapeClassRef.current;
                            const file = e.target.files[0];
                            if (!file) {
                               config.mode = "free";

@@ -15,7 +15,6 @@ class CanvasRecord {
             { Params: { ...shape.Params, shapeId: shape._id } },
          ]),
       );
-      console.log("state", this.initialState);
    }
 
    // Method to update the current state
@@ -39,7 +38,7 @@ class CanvasRecord {
       // Determine deleted shapes
       this.initialState.forEach((shape, id) => {
          if (!this.currentState.has(id)) {
-            this.deletedShapes.add(id);
+            this.deletedShapes.add(shape.Params.shapeId);
          }
       });
 
@@ -48,10 +47,10 @@ class CanvasRecord {
          const initialShape = this.initialState.get(id);
          if (!initialShape) {
             // New shape
-            this.newShapes.set(id, shape);
-         } else if (this.shapeHasChanged(initialShape?.Params, shape?.Params)) {
+            this.newShapes.set(id, shape.Params);
+         } else if (this.shapeHasChanged(initialShape, shape)) {
             // Updated shape
-            this.updatedShapes.set(id, shape);
+            this.updatedShapes.set(id, shape.Params);
          }
       });
    }
@@ -69,8 +68,10 @@ class CanvasRecord {
          newShape.push(v);
       });
       this.updatedShapes.forEach((s) => {
-         updated.push({ shapeId: s.Params.shapeId, params: s.Params });
+         console.log("update", s);
+         updated.push({ shapeId: s.shapeId, params: s });
       });
+
       return { newShape, updated };
    }
 

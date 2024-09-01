@@ -101,6 +101,8 @@ export default class Shapes {
             this.figureMap.set(Params.id, { ...Params, shapeId: _id });
          } else if (Params.type === shapeTypes.image) {
             this.imageMap.set(Params.id, { ...Params, shapeId: _id });
+         } else if (Params.type === shapeTypes.pencil) {
+            this.pencilMap.set(Params.id, { ...Params, shapeId: _id });
          }
       });
    }

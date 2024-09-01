@@ -1,3 +1,4 @@
+import { useUpdateDocument } from "@/requests/docRequest";
 import Checklist from "@editorjs/checklist";
 import EditorJS from "@editorjs/editorjs";
 import Header from "@editorjs/header";
@@ -7,11 +8,28 @@ import Quote from "@editorjs/quote";
 import RawTool from "@editorjs/raw";
 import { useEffect, useRef } from "react";
 
-export default function Doc() {
+const initialData = {
+   blocks: [
+      {
+         data: {
+            text: "Hello Seattle<br>I am a mountaineer <br>In the hills and highlands<br>I fall asleep in hospital, parking lots<br>And awake in your mouth<br>",
+         },
+         id: "laBGXJrtZU",
+         type: "paragraph",
+      },
+      { data: { text: "Story" }, id: "vHUzu-etTf", type: "paragraph" },
+   ],
+   time: 1725119180292,
+   version: "2.30.2",
+};
+
+export default function Doc({ id }) {
    const editorRef = useRef(null);
+   const { mutate, isPending } = useUpdateDocument();
 
    useEffect(() => {
       const editor = new EditorJS({
+         placeholder: "Type your notes here",
          holder: "editorjs",
          tools: {
             header: {
@@ -61,6 +79,7 @@ export default function Doc() {
       editorRef.current
          .save()
          .then((outputData) => {
+            mutate({ data: outputData, projectId: id });
             console.log("Article data: ", outputData);
          })
          .catch((error) => {

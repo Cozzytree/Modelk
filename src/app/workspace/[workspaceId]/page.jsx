@@ -57,7 +57,7 @@ export default function Workspace({ params }) {
                   workspaceMode === "Canvas" ? "hidden" : "block"
                } flex justify-center w-full mt-12`}
             >
-               <Doc />
+               <Doc id={params.workspaceId} />
             </div>
 
             {/* canvas */}
