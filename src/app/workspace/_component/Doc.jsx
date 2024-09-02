@@ -31,6 +31,7 @@ export default function Doc({ id }) {
       const editor = new EditorJS({
          placeholder: "Type your notes here",
          holder: "editorjs",
+         data: initialData,
          tools: {
             header: {
                class: Header,

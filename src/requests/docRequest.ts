@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 export const useUpdateDocument = () => {
@@ -39,4 +39,27 @@ export const useUpdateDocument = () => {
       },
    });
    return { mutate, isPending };
+};
+
+export const useGetDocument = (projectId: string) => {
+   useQuery({
+      queryFn: async () => {
+         await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/document/get_document/${projectId}`,
+         )
+            .then((data) => {
+               return data.json();
+            })
+            .then((doc) => {
+               if (!doc.success)
+                  throw new Error(doc.message || "unknown error");
+            })
+            .catch((err) => {
+               if (err) {
+                  throw err.message;
+               }
+            });
+      },
+      queryKey: ["document"],
+   });
 };
