@@ -358,7 +358,8 @@ export default function Canvas({ id }) {
    }, [currentActive, newImage, mode]);
 
    useEffect(() => {
-      if (!shapeClassRef.current || !shapeInitialized || !user) return;
+      // if (!shapeClassRef.current || !shapeInitialized || !user) return;
+      if (!shapeClassRef.current) return;
       const shape = shapeClassRef.current;
       const record = canvasR.current;
       let interval;
@@ -379,23 +380,24 @@ export default function Canvas({ id }) {
             record.deletedShapes.size > 0
          ) {
             // insert
-            if (newShape.length > 0) {
-               insertShape({ shapes: newShape, projectId: id });
-            }
 
-            if (updated.length > 0) {
-               updateShapes({ projectId: id, shapes: updated });
-            }
+            // if (newShape.length > 0) {
+            //    insertShape({ shapes: newShape, projectId: id });
+            // }
 
-            if (record.deletedShapes.size > 0) {
-               deleteShapes({
-                  shapes: Array.from(record.deletedShapes.values()),
-                  projectId: id,
-               });
-            }
+            // if (updated.length > 0) {
+            //    updateShapes({ projectId: id, shapes: updated });
+            // }
+
+            // if (record.deletedShapes.size > 0) {
+            //    deleteShapes({
+            //       shapes: Array.from(record.deletedShapes.values()),
+            //       projectId: id,
+            //    });
+            // }
             record.initialState = record.currentState;
          }
-      }, 10000);
+      }, 5000);
       return () => {
          clearInterval(interval);
       };

@@ -48,7 +48,7 @@ class CanvasRecord {
          if (!initialShape) {
             // New shape
             this.newShapes.set(id, shape.Params);
-         } else if (this.shapeHasChanged(initialShape, shape)) {
+         } else if (this.shapeHasChanged(initialShape.Params, shape.Params)) {
             // Updated shape
             this.updatedShapes.set(id, shape.Params);
          }
@@ -57,9 +57,28 @@ class CanvasRecord {
 
    // Method to check if a shape has changed (e.g., by comparing properties)
    shapeHasChanged(initialShape, updatedShape) {
-      return JSON.stringify(initialShape) !== JSON.stringify(updatedShape);
-   }
+      // Check if the number of properties is different
+      // if (
+      //    Object.keys(initialShape).length !== Object.keys(updatedShape).length
+      // ) {
+      //    return true;
+      // }
 
+      // Check each property in initialShape
+      for (const [key, val] of Object.entries(initialShape)) {
+         // Check if the property exists in updatedShape
+         if (!updatedShape.hasOwnProperty(key)) {
+            return true;
+         }
+         // Check if the property value is different
+         if (JSON.stringify(updatedShape[key]) !== JSON.stringify(val)) {
+            return true;
+         }
+      }
+
+      // If all checks pass, the shapes are the same
+      return false;
+   }
    getUpdatedShapes() {
       let newShape = [];
       let updated = [];
@@ -68,7 +87,6 @@ class CanvasRecord {
          newShape.push(v);
       });
       this.updatedShapes.forEach((s) => {
-         console.log("update", s);
          updated.push({ shapeId: s.shapeId, params: s });
       });
 
