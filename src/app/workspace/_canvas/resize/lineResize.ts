@@ -130,8 +130,7 @@ export function lineResizeWhenConnected({
             ewidth = endShape.width;
             eheight = endShape.height;
          }
-
-         if (sx > ex && sx < ex + ewidth && swidth < ewidth) {
+         if (sx + swidth / 2 > ex && sx < ex + ewidth && swidth < ewidth) {
             line.curvePoints.length = 4;
             if (storEn === "start") {
                line.curvePoints[1] = {
@@ -191,6 +190,8 @@ export function lineResizeWhenConnected({
             if (storEn === "start") {
                if (sy > ey && sy < ey + eheight) {
                   line.curvePoints[2] = { x: ex + ewidth, y: sy + sheight / 2 };
+               } else if (sy > ey + eheight) {
+                  line.curvePoints[2] = { x: ex + ewidth / 2, y: ey + eheight };
                } else {
                   line.curvePoints[2] = { x: ex + ewidth / 2, y: ey };
                }

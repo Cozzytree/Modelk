@@ -271,22 +271,13 @@ export default function Canvas({ id }) {
       shape.initialize();
       shape.draw();
       shape.drawImage();
-      return () => {
-         shape.drawImage();
-         shape.draw();
-         shape.cleanup();
-      };
-   }, [isLoading]);
-
-   useEffect(() => {
-      const canvas = canvasRef.current;
-      const shape = shapeClassRef.current;
-
       const handler = (e) => {
          if (config.mode === "pencil") return;
 
-         if (!shape) return;
-         if (config.currentActive !== currentActive) {
+         if (
+            JSON.stringify(config.currentActive) !==
+            JSON.stringify(currentActive)
+         ) {
             setCurrentActive(config.currentActive);
          }
          if (config.mode !== mode) {
@@ -323,15 +314,6 @@ export default function Canvas({ id }) {
             );
          }
       };
-
-      const zoomInOut = (e) => {
-         if (e.target.tagName !== "CANVAS") return;
-
-         if (shape) {
-            shape.canvasZoomInOutAndScroll(e, setScale);
-         }
-      };
-
       const keyDownHandler = (e) => {
          if (!shape) return;
          shape.deleteAndSeletAll(e);
@@ -344,15 +326,34 @@ export default function Canvas({ id }) {
          }
       };
 
-      document.addEventListener("keydown", keyDownHandler);
       canvas.addEventListener("click", handler);
+      document.addEventListener("keydown", keyDownHandler);
+      return () => {
+         shape.drawImage();
+         shape.draw();
+         shape.cleanup();
+         canvas.removeEventListener("click", handler);
+         document.removeEventListener("keydown", keyDownHandler);
+      };
+   }, [isLoading, shapesfromDB]);
+
+   useEffect(() => {
+      const canvas = canvasRef.current;
+      const shape = shapeClassRef.current;
+      if (!shape) return;
+
+      const zoomInOut = (e) => {
+         if (e.target.tagName !== "CANVAS") return;
+
+         if (shape) {
+            shape.canvasZoomInOutAndScroll(e, setScale);
+         }
+      };
       window.addEventListener("wheel", zoomInOut, {
          passive: false,
       });
 
       return () => {
-         document.removeEventListener("keydown", keyDownHandler);
-         canvas.removeEventListener("click", handler);
          window.removeEventListener("wheel", zoomInOut);
       };
    }, [currentActive, newImage, mode]);
@@ -397,7 +398,7 @@ export default function Canvas({ id }) {
             // }
             record.initialState = record.currentState;
          }
-      }, 5000);
+      }, 10000);
       return () => {
          clearInterval(interval);
       };
@@ -531,7 +532,7 @@ export default function Canvas({ id }) {
                setCurrent={setCurrentActive}
             />
          )}
-         <ZoomLabel scale={scale} />
+         <ZoomLabel scale={scale} canvas={canvasRef.current} />
       </>
    );
 }

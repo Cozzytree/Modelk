@@ -1724,7 +1724,7 @@ export default class Shapes {
       let smallestShape = null;
       let smallestShapeKey = null;
       allShapes.forEach(([key, shape]) => {
-         if (shape.type === "figure" && !shape.isActive) return;
+         if (shape.type === shapeTypes.figure && !shape.isActive) return;
 
          const container = this.figureMap.get(shape.containerId);
          if (shape.isActive) shape.isActive = false;
@@ -1778,6 +1778,7 @@ export default class Shapes {
       });
       if (smallestShape && smallestShapeKey) {
          config.currentActive = smallestShape;
+         console.log(config.currentActive);
          switch (smallestShape.type) {
             case shapeTypes.image:
                const img = new Image();
@@ -5598,6 +5599,8 @@ export default class Shapes {
          Bin.insert({ type: redoType.fresh, shapes: this.copies });
          this.copies = [];
          this.draw();
+      } else {
+         this.redoEvent(e);
       }
    }
 
