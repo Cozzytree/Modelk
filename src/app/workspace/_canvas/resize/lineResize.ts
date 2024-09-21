@@ -108,6 +108,7 @@ export function lineResizeWhenConnected({
 
    if (line.lineType === "elbow") {
       if (endShape !== null) {
+         // values
          if (startShape.type === shapeTypes.circle) {
             sx = startShape.x - startShape.xRadius;
             sy = startShape.y - startShape.yRadius;
@@ -119,6 +120,7 @@ export function lineResizeWhenConnected({
             swidth = startShape.width;
             sheight = startShape.height;
          }
+
          if (endShape.type === shapeTypes.circle) {
             ex = endShape.x - endShape.xRadius;
             ey = endShape.y - endShape.yRadius;
@@ -130,70 +132,243 @@ export function lineResizeWhenConnected({
             ewidth = endShape.width;
             eheight = endShape.height;
          }
-         if (sx + swidth / 2 > ex && sx < ex + ewidth && swidth < ewidth) {
-            line.curvePoints.length = 4;
-            if (storEn === "start") {
-               line.curvePoints[1] = {
-                  x: ex - 20,
-                  y: sy + sheight / 2,
-               };
-               line.curvePoints[2] = {
-                  x: ex - 20,
-                  y: ey + eheight / 2,
-               };
-               line.curvePoints[3] = {
-                  x: ex,
-                  y: ey + eheight / 2,
-               };
-            } else {
-               line.curvePoints[2] = {
-                  x: ex - 20,
-                  y: sy + sheight / 2,
-               };
-               line.curvePoints[1] = {
-                  x: ex - 20,
-                  y: ey + eheight / 2,
-               };
-               line.curvePoints[0] = {
-                  x: ex,
-                  y: ey + eheight / 2,
-               };
-            }
-         } else if (sx + swidth < endShape.x) {
-            // if start box before end
-            line.curvePoints.length = 3;
 
-            if (sy > ey && sy < ey + eheight) {
-               line.curvePoints[1] = { x: sx + swidth, y: ey + eheight / 2 };
-            } else {
-               line.curvePoints[1] = {
-                  x: sx + swidth / 2,
-                  y: ey + eheight / 2,
-               };
-            }
-         } else if (sx + swidth > endShape.x + endShape.width) {
-            // if start box after end
-            line.curvePoints.length = 3;
+         // logic -------------
+         const horizontalCenter =
+            sx + swidth / 2 > ex && sx + swidth / 2 < ex + ewidth;
+         const horizontalLeft = sx + swidth / 2 < ex;
+         const horizontalRight = sx + swidth / 2 < ex + ewidth;
+         if (storEn === "start") {
+            if (sy >= ey + eheight / 2) {
+               if (horizontalCenter) {
+                  line.curvePoints.length = 4;
+                  if (Math.abs(ex + ewidth * 0.5 - (sx + swidth * 0.5)) <= 10) {
+                     startShape.x = ex + ewidth * 0.5 - swidth * 0.5;
+                     line.curvePoints[1] = {
+                        x: ex + ewidth / 2,
+                        y: ey + eheight + (sy - (ey + eheight)) * 0.5,
+                     };
+                     line.curvePoints[2] = {
+                        x: ex + ewidth / 2,
+                        y: ey + eheight + (sy - (ey + eheight)) * 0.5,
+                     };
+                  } else {
+                     line.curvePoints[1] = {
+                        x: sx + swidth / 2,
+                        y: ey + eheight + (sy - (ey + eheight)) * 0.5,
+                     };
+                     line.curvePoints[2] = {
+                        x: ex + ewidth / 2,
+                        y: ey + eheight + (sy - (ey + eheight)) * 0.5,
+                     };
+                  }
+                  line.curvePoints[0] = { x: sx + swidth / 2, y: sy };
+                  line.curvePoints[3] = {
+                     x: ex + ewidth / 2,
+                     y: ey + eheight,
+                  };
+               } else if (horizontalLeft) {
+                  line.curvePoints.length = 2;
 
-            if (sy > ey && sy < ey + eheight) {
-               line.curvePoints[1] = {
-                  x: ex + ewidth + 10,
-                  y: sy + sheight / 2,
-               };
-            } else {
-               line.curvePoints[1] = {
-                  x: ex + ewidth / 2,
-                  y: sy + sheight / 2,
-               };
-            }
+                  line.curvePoints[0] = { x: sx + swidth * 0.5, y: sy };
+                  line.curvePoints[1] = {
+                     x: sx + swidth * 0.5,
+                     y: ey + eheight * 0.5,
+                  };
 
-            if (storEn === "start") {
-               if (sy > ey && sy < ey + eheight) {
-                  line.curvePoints[2] = { x: ex + ewidth, y: sy + sheight / 2 };
-               } else if (sy > ey + eheight) {
-                  line.curvePoints[2] = { x: ex + ewidth / 2, y: ey + eheight };
+                  line.curvePoints[2] = { x: ex, y: ey + eheight * 0.5 };
                } else {
-                  line.curvePoints[2] = { x: ex + ewidth / 2, y: ey };
+                  line.curvePoints.length = 2;
+
+                  line.curvePoints[0] = { x: sx + swidth * 0.5, y: sy };
+                  line.curvePoints[1] = {
+                     x: sx + swidth * 0.5,
+                     y: ey + eheight * 0.5,
+                  };
+
+                  line.curvePoints[2] = {
+                     x: ex + ewidth,
+                     y: ey + eheight * 0.5,
+                  };
+               }
+            } else {
+               if (horizontalCenter) {
+                  line.curvePoints.length = 3;
+                  if (Math.abs(ex + ewidth * 0.5 - (sx + swidth * 0.5)) <= 10) {
+                     startShape.x = ex + ewidth * 0.5 - swidth * 0.5;
+                     line.curvePoints[1] = {
+                        x: ex + ewidth * 0.5,
+                        y: sy + sheight + sy * 0.5,
+                     };
+                     line.curvePoints[2] = {
+                        x: ex + ewidth * 0.5,
+                        y: sy + sheight + sy * 0.5,
+                     };
+                  } else {
+                     line.curvePoints[1] = {
+                        x: sx + swidth * 0.5,
+                        y: sy + sheight + (ey - (sy + sheight)) * 0.5,
+                     };
+                     line.curvePoints[2] = {
+                        x: ex + ewidth * 0.5,
+                        y: sy + sheight + (ey - (sy + sheight)) * 0.5,
+                     };
+                  }
+
+                  line.curvePoints[0] = {
+                     x: sx + swidth * 0.5,
+                     y: sy + sheight,
+                  };
+
+                  line.curvePoints[3] = { x: ex + ewidth * 0.5, y: ey };
+               } else if (horizontalLeft) {
+                  line.curvePoints.length = 3;
+                  line.curvePoints[0] = {
+                     x: sx + swidth * 0.5,
+                     y: sy + sheight,
+                  };
+                  line.curvePoints[1] = {
+                     x: sx + swidth * 0.5,
+                     y: ey + eheight * 0.5,
+                  };
+                  line.curvePoints[2] = {
+                     x: ex,
+                     y: ey + eheight * 0.5,
+                  };
+               } else {
+                  line.curvePoints.length = 3;
+                  line.curvePoints[0] = {
+                     x: sx + swidth * 0.5,
+                     y: sy + sheight,
+                  };
+                  line.curvePoints[1] = {
+                     x: sx + swidth * 0.5,
+                     y: ey + eheight * 0.5,
+                  };
+                  line.curvePoints[2] = {
+                     x: ex + ewidth,
+                     y: ey + eheight * 0.5,
+                  };
+               }
+            }
+         } else {
+            if (sy >= ey + eheight * 0.5) {
+               if (horizontalCenter) {
+                  line.curvePoints.length = 3;
+                  if (Math.abs(ex + ewidth * 0.5 - (sx + swidth * 0.5)) <= 10) {
+                     startShape.x = ex + ewidth * 0.5 - swidth * 0.5;
+                     line.curvePoints[1] = {
+                        x: ex + ewidth / 2,
+                        y: ey + eheight + (sy - (ey + eheight)) * 0.5,
+                     };
+                     line.curvePoints[2] = {
+                        x: ex + ewidth / 2,
+                        y: ey + eheight + (sy - (ey + eheight)) * 0.5,
+                     };
+                  } else {
+                     line.curvePoints[1] = {
+                        x: ex + ewidth / 2,
+                        y: ey + eheight + (sy - (ey + eheight)) * 0.5,
+                     };
+                     line.curvePoints[2] = {
+                        x: sx + swidth / 2,
+                        y: ey + eheight + (sy - (ey + eheight)) * 0.5,
+                     };
+                  }
+
+                  line.curvePoints[0] = {
+                     x: ex + ewidth / 2,
+                     y: ey + eheight,
+                  };
+                  line.curvePoints[3] = { x: sx + swidth / 2, y: sy };
+               } else if (horizontalLeft) {
+                  line.curvePoints.length = 2;
+
+                  line.curvePoints[0] = {
+                     x: ex + ewidth * 0.5,
+                     y: ey + eheight,
+                  };
+                  line.curvePoints[1] = {
+                     x: ex + ewidth * 0.5,
+                     y: sy + sheight * 0.5,
+                  };
+
+                  line.curvePoints[2] = {
+                     x: sx + swidth,
+                     y: sy + sheight * 0.5,
+                  };
+               } else {
+                  line.curvePoints.length = 2;
+
+                  line.curvePoints[0] = {
+                     x: ex + ewidth * 0.5,
+                     y: ey + eheight,
+                  };
+                  line.curvePoints[1] = {
+                     x: ex + ewidth * 0.5,
+                     y: sy + sheight * 0.5,
+                  };
+
+                  line.curvePoints[2] = { x: sx, y: sy + sheight * 0.5 };
+               }
+            } else {
+               if (horizontalCenter) {
+                  line.curvePoints.length = 3;
+                  if (Math.abs(ex + ewidth * 0.5 - (sx + swidth * 0.5)) <= 10) {
+                     startShape.x = ex + ewidth * 0.5 - swidth * 0.5;
+                     line.curvePoints[1] = {
+                        x: ex + ewidth / 2,
+                        y: ey + eheight + (sy - (ey + eheight)) * 0.5,
+                     };
+                     line.curvePoints[2] = {
+                        x: ex + ewidth / 2,
+                        y: ey + eheight + (sy - (ey + eheight)) * 0.5,
+                     };
+                  } else {
+                     line.curvePoints[1] = {
+                        x: ex + ewidth / 2,
+                        y: sy + sheight + (ey - (sy + sheight)) * 0.5,
+                     };
+                     line.curvePoints[2] = {
+                        x: sx + swidth / 2,
+                        y: sy + sheight + (ey - (sy + sheight)) * 0.5,
+                     };
+                  }
+
+                  line.curvePoints[3] = {
+                     x: sx + swidth / 2,
+                     y: sy + sheight,
+                  };
+                  line.curvePoints[0] = { x: ex + ewidth / 2, y: ey };
+               } else if (horizontalLeft) {
+                  line.curvePoints.length = 2;
+
+                  line.curvePoints[0] = {
+                     x: ex + ewidth * 0.5,
+                     y: ey,
+                  };
+                  line.curvePoints[1] = {
+                     x: ex + ewidth * 0.5,
+                     y: sy + sheight * 0.5,
+                  };
+
+                  line.curvePoints[2] = {
+                     x: sx + swidth,
+                     y: sy + sheight * 0.5,
+                  };
+               } else {
+                  line.curvePoints.length = 2;
+
+                  line.curvePoints[0] = {
+                     x: ex + ewidth * 0.5,
+                     y: ey,
+                  };
+                  line.curvePoints[1] = {
+                     x: ex + ewidth * 0.5,
+                     y: sy + sheight * 0.5,
+                  };
+
+                  line.curvePoints[2] = { x: sx, y: sy + sheight * 0.5 };
                }
             }
          }
@@ -214,4 +389,16 @@ export function lineResizeWhenConnected({
          }
       }
    }
+}
+
+function getClosestPoints({
+   rect,
+   point,
+}: {
+   rect: { x: number; y: number; width: number; height: number };
+   point: { x: number; y: number };
+}) {
+   const closestX = Math.max(rect.x, Math.min(point.x, rect.x + rect.width));
+   const closestY = Math.max(rect.y, Math.min(point.y, rect.y + rect.height));
+   return { x: closestX, y: closestY };
 }

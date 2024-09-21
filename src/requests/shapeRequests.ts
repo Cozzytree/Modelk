@@ -107,7 +107,7 @@ export function useUpdateShapes() {
 }
 
 export function useGetShapes(projectId: string) {
-   const { data, isLoading } = useQuery({
+   const { data, isLoading, refetch } = useQuery({
       queryFn: async () => {
          try {
             const res = await fetch(
@@ -128,7 +128,8 @@ export function useGetShapes(projectId: string) {
          }
       },
       queryKey: ["shapes"],
+      enabled: false,
    });
 
-   return { data, isLoading };
+   return { data, isLoading, refetch };
 }

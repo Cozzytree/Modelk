@@ -4,7 +4,7 @@ class DefaultStyles {
       this.height = 100;
       this.lineWidth = 1.7;
       this.isActive = false;
-      this.radius = 10;
+      this.radius = 5;
       this.containerId = null;
       this.borderColor = "white";
       this.fillStyle = "transparent";

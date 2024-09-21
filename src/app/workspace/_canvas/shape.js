@@ -43,7 +43,8 @@ const getStrokeOptions = {
 export default class Shapes {
    lastPoint = null;
    mouseCurrentPosition = { x: 0, y: 0 };
-   constructor(canvas, canvasbreakPoints, renderCanvas, initialData) {
+   constructor(canvas, canvasbreakPoints, renderCanvas, initialData, onChange) {
+      this.onChange = onChange;
       this.initialData = initialData;
       this.canvas = canvas;
       this.canvasDiv = document.getElementById("canvas-div");
@@ -365,7 +366,6 @@ export default class Shapes {
                this.newShapeParams.curvePoints[1] = midpoint;
                this.newShapeParams.curvePoints[2] = last;
 
-               console.log(this.newShapeParams);
                this.lineMap.set(this.newShapeParams.id, this.newShapeParams);
                this.isDrawing = false;
                config.mode = "free";
@@ -1229,6 +1229,8 @@ export default class Shapes {
    mouseDownDragAndResize(e) {
       if (e.altKey || e.ctrlKey || config.mode === "handsFree") return;
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
+
+      // to sore the shape which have changed for undo and redo
       this.copies = [];
 
       this.newShape(mouseX, mouseY);
@@ -1778,7 +1780,6 @@ export default class Shapes {
       });
       if (smallestShape && smallestShapeKey) {
          config.currentActive = smallestShape;
-         console.log(config.currentActive);
          switch (smallestShape.type) {
             case shapeTypes.image:
                const img = new Image();
@@ -1919,6 +1920,9 @@ export default class Shapes {
       this.lineMap.forEach(simpleLine);
       if (smallestLine && smallestLine.l && smallestLine.key) {
          config.currentActive = smallestLine.l;
+
+         this.copies.push(JSON.parse(JSON.stringify(smallestLine.l)));
+
          if (smallestLine.l.startTo && smallestLine.l.endTo) {
             smallestLine.l.isActive = true;
             this.draw();
@@ -1940,6 +1944,7 @@ export default class Shapes {
          this.massiveSelection.startX = mouseX;
          this.massiveSelection.startY = mouseY;
       }
+      this.onChange();
       this.draw();
       this.drawImage();
    }
@@ -2075,89 +2080,78 @@ export default class Shapes {
 
                         const { curvePoints } = l;
 
-                        if (r) {
-                           lineResizeWhenConnected({
-                              line: l,
-                              endShape: r,
-                              startShape: object,
-                           });
-                           const { x, y } = this.getClosestPoints(r, {
-                              x: curvePoints[curvePoints.length - 1].x,
-                              y: curvePoints[curvePoints.length - 1].y,
-                           });
+                        let oshapes = [r, t, s, i, o];
 
-                           this.updateCurvePoint(
-                              l,
-                              x,
-                              y,
-                              curvePoints.length - 1,
-                           );
-                        } else if (t) {
-                           lineResizeWhenConnected({
-                              line: l,
-                              endShape: t,
-                              startShape: object,
-                           });
-                           const { x, y } = this.getClosestPoints(t, {
-                              x: curvePoints[curvePoints.length - 1].x,
-                              y: curvePoints[curvePoints.length - 1].y,
-                           });
-                           this.updateCurvePoint(
-                              l,
-                              x,
-                              y,
-                              curvePoints.length - 1,
-                           );
-                        } else if (s) {
-                           lineResizeWhenConnected({
-                              line: l,
-                              endShape: s,
-                              startShape: object,
-                           });
-                           const { x, y } = this.getClosestPointOnSphere(s, {
-                              x: curvePoints[curvePoints.length - 2].x,
-                              y: curvePoints[curvePoints.length - 1].y,
-                           });
-                           this.updateCurvePoint(
-                              l,
-                              x,
-                              y,
-                              curvePoints.length - 1,
-                           );
-                        } else if (i) {
-                           lineResizeWhenConnected({
-                              line: l,
-                              endShape: i,
-                              startShape: object,
-                           });
-                           const { x, y } = this.getClosestPoints(i, {
-                              x: curvePoints[curvePoints.length - 2].x,
-                              y: curvePoints[curvePoints.length - 2].y,
-                           });
-                           this.updateCurvePoint(
-                              l,
-                              x,
-                              y,
-                              curvePoints.length - 1,
-                           );
-                        } else if (o) {
-                           const { x, y } = this.getClosestPoints(o, {
-                              x: curvePoints[curvePoints.length - 2].x,
-                              y: curvePoints[curvePoints.length - 2].y,
-                           });
-                           this.updateCurvePoint(
-                              l,
-                              x,
-                              y,
-                              curvePoints.length - 1,
-                           );
-                        } else {
-                           lineResizeWhenConnected({
-                              line: l,
-                              endShape: null,
-                              startShape: object,
-                           });
-                        }
+                        oshapes.forEach((shapes) => {
+                           if (shapes) {
+                              lineResizeWhenConnected({
+                                 line: l,
+                                 endShape: shapes,
+                                 startShape: object,
+                                 storEn: "start",
+                              });
+                           }
+                        });
+
+                        // if (r) {
+                        //    // const { x, y } = this.getClosestPoints(r, {
+                        //    //    x: curvePoints[curvePoints.length - 1].x,
+                        //    //    y: curvePoints[curvePoints.length - 1].y,
+                        //    // });
+                        //    // this.updateCurvePoint(
+                        //    //    l,
+                        //    //    x,
+                        //    //    y,
+                        //    //    curvePoints.length - 1,
+                        //    // );
+                        //    // this.updateCurvePoint(l, curvePoints[2].x, y, 1);
+                        //    lineResizeWhenConnected({
+                        //       line: l,
+                        //       endShape: r,
+                        //       startShape: object,
+                        //       storEn: "start",
+                        //    });
+                        // } else if (t) {
+                        //    const { x, y } = this.getClosestPoints(t, {
+                        //       x: curvePoints[curvePoints.length - 1].x,
+                        //       y: curvePoints[curvePoints.length - 1].y,
+                        //    });
+                        //    this.updateCurvePoint(
+                        //       l,
+                        //       x,
+                        //       y,
+                        //       curvePoints.length - 1,
+                        //    );
+                        // } else if (s) {
+                        //    const { x, y } = this.getClosestPointOnSphere(s, {
+                        //       x: curvePoints[curvePoints.length - 2].x,
+                        //       y: curvePoints[curvePoints.length - 1].y,
+                        //    });
+                        //    this.updateCurvePoint(
+                        //       l,
+                        //       x,
+                        //       y,
+                        //       curvePoints.length - 1,
+                        //    );
+                        // } else if (i) {
+                        //    const { x, y } = this.getClosestPoints(i, {
+                        //       x: curvePoints[curvePoints.length - 2].x,
+                        //       y: curvePoints[curvePoints.length - 2].y,
+                        //    });
+                        //    this.updateCurvePoint(
+                        //       l,
+                        //       x,
+                        //       y,
+                        //       curvePoints.length - 1,
+                        //    );
+                        // } else if (o) {
+                        //    this.updateCurvePoint(
+                        //       l,
+                        //       x,
+                        //       y,
+                        //       curvePoints.length - 1,
+                        //    );
+                        // }
 
                         if (object.type === shapeTypes.circle) {
                            const { x, y } = this.getClosestPointOnSphere(
@@ -2198,6 +2192,33 @@ export default class Shapes {
                         const { curvePoints } = l;
                         const last = curvePoints.length - 1;
 
+                        if (object.type == shapeTypes.circle) {
+                           const { x, y } = this.getClosestPointOnSphere(
+                              object,
+                              {
+                                 x: curvePoints[curvePoints.length - 2].x,
+                                 y: curvePoints[curvePoints.length - 2].y,
+                              },
+                           );
+                           this.updateCurvePoint(
+                              l,
+                              x,
+                              y,
+                              curvePoints.length - 1,
+                           );
+                        } else {
+                           const { x, y } = this.getClosestPoints(object, {
+                              x: curvePoints[curvePoints.length - 2].x,
+                              y: curvePoints[curvePoints.length - 2].y,
+                           });
+                           this.updateCurvePoint(
+                              l,
+                              x,
+                              y,
+                              curvePoints.length - 1,
+                           );
+                        }
+
                         // other conected
                         if (r) {
                            lineResizeWhenConnected({
@@ -2206,11 +2227,11 @@ export default class Shapes {
                               startShape: object,
                               storEn: "end",
                            });
-                           const { x, y } = this.getClosestPoints(r, {
-                              x: curvePoints[1].x,
-                              y: curvePoints[1].y,
-                           });
-                           this.updateCurvePoint(l, x, y, 0);
+                           // const { x, y } = this.getClosestPoints(r, {
+                           //    x: curvePoints[1].x,
+                           //    y: curvePoints[1].y,
+                           // });
+                           // this.updateCurvePoint(l, x, y, 0);
                         } else if (t) {
                            lineResizeWhenConnected({
                               line: l,
@@ -2255,33 +2276,6 @@ export default class Shapes {
                               startShape: object,
                               storEn: "end",
                            });
-                        }
-
-                        if (object.type == shapeTypes.circle) {
-                           const { x, y } = this.getClosestPointOnSphere(
-                              object,
-                              {
-                                 x: curvePoints[curvePoints.length - 2].x,
-                                 y: curvePoints[curvePoints.length - 2].y,
-                              },
-                           );
-                           this.updateCurvePoint(
-                              l,
-                              x,
-                              y,
-                              curvePoints.length - 1,
-                           );
-                        } else {
-                           const { x, y } = this.getClosestPoints(object, {
-                              x: curvePoints[curvePoints.length - 2].x,
-                              y: curvePoints[curvePoints.length - 2].y,
-                           });
-                           this.updateCurvePoint(
-                              l,
-                              x,
-                              y,
-                              curvePoints.length - 1,
-                           );
                         }
                      }
                   });
@@ -3795,7 +3789,6 @@ export default class Shapes {
 
             this.imageMap.forEach((image, imageKey) => {
                if (this.squareLineParams(image, mouseX, mouseY) && !keyUsed) {
-                  console.log(image.pointTo);
                   if (image.pointTo.includes(key) || line.endTo === imageKey) {
                      return;
                   }
@@ -5473,7 +5466,7 @@ export default class Shapes {
          e.preventDefault();
          this.copies = [];
          let id = null;
-         const padding = 5;
+         const padding = 10;
          this.rectMap.forEach((rect) => {
             if (rect.isActive) {
                let newRect = new Rect(
@@ -5499,6 +5492,9 @@ export default class Shapes {
                });
                rect.isActive = false;
                this.copies.push(JSON.parse(JSON.stringify(rect)));
+
+               // changing the current active shape
+               config.currentActive = newRect;
             }
          });
          this.circleMap.forEach((sphere) => {
@@ -5599,6 +5595,7 @@ export default class Shapes {
          Bin.insert({ type: redoType.fresh, shapes: this.copies });
          this.copies = [];
          this.draw();
+         this.onChange();
       } else {
          this.redoEvent(e);
       }
@@ -5851,7 +5848,6 @@ export default class Shapes {
 
    inputText(mouseX, mouseY, html) {
       if (config.mode === "free" || config.mode === "text") {
-         console.log(mouseX, mouseY, html);
          const canvasDiv = document.getElementById("canvas-div");
          canvasDiv.insertAdjacentHTML("afterbegin", html);
          const input = document.getElementById("input");

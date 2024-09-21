@@ -212,13 +212,17 @@ const startupData = [
 ];
 
 export default function Canvas({ id }) {
-   const { data: shapesfromDB, isLoading } = useGetShapes(id);
+   const {
+      data: shapesfromDB,
+      isLoading,
+      refetch: fetchShapes,
+   } = useGetShapes(id);
    const { mutate: insertShape } = useInsertShapes();
    const { mutate: updateShapes } = useUpdateShapes();
    const { mutate: deleteShapes } = useDeleteSHapes();
-   const { user } = useKindeBrowserClient();
+   // const { user } = useKindeBrowserClient();
 
-   let initialData = startupData;
+   const initialData = useRef(startupData);
    const [newImage, setImage] = useState(null);
    const [mode, setMode] = useState("free");
    const [currentActive, setCurrentActive] = useState(null);
@@ -245,25 +249,30 @@ export default function Canvas({ id }) {
       renderCanvas.height = height;
 
       if (shapesfromDB && shapesfromDB?.length !== 0 && user) {
-         initialData = shapesfromDB;
+         initialData.current = shapesfromDB;
       }
 
       // store initial data;
-      if (canvasR.current && user) {
+      if (canvasR.current) {
          if (!shapesfromDB) {
             canvasR.current.setInitialState(JSON.parse(JSON.stringify([])));
          } else {
             canvasR.current.setInitialState(
-               JSON.parse(JSON.stringify(initialData)),
+               JSON.parse(JSON.stringify(initialData.current)),
             );
          }
       }
+
+      const onChange = () => {
+         setCurrentActive(config.currentActive);
+      };
 
       const shape = new Shape(
          canvas,
          breakPointsCanvas,
          renderCanvas,
-         initialData,
+         initialData.current,
+         onChange,
       );
       shapeClassRef.current = shape;
 
@@ -271,6 +280,41 @@ export default function Canvas({ id }) {
       shape.initialize();
       shape.draw();
       shape.drawImage();
+
+      const keyDownHandler = (e) => {
+         if (!shape) return;
+         shape.deleteAndSeletAll(e);
+         const convertToNumber = Number(e.key);
+         if (convertToNumber !== NaN) {
+            if (buttons[convertToNumber]) {
+               config.mode = buttons[convertToNumber].label;
+               setMode(config.mode);
+            }
+         }
+      };
+
+      document.addEventListener("keydown", keyDownHandler);
+      return () => {
+         shape.drawImage();
+         shape.draw();
+         shape.cleanup();
+         document.removeEventListener("keydown", keyDownHandler);
+      };
+   }, [isLoading, shapesfromDB]);
+
+   useEffect(() => {
+      const canvas = canvasRef.current;
+      const shape = shapeClassRef.current;
+      if (!shape) return;
+
+      const zoomInOut = (e) => {
+         if (e.target.tagName !== "CANVAS") return;
+
+         if (shape) {
+            shape.canvasZoomInOutAndScroll(e, setScale);
+         }
+      };
+
       const handler = (e) => {
          if (config.mode === "pencil") return;
 
@@ -314,46 +358,14 @@ export default function Canvas({ id }) {
             );
          }
       };
-      const keyDownHandler = (e) => {
-         if (!shape) return;
-         shape.deleteAndSeletAll(e);
-         const convertToNumber = Number(e.key);
-         if (convertToNumber !== NaN) {
-            if (buttons[convertToNumber]) {
-               config.mode = buttons[convertToNumber].label;
-               setMode(config.mode);
-            }
-         }
-      };
 
       canvas.addEventListener("click", handler);
-      document.addEventListener("keydown", keyDownHandler);
-      return () => {
-         shape.drawImage();
-         shape.draw();
-         shape.cleanup();
-         canvas.removeEventListener("click", handler);
-         document.removeEventListener("keydown", keyDownHandler);
-      };
-   }, [isLoading, shapesfromDB]);
-
-   useEffect(() => {
-      const canvas = canvasRef.current;
-      const shape = shapeClassRef.current;
-      if (!shape) return;
-
-      const zoomInOut = (e) => {
-         if (e.target.tagName !== "CANVAS") return;
-
-         if (shape) {
-            shape.canvasZoomInOutAndScroll(e, setScale);
-         }
-      };
       window.addEventListener("wheel", zoomInOut, {
          passive: false,
       });
 
       return () => {
+         canvas.removeEventListener("click", handler);
          window.removeEventListener("wheel", zoomInOut);
       };
    }, [currentActive, newImage, mode]);
@@ -402,13 +414,21 @@ export default function Canvas({ id }) {
       return () => {
          clearInterval(interval);
       };
-   }, [id, shapeInitialized, insertShape, updateShapes, deleteShapes, user]);
+   }, [id, shapeInitialized, insertShape, updateShapes, deleteShapes]);
 
    function checkCurrentShape() {
       config.currentActive = null;
       if (config.currentActive !== currentActive) {
          setCurrentActive(config.currentActive);
       }
+   }
+
+   if (isLoading) {
+      return (
+         <div className="w-full h-screen flex justify-center items-center">
+            Loading
+         </div>
+      );
    }
 
    return (
