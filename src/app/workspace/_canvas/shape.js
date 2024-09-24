@@ -43,6 +43,9 @@ const getStrokeOptions = {
 export default class Shapes {
    lastPoint = null;
    mouseCurrentPosition = { x: 0, y: 0 };
+   canvasShapes = [];
+   containers = [];
+
    constructor(canvas, canvasbreakPoints, renderCanvas, initialData, onChange) {
       this.onChange = onChange;
       this.initialData = initialData;
@@ -165,7 +168,7 @@ export default class Shapes {
          case shapeTypes.rect:
             adjust();
             return;
-         case "sphere":
+         case shapeTypes.circle:
             this.newShapeParams.xRadius = Math.abs(this.newShapeParams.x - x);
             this.newShapeParams.yRadius = Math.abs(this.newShapeParams.y - y);
             return;
@@ -301,6 +304,9 @@ export default class Shapes {
             );
          }
          canvasRecord.updateCurrentState();
+         // insert to shapes
+         this.canvasShapes.push(this.newShapeParams);
+
          config.currentActive = this.newShapeParams;
          this.newShapeParams = null;
          this.lastPoint = null;
@@ -325,6 +331,10 @@ export default class Shapes {
          this.draw();
          this.isDrawing = false;
          config.mode = "free";
+
+         // insert line
+         this.canvasShapes.push(this.newShapeParams);
+
          this.newShapeParams = null;
          this.lastPoint = null;
       }
@@ -369,6 +379,10 @@ export default class Shapes {
                this.lineMap.set(this.newShapeParams.id, this.newShapeParams);
                this.isDrawing = false;
                config.mode = "free";
+
+               // inser the line
+               this.canvasShapes.push(this.newShapeParams);
+
                this.newShapeParams = null;
                this.lastPoint = null;
                this.draw();
@@ -748,6 +762,22 @@ export default class Shapes {
             this.context.closePath();
          }
       };
+
+      const allShapes = [
+         ...this.rectMap.values(),
+         ...this.circleMap.values(),
+         ...this.textMap.values(),
+         ...this.lineMap.values(),
+         ...this.figureMap.values(),
+         ...this.otherShapes.values(),
+      ];
+
+      // allShapes.forEach(( [key, shape])  ) => {
+      //    switch (shape.type) {
+      //       case shapeTypes.rect:
+      //          break;
+      //    }
+      // });
 
       // other shapes
       this.otherShapes.forEach((shape) => {
@@ -1244,11 +1274,19 @@ export default class Shapes {
          mouseY <= this.massiveSelection.isSelectedMaxY
       ) {
          const total = [];
+
          this.rectMap.forEach((rect) => {
             if (rect.isActive) {
                rect.offsetX = rect.x - mouseX;
                rect.offsetY = rect.y - mouseY;
-               total.push({ s: rect, bp: null });
+               this.copies.push(JSON.parse(JSON.stringify(rect)));
+               if (rect.pointTo.length) {
+                  rect.pointTo.forEach((p) => {
+                     const line = this.lineMap.get(p);
+                     if (!line) return;
+                     this.copies.push(JSON.parse(JSON.stringify(line)));
+                  });
+               }
             }
          });
 
@@ -1256,7 +1294,14 @@ export default class Shapes {
             if (circle.isActive) {
                circle.offsetX = circle.x - mouseX;
                circle.offsetY = circle.y - mouseY;
-               total.push({ s: circle, bp: null });
+               this.copies.push(JSON.parse(JSON.stringify(circle)));
+               if (circle.pointTo.length) {
+                  circle.pointTo.forEach((p) => {
+                     const l = this.lineMap.get(p);
+                     if (!l) return;
+                     this.copies.push(JSON.parse(JSON.stringify(l)));
+                  });
+               }
             }
          });
 
@@ -1264,7 +1309,7 @@ export default class Shapes {
             if (text.isActive) {
                text.offsetX = text.x - mouseX;
                text.offsetY = text.y - mouseY;
-               total.push({ s: text, bp: null });
+               this.copies.push(JSON.parse(JSON.stringify(text)));
             }
          });
 
@@ -1350,6 +1395,209 @@ export default class Shapes {
 
       config.currentActive = null;
       let isResizing = false;
+
+      this.canvasShapes.forEach((shape, index) => {
+         const { x, y, width, height, isActive, containerId } = shape;
+         if (isResizing || !isActive) return;
+
+         // find container if in
+         const findContainer = this.containers.find(
+            (v) => v.id === containerId,
+         );
+
+         const setActiveResizing = (resizeParams) => {
+            shape.isActive = true;
+            isResizing = true;
+            config.currentActive = shape;
+            this.resizeElement = { ...resizeParams, index, type: shape.type };
+            this.copies.push(JSON.parse(JSON.stringify(shape)));
+         };
+
+         const checkAndSetActiveResizing = (resizeParams) => {
+            if (findContainer || !findContainer?.isActive) {
+               setActiveResizing(resizeParams);
+            }
+         };
+
+         switch (shape.type) {
+            case shapeTypes.image:
+               const resizeProps = (param) => {
+                  shape.isActive = true;
+                  isResizing = true;
+                  const img = new Image();
+                  img.src = shape.src;
+                  config.currentActive = shape;
+                  this.resizeElement = {
+                     ...param,
+                     img,
+                     index,
+                  };
+               };
+               const arr = this.rectResizeParams(
+                  x,
+                  y,
+                  width,
+                  height,
+                  mouseX,
+                  mouseY,
+               );
+
+               const resize = (param) => {
+                  if (findContainer && !findContainer.isActive) {
+                     resizeProps(param);
+                  } else if (!containerId) {
+                     resizeProps(param);
+                  }
+               };
+
+               arr.forEach((c) => {
+                  if (c.condition === true) {
+                     resize({ x, y, width, height, key, direction: c.side });
+                  }
+               });
+
+               break;
+            case shapeTypes.rect:
+               const rectResizeParams = this.rectResizeParams(
+                  x,
+                  y,
+                  width,
+                  height,
+                  mouseX,
+                  mouseY,
+               );
+               rectResizeParams.forEach((condition) => {
+                  if (condition.condition) {
+                     checkAndSetActiveResizing({
+                        x,
+                        y,
+                        width,
+                        height,
+                        direction: condition.side,
+                     });
+                     return;
+                  }
+               });
+               break;
+            case shapeTypes.circle:
+               const forXless = shape.x - shape.xRadius;
+               const forXmore = shape.x + shape.xRadius;
+               const forYless = shape.y - shape.yRadius;
+               const forYmore = shape.y + shape.yRadius;
+
+               //horizontel resizing
+               const leftEdge =
+                  mouseX >= forXless - this.tolerance && mouseX <= forXless;
+               const rightEdge =
+                  mouseX >= forXmore && mouseX <= forXmore + this.tolerance;
+               const verticalBounds =
+                  mouseY >= forYless + this.tolerance &&
+                  mouseY <= forYmore - this.tolerance;
+               //vertical resizing
+               const topEdge =
+                  mouseY >= forYless - this.tolerance && mouseY <= forYless;
+               const bottomEdge =
+                  mouseY >= forYmore && mouseY <= forYmore + this.tolerance;
+               const horizontalBounds =
+                  mouseX >= forXless + this.tolerance &&
+                  mouseX <= forXmore - this.tolerance;
+
+               if ((leftEdge || rightEdge) && verticalBounds) {
+                  checkAndSetActiveResizing({ direction: "horizontel", key });
+               } else if ((topEdge || bottomEdge) && horizontalBounds) {
+                  checkAndSetActiveResizing({ direction: "vertical", key });
+               } else if (
+                  // Top-left corner
+                  (mouseX >= forXless - this.tolerance &&
+                     mouseX <= forXless + this.tolerance &&
+                     mouseY >= forYless - this.tolerance &&
+                     mouseY <= forYless + this.tolerance) ||
+                  // Top-right corner
+                  (mouseX >= forXmore - this.tolerance &&
+                     mouseX <= forXmore + this.tolerance &&
+                     mouseY >= forYless - this.tolerance &&
+                     mouseY <= forYless + this.tolerance) ||
+                  // Bottom-left corner
+                  (mouseX >= forXless - this.tolerance &&
+                     mouseX <= forXless + this.tolerance &&
+                     mouseY >= forYmore - this.tolerance &&
+                     mouseY <= forYmore + this.tolerance) ||
+                  // Bottom-right corner
+                  (mouseX >= forXmore - this.tolerance &&
+                     mouseX <= forXmore + this.tolerance &&
+                     mouseY >= forYmore - this.tolerance &&
+                     mouseY <= forYmore + this.tolerance)
+               ) {
+                  checkAndSetActiveResizing({ direction: "corners" });
+               }
+               break;
+            case shapeTypes.pencil:
+               const { maxX, minY, maxY, minX, isActive, containerId } = shape;
+
+               if (!isActive) return;
+
+               const container = this.figureMap.get(containerId);
+
+               const setActiveResizing = (resizeParams) => {
+                  shape.isActive = true;
+                  isResizing = true;
+                  config.currentActive = shape;
+                  this.resizeElement = { ...resizeParams, index };
+               };
+
+               // resize params
+               const pencilResizeParams = this.rectResizeParams(
+                  minX,
+                  minY,
+                  maxX - minX,
+                  maxY - minY,
+                  mouseX,
+                  mouseY,
+               );
+               pencilResizeParams.forEach((cond) => {
+                  if (cond.condition) {
+                     checkAndSetActiveResizing({
+                        direction: cond.side,
+                        initialMaxX: maxX,
+                        initialMinX: minX,
+                        initialMaxY: maxY,
+                        initialMinY: minY,
+                     });
+                     shape.points.forEach((point) => {
+                        point.offsetX = point.x - mouseX;
+                        point.offsetY = point.y - mouseY;
+                     });
+                  }
+               });
+               break;
+            case shapeTypes.line:
+               let points = shape.curvePoints;
+               for (let i = 0; i < points.length; i++) {
+                  if (
+                     mouseX >= points[i].x - 5 &&
+                     mouseX <= points[i].x + 5 &&
+                     mouseY >= points[i].y - 5 &&
+                     mouseY <= points[i].y + 5
+                  ) {
+                     if (i == 0) {
+                        checkAndSetActiveResizing({ direction: "resizeStart" });
+                     } else if (i == points.length - 1) {
+                        checkAndSetActiveResizing({ direction: "resizeEnd" });
+                     } else {
+                        checkAndSetActiveResizing({
+                           direction: null,
+                           i,
+                        });
+                     }
+                  }
+               }
+               break;
+            default:
+               break;
+         }
+      });
+
+      if (isResizing) return;
 
       //image resize
       this.imageMap.forEach((image, key) => {
@@ -1707,16 +1955,7 @@ export default class Shapes {
 
       if (isResizing) return;
 
-      // drag logi for shapes
-      const allShapes = [
-         ...Array.from(this.rectMap.entries()),
-         ...Array.from(this.circleMap.entries()),
-         ...Array.from(this.textMap.entries()),
-         ...Array.from(this.pencilMap.entries()),
-         ...Array.from(this.otherShapes.entries()),
-         ...Array.from(this.imageMap.entries()),
-         ...Array.from(this.figureMap.entries()),
-      ];
+      // Drag --------------------
       const setDragging = (obj) => {
          obj.isActive = true;
          obj.offsetX = mouseX - obj.x;
@@ -1724,10 +1963,13 @@ export default class Shapes {
       };
       let smallestShape = null;
       let smallestShapeKey = null;
-      allShapes.forEach(([key, shape]) => {
+      this.canvasShapes.forEach((shape, index) => {
          if (shape.type === shapeTypes.figure && !shape.isActive) return;
 
-         const container = this.figureMap.get(shape.containerId);
+         const findContainer = this.containers.find(
+            (v) => v.id === shape.containerId,
+         );
+
          if (shape.isActive) shape.isActive = false;
          let x = 0;
          let y = 0;
@@ -1746,12 +1988,6 @@ export default class Shapes {
                width = 2 * shape.xRadius;
                height = 2 * shape.xRadius;
                break;
-            // case shapeTypes.line:
-            //    x = shape.minX;
-            //    y = shape.minY;
-            //    width = shape.maxX - shape.minX;
-            //    height = shape.maxY - shape.minY;
-            //    break;
             case shapeTypes.pencil:
                x = shape.minX;
                y = shape.minY;
@@ -1766,27 +2002,146 @@ export default class Shapes {
                break;
          }
 
-         if (shape.pointTo && shape.pointTo.length > 0) {
-            shape.pointTo.forEach((p) => {
-               const theLIne = this.lineMap.get(p);
-               if (theLIne) {
-                  this.copies.push(JSON.parse(JSON.stringify(theLIne)));
-               }
-            });
-         }
-         this.copies.push(JSON.parse(JSON.stringify(shape)));
+         if (shape.type === shapeTypes.line) {
+            const { curvePoints, lineType, minX, maxX, minY, maxY } = shape;
+            let inside = false;
+            for (let i = 0; i < curvePoints.length - 1; i++) {
+               let slope1 = findSlope(
+                  mouseY,
+                  curvePoints[i].y,
+                  mouseX,
+                  curvePoints[i].x,
+               );
+               let slope2 = findSlope(
+                  mouseY,
+                  curvePoints[i + 1].y,
+                  mouseX,
+                  curvePoints[i + 1].x,
+               );
+               if (!isFinite(slope1)) slope1 = Infinity;
+               if (!isFinite(slope2)) slope2 = Infinity;
 
-         if (this.isIn(mouseX, mouseY, 0, 0, x, y, width, height)) {
-            if (!container || !container.isActive) {
-               if (smallestShape === null || smallestShape.width > width) {
-                  smallestShape = shape;
-                  smallestShapeKey = key;
+               if (Math.abs(slope1 - slope2) <= 0.3) {
+                  inside = true;
+                  break;
+               }
+            }
+            if (
+               inside &&
+               mouseX >= minX - this.tolerance &&
+               mouseX <= maxX + this.tolerance &&
+               mouseY >= minY - this.tolerance &&
+               mouseY <= maxY + this.tolerance
+            ) {
+               if (!findContainer || !findContainer.isActive) {
+                  if (
+                     smallestShape === null ||
+                     smallestShape.width > maxX - minX
+                  ) {
+                     // smallestLine = { l, key };
+                     smallestShape = shape;
+                     smallestShapeKey = index;
+                     this.copies.push(JSON.parse(JSON.stringify(shape)));
+                  }
+               }
+            }
+         } else {
+            if (this.isIn(mouseX, mouseY, 0, 0, x, y, width, height)) {
+               if (!findContainer || !findContainer.isActive) {
+                  if (smallestShape === null || smallestShape.width > width) {
+                     smallestShape = shape;
+                     smallestShapeKey = index;
+                     this.copies.push(JSON.parse(JSON.stringify(shape)));
+
+                     // connected lines
+                     if (shape.pointTo && shape.pointTo.length > 0) {
+                        shape.pointTo.forEach((p) => {
+                           const theLIne = this.lineMap.get(p);
+                           if (theLIne) {
+                              this.copies.push(
+                                 JSON.parse(JSON.stringify(theLIne)),
+                              );
+                           }
+                        });
+                     }
+                  }
                }
             }
          }
       });
-      if (smallestShape && smallestShapeKey) {
-         config.currentActive = smallestShape;
+
+      // drag logi for shapes
+      // const allShapes = [
+      //    ...Array.from(this.rectMap.entries()),
+      //    ...Array.from(this.circleMap.entries()),
+      //    ...Array.from(this.textMap.entries()),
+      //    ...Array.from(this.pencilMap.entries()),
+      //    ...Array.from(this.otherShapes.entries()),
+      //    ...Array.from(this.imageMap.entries()),
+      //    ...Array.from(this.figureMap.entries()),
+      // ];
+
+      // allShapes.forEach(([key, shape]) => {
+      //    if (shape.type === shapeTypes.figure && !shape.isActive) return;
+
+      //    const container = this.figureMap.get(shape.containerId);
+      //    if (shape.isActive) shape.isActive = false;
+      //    let x = 0;
+      //    let y = 0;
+      //    let width = 0;
+      //    let height = 0;
+      //    switch (shape.type) {
+      //       case shapeTypes.others:
+      //          x = shape.x - shape.radius;
+      //          y = shape.y - shape.radius;
+      //          width = shape.width;
+      //          height = shape.height;
+      //          break;
+      //       case shapeTypes.circle:
+      //          x = shape.x - shape.xRadius;
+      //          y = shape.y - shape.yRadius;
+      //          width = 2 * shape.xRadius;
+      //          height = 2 * shape.xRadius;
+      //          break;
+      //       case shapeTypes.pencil:
+      //          x = shape.minX;
+      //          y = shape.minY;
+      //          width = shape.maxX - shape.minX;
+      //          height = shape.maxY - shape.minY;
+      //          break;
+      //       default:
+      //          x = shape.x;
+      //          y = shape.y;
+      //          width = shape.width;
+      //          height = shape.height;
+      //          break;
+      //    }
+
+      //    if (this.isIn(mouseX, mouseY, 0, 0, x, y, width, height)) {
+      //       if (!container || !container.isActive) {
+      //          if (smallestShape === null || smallestShape.width > width) {
+      //             smallestShape = shape;
+      //             smallestShapeKey = key;
+      //             this.copies.push(JSON.parse(JSON.stringify(shape)));
+
+      //             // connected lines
+      //             if (shape.pointTo && shape.pointTo.length > 0) {
+      //                shape.pointTo.forEach((p) => {
+      //                   const theLIne = this.lineMap.get(p);
+      //                   if (theLIne) {
+      //                      this.copies.push(
+      //                         JSON.parse(JSON.stringify(theLIne)),
+      //                      );
+      //                   }
+      //                });
+      //             }
+      //          }
+      //       }
+      //    }
+      // });
+      if (smallestShape && this.canvasShapes[smallestShapeKey]) {
+         // config.currentActive = smallestShape;
+         config.currentActive = this.canvasShapes[smallestShapeKey];
          switch (smallestShape.type) {
             case shapeTypes.image:
                const img = new Image();
@@ -1863,6 +2218,14 @@ export default class Shapes {
                   });
                });
                break;
+            case shapeTypes.line:
+               smallestShape.isActive = true;
+               smallestShape.curvePoints.forEach((e) => {
+                  e.offsetX = mouseX - e.x;
+                  e.offsetY = mouseY - e.y;
+               });
+               this.dragElement = smallestShapeKey;
+               break;
             default:
                setDragging(smallestShape);
                this.dragElement = smallestShapeKey;
@@ -1871,79 +2234,77 @@ export default class Shapes {
       }
 
       //drag for line
-      let smallestLine = null;
-      const simpleLine = (l, key) => {
-         const { curvePoints, lineType, minX, maxX, minY, maxY } = l;
+      // let smallestLine = null;
+      // const simpleLine = (l, key) => {
+      //    const { curvePoints, lineType, minX, maxX, minY, maxY } = l;
+      //    let inside = false;
+      //    if (l.isActive) l.isActive = false;
+      //    for (let i = 0; i < curvePoints.length - 1; i++) {
+      //       let slope1 = findSlope(
+      //          mouseY,
+      //          curvePoints[i].y,
+      //          mouseX,
+      //          curvePoints[i].x,
+      //       );
+      //       let slope2 = findSlope(
+      //          mouseY,
+      //          curvePoints[i + 1].y,
+      //          mouseX,
+      //          curvePoints[i + 1].x,
+      //       );
+      //       if (!isFinite(slope1)) slope1 = Infinity;
+      //       if (!isFinite(slope2)) slope2 = Infinity;
 
-         let inside = false;
-         if (l.isActive) l.isActive = false;
-         for (let i = 0; i < curvePoints.length - 1; i++) {
-            let slope1 = findSlope(
-               mouseY,
-               curvePoints[i].y,
-               mouseX,
-               curvePoints[i].x,
-            );
-            let slope2 = findSlope(
-               mouseY,
-               curvePoints[i + 1].y,
-               mouseX,
-               curvePoints[i + 1].x,
-            );
-            if (!isFinite(slope1)) slope1 = Infinity;
-            if (!isFinite(slope2)) slope2 = Infinity;
+      //       if (Math.abs(slope1 - slope2) <= 0.3) {
+      //          inside = true;
+      //          break;
+      //       }
+      //    }
+      //    if (
+      //       inside &&
+      //       mouseX >= minX - this.tolerance &&
+      //       mouseX <= maxX + this.tolerance &&
+      //       mouseY >= minY - this.tolerance &&
+      //       mouseY <= maxY + this.tolerance
+      //    ) {
+      //       if (l.containerId) {
+      //          const container = this.figureMap.get(l.containerId);
+      //          if (
+      //             !container.isActive &&
+      //             (smallestLine === null ||
+      //                smallestLine.l.maxX - smallestLine.l.minX > width)
+      //          ) {
+      //             smallestLine = { l, key };
+      //          }
+      //       } else {
+      //          if (
+      //             smallestLine === null ||
+      //             smallestLine.l.maxX - smallestLine.l.minX > l.maxX - l.minX
+      //          ) {
+      //             smallestLine = { l, key };
+      //          }
+      //       }
+      //    }
+      // };
+      // this.lineMap.forEach(simpleLine);
+      // if (smallestLine && smallestLine.l && smallestLine.key) {
+      //    config.currentActive = smallestLine.l;
 
-            if (Math.abs(slope1 - slope2) <= 0.3) {
-               inside = true;
-               break;
-            }
-         }
-         if (
-            inside &&
-            mouseX >= minX - this.tolerance &&
-            mouseX <= maxX + this.tolerance &&
-            mouseY >= minY - this.tolerance &&
-            mouseY <= maxY + this.tolerance
-         ) {
-            if (l.containerId) {
-               const container = this.figureMap.get(l.containerId);
-               if (
-                  !container.isActive &&
-                  (smallestLine === null ||
-                     smallestLine.l.maxX - smallestLine.l.minX > width)
-               ) {
-                  smallestLine = { l, key };
-               }
-            } else {
-               if (
-                  smallestLine === null ||
-                  smallestLine.l.maxX - smallestLine.l.minX > l.maxX - l.minX
-               ) {
-                  smallestLine = { l, key };
-               }
-            }
-         }
-      };
-      this.lineMap.forEach(simpleLine);
-      if (smallestLine && smallestLine.l && smallestLine.key) {
-         config.currentActive = smallestLine.l;
-
-         this.copies.push(JSON.parse(JSON.stringify(smallestLine.l)));
-
-         if (smallestLine.l.startTo && smallestLine.l.endTo) {
-            smallestLine.l.isActive = true;
-            this.draw();
-            return;
-         } else {
-            smallestLine.l.isActive = true;
-            smallestLine.l.curvePoints.forEach((e) => {
-               e.offsetX = mouseX - e.x;
-               e.offsetY = mouseY - e.y;
-            });
-            if (smallestShape) smallestShape.isActive = false;
-            this.dragElement = smallestLine.key;
-         }
-      }
+      //    if (smallestLine.l.startTo && smallestLine.l.endTo) {
+      //       smallestLine.l.isActive = true;
+      //       this.draw();
+      //       return;
+      //    } else {
+      //       this.copies.push(JSON.parse(JSON.stringify(smallestLine.l)));
+      //       smallestLine.l.isActive = true;
+      //       smallestLine.l.curvePoints.forEach((e) => {
+      //          e.offsetX = mouseX - e.x;
+      //          e.offsetY = mouseY - e.y;
+      //       });
+      //       if (smallestShape) smallestShape.isActive = false;
+      //       this.dragElement = smallestLine.key;
+      //    }
+      // }
 
       // for massSelection
       if (!this.dragElement && !this.resizeElement && config.mode === "free") {
@@ -1951,6 +2312,7 @@ export default class Shapes {
          this.massiveSelection.startX = mouseX;
          this.massiveSelection.startY = mouseY;
       }
+
       this.onChange();
       this.draw();
       this.drawImage();
@@ -2016,34 +2378,75 @@ export default class Shapes {
          let arrowStartRect = [];
 
          // get all the connected lines to the shape
-         object.pointTo.forEach((a) => {
-            let l = this.lineMap.get(a);
-            if (l) line.push(l);
+         // object.pointTo.forEach((a) => {
+         //    let l = this.lineMap.get(a);
+         //    if (l) line.push(l);
+         // });
+         object.pointTo.forEach((p) => {
+            let l = null;
+            this.canvasShapes.forEach((c, i) => {
+               if (c.id === p && c.type === shapeTypes.line) {
+                  l = i;
+               }
+            });
+
+            if (l !== null) {
+               if (!this.canvasShapes[l]) return;
+               line.push(this.canvasShapes[l]);
+            }
          });
 
          // get all the arrows connected to shape
          if (line.length > 0) {
+            // line.forEach((l) => {
+            //    let start = null;
+            //    let end = null;
+            //    if (object.type === shapeTypes.rect) {
+            //       start = this.rectMap.get(l.startTo);
+            //       end = this.rectMap.get(l.endTo);
+            //    } else if (object.type === shapeTypes.text) {
+            //       start = this.textMap.get(l.startTo);
+            //       end = this.textMap.get(l.endTo);
+            //    } else if (object.type === shapeTypes.circle) {
+            //       start = this.circleMap.get(l.startTo);
+            //       end = this.circleMap.get(l.endTo);
+            //    } else if (object.type === shapeTypes.circle) {
+            //       start = this.imageMap.get(l.startTo);
+            //       end = this.imageMap.get(l.endTo);
+            //    } else if (object.type === shapeTypes.others) {
+            //       start = this.otherShapes.get(l.startTo);
+            //       end = this.otherShapes.get(l.endTo);
+            //    } else if (object.type === shapeTypes.image) {
+            //       start = this.imageMap.get(l.startTo);
+            //       end = this.imageMap.get(l.endTo);
+            //    }
+
+            //    if (start && !arrowStartRect.includes(start)) {
+            //       arrowStartRect.push(start);
+            //    }
+            //    if (end && !arrowEndRect.includes(end)) {
+            //       arrowEndRect.push(end);
+            //    }
+            // });
             line.forEach((l) => {
                let start = null;
                let end = null;
-               if (object.type === shapeTypes.rect) {
-                  start = this.rectMap.get(l.startTo);
-                  end = this.rectMap.get(l.endTo);
-               } else if (object.type === shapeTypes.text) {
-                  start = this.textMap.get(l.startTo);
-                  end = this.textMap.get(l.endTo);
-               } else if (object.type === shapeTypes.circle) {
-                  start = this.circleMap.get(l.startTo);
-                  end = this.circleMap.get(l.endTo);
-               } else if (object.type === shapeTypes.circle) {
-                  start = this.imageMap.get(l.startTo);
-                  end = this.imageMap.get(l.endTo);
-               } else if (object.type === shapeTypes.others) {
-                  start = this.otherShapes.get(l.startTo);
-                  end = this.otherShapes.get(l.endTo);
-               } else if (object.type === shapeTypes.image) {
-                  start = this.imageMap.get(l.startTo);
-                  end = this.imageMap.get(l.endTo);
+
+               for (let i = 0; i < this.canvasShapes.length; i++) {
+                  if (start && end) break;
+
+                  if (
+                     l.startTo === this.canvasShapes[i].id &&
+                     this.canvasShapes[i].type !== shapeTypes.line
+                  ) {
+                     start = this.canvasShapes[i];
+                  }
+                  if (
+                     l.endTo === this.canvasShapes[i].id &&
+                     this.canvasShapes[i].type !== shapeTypes.line
+                  ) {
+                     end = this.canvasShapes[i];
+                  }
                }
 
                if (start && !arrowStartRect.includes(start)) {
@@ -2071,40 +2474,42 @@ export default class Shapes {
                   break;
             }
          };
-
          if (arrowStartRect.length > 0) {
             arrowStartRect.forEach((ar) => {
-               if (ar === object) {
+               if (ar.id === object.id) {
                   line.forEach((l) => {
-                     if (whichMap(object.type, l.startTo) === object) {
-                        const {
-                           rect: r,
-                           text: t,
-                           sphere: s,
-                           image: i,
-                           otherShapes: o,
-                        } = this.getShape(l.endTo);
+                     // if (whichMap(object.type, l.startTo) === object)
+                     if (l.startTo === object.id) {
+                        // const {
+                        //    rect: r,
+                        //    text: t,
+                        //    sphere: s,
+                        //    image: i,
+                        //    otherShapes: o,
+                        // } = this.getShape(l.endTo);
 
+                        // let oshapes = [r, t, s, i, o];
+
+                        // let foundShape = null;
+                        // Loop through the array in reverse to get the last truthy shape
+                        // for (let i = oshapes.length - 1; i >= 0; i--) {
+                        //    if (oshapes[i]) {
+                        //       foundShape = oshapes[i];
+                        //       break; // Exit loop once the last truthy shape is found
+                        //    }
+                        // }
+
+                        const found = this.getCanvasShape(l.endTo);
                         const { curvePoints } = l;
 
-                        let oshapes = [r, t, s, i, o];
-
-                        let foundShape = null;
-
-                        // Loop through the array in reverse to get the last truthy shape
-                        for (let i = oshapes.length - 1; i >= 0; i--) {
-                           if (oshapes[i]) {
-                              foundShape = oshapes[i];
-                              break; // Exit loop once the last truthy shape is found
-                           }
+                        if (found) {
+                           lineResizeWhenConnected({
+                              line: l,
+                              endShape: found,
+                              startShape: object,
+                              storEn: "start",
+                           });
                         }
-
-                        lineResizeWhenConnected({
-                           line: l,
-                           endShape: foundShape,
-                           startShape: object,
-                           storEn: "start",
-                        });
 
                         if (object.type === shapeTypes.circle) {
                            const { x, y } = this.getClosestPointOnSphere(
@@ -2131,20 +2536,21 @@ export default class Shapes {
 
          if (arrowEndRect.length > 0) {
             arrowEndRect.forEach((ar) => {
-               if (ar === object) {
+               if (ar.id === object.id) {
                   line.forEach((l) => {
-                     if (whichMap(object.type, l.endTo) === object) {
+                     // if (whichMap(object.type, l.endTo) === object)
+                     if (l.endTo === object.id) {
                         // get the shape if connect to start
-                        const {
-                           rect: r,
-                           text: t,
-                           sphere: s,
-                           image: i,
-                           otherShapes: o,
-                        } = this.getShape(l.startTo);
+                        // const {
+                        //    rect: r,
+                        //    text: t,
+                        //    sphere: s,
+                        //    image: i,
+                        //    otherShapes: o,
+                        // } = this.getShape(l.startTo);
 
+                        const found = this.getCanvasShape(l.startTo);
                         const { curvePoints } = l;
-                        const last = curvePoints.length - 1;
 
                         if (object.type == shapeTypes.circle) {
                            const { x, y } = this.getClosestPointOnSphere(
@@ -2173,25 +2579,25 @@ export default class Shapes {
                            );
                         }
 
-                        // other conected
-                        let oshapes = [r, t, s, i, o];
-
-                        let foundShape = null;
-
-                        // Loop through the array in reverse to get the last truthy shape
-                        for (let i = oshapes.length - 1; i >= 0; i--) {
-                           if (oshapes[i]) {
-                              foundShape = oshapes[i];
-                              break; // Exit loop once the last truthy shape is found
-                           }
+                        if (found) {
+                           lineResizeWhenConnected({
+                              line: l,
+                              endShape: found,
+                              startShape: object,
+                              storEn: "end",
+                           });
                         }
 
-                        lineResizeWhenConnected({
-                           line: l,
-                           endShape: foundShape,
-                           startShape: object,
-                           storEn: "end",
-                        });
+                        // other conected
+                        // let oshapes = [r, t, s, i, o];
+                        // let foundShape = null;
+                        // Loop through the array in reverse to get the last truthy shape
+                        // for (let i = oshapes.length - 1; i >= 0; i--) {
+                        //    if (oshapes[i]) {
+                        //       foundShape = oshapes[i];
+                        //       break; // Exit loop once the last truthy shape is found
+                        //    }
+                        // }
                      }
                   });
                }
@@ -2654,7 +3060,8 @@ export default class Shapes {
          this.draw();
       }
 
-      if (!this.resizeElement && !this.dragElement) return;
+      // if (!this.resizeElement && !this.dragElement) return;
+      if (!this.resizeElement && !this.canvasShapes[this.dragElement]) return;
 
       const squareResize = (shape) => {
          const { x, y, width, height } = this.resizeElement;
@@ -2755,535 +3162,891 @@ export default class Shapes {
       };
 
       // Resizing
-      let rectResize = this.rectMap.get(this.resizeElement?.key);
-      let circleResize = this.circleMap.get(this.resizeElement?.key);
-      let textResize = this.textMap.get(this.resizeElement?.key);
-      let lineResize = this.lineMap.get(this.resizeElement?.key);
-      let imageResize = this.imageMap.get(this.resizeElement?.key);
-      let figResize = this.figureMap.get(this.resizeElement?.key);
-      let pencilResize = this.pencilMap.get(this.resizeElement?.key);
-      let otherResize = this.otherShapes.get(this.resizeElement?.key);
+      const theResizeElement = this.canvasShapes[this.resizeElement?.index];
 
-      if (rectResize) {
-         squareResize(rectResize);
-         this.updateLinesPointTo(rectResize);
-      } else if (imageResize) {
-         squareResize(imageResize);
-         this.updateLinesPointTo(imageResize);
-         const { x, y, width, height, isActive } = imageResize;
-         this.breakPointsCtx.clearRect(
-            0,
-            0,
-            this.canvasbreakPoints.width,
-            this.canvasbreakPoints.height,
-         );
+      // let rectResize = this.rectMap.get(this.resizeElement?.key);
+      // let circleResize = this.circleMap.get(this.resizeElement?.key);
+      // let textResize = this.textMap.get(this.resizeElement?.key);
+      // let lineResize = this.lineMap.get(this.resizeElement?.key);
+      // let imageResize = this.imageMap.get(this.resizeElement?.key);
+      // let figResize = this.figureMap.get(this.resizeElement?.key);
+      // let pencilResize = this.pencilMap.get(this.resizeElement?.key);
+      // let otherResize = this.otherShapes.get(this.resizeElement?.key);
 
-         this.breakPointsCtx.save();
-         this.breakPointsCtx.translate(
-            -scrollBar.scrollPositionX,
-            -scrollBar.scrollPositionY,
-         );
-         if (isActive) {
-            this.dots(
-               { x: x - this.tolerance, y: y - this.tolerance },
-               { x: x + width + this.tolerance, y: y - this.tolerance },
-               {
-                  x: x + width + this.tolerance,
-                  y: y + height + this.tolerance,
-               },
-               { x: x - this.tolerance, y: y + height + this.tolerance },
-               { context: this.breakPointsCtx },
-            );
+      if (theResizeElement) {
+         switch (theResizeElement.type) {
+            case shapeTypes.rect:
+               squareResize(theResizeElement);
+               this.updateLinesPointTo(theResizeElement);
+               break;
+            case shapeTypes.circle:
+               if (this.resizeElement.direction === "horizontel") {
+                  theResizeElement.isActive = true;
+                  theResizeElement.xRadius = Math.abs(
+                     mouseX - theResizeElement.x,
+                  );
+               } else if (this.resizeElement.direction === "vertical") {
+                  theResizeElement.isActive = true;
+                  theResizeElement.yRadius = Math.abs(
+                     mouseY - theResizeElement.y,
+                  );
+               } else {
+                  theResizeElement.isActive = true;
+                  theResizeElement.xRadius = Math.abs(
+                     mouseX - theResizeElement.x,
+                  );
+                  theResizeElement.yRadius = Math.abs(
+                     mouseY - theResizeElement.y,
+                  );
+               }
+               // this.updateLinesPointTo(theResizeElement);
+               break;
+            case shapeTypes.text:
+               if (mouseX > theResizeElement.x && mouseY > theResizeElement.y) {
+                  const { initialSize } = this.resizeElement;
+                  theResizeElement.textSize =
+                     Math.max(
+                        12, // Minimum size to prevent text from becoming too small
+                        (mouseX - theResizeElement.x) * 0.2 +
+                           (mouseY - theResizeElement.y) * 0.3,
+                     ) * 0.5;
+               }
 
-            this.breakPointsCtx.strokeStyle = this.activeColor;
-            this.breakPointsCtx.rect(
-               x - this.tolerance,
-               y - this.tolerance,
-               width + 2 * this.tolerance,
-               height + 2 * this.tolerance,
-            );
-            this.breakPointsCtx.stroke();
-         }
-         this.breakPointsCtx.scale(Scale.scale, Scale.scale);
-         this.breakPointsCtx.drawImage(
-            this.resizeElement?.img,
-            x,
-            y,
-            width,
-            height,
-         );
-         this.breakPointsCtx.restore();
-      } else if (circleResize) {
-         if (this.resizeElement.direction === "horizontel") {
-            circleResize.isActive = true;
-            circleResize.xRadius = Math.abs(mouseX - circleResize.x);
-         } else if (this.resizeElement.direction === "vertical") {
-            circleResize.isActive = true;
-            circleResize.yRadius = Math.abs(mouseY - circleResize.y);
-         } else {
-            circleResize.isActive = true;
-            circleResize.xRadius = Math.abs(mouseX - circleResize.x);
-            circleResize.yRadius = Math.abs(mouseY - circleResize.y);
-         }
-         this.updateLinesPointTo(circleResize);
-      } else if (textResize) {
-         if (mouseX > textResize.x && mouseY > textResize.y) {
-            const { initialSize } = this.resizeElement;
-            textResize.textSize =
-               Math.max(
-                  12, // Minimum size to prevent text from becoming too small
-                  (mouseX - textResize.x) * 0.2 + (mouseY - textResize.y) * 0.3,
-               ) * 0.5;
-         }
+               this.updateLinesPointTo(theResizeElement);
+               break;
+            case shapeTypes.pencil:
+               const { initialMaxX, initialMinX, initialMinY, initialMaxY } =
+                  this.resizeElement;
+               const originalWidth = initialMaxX - initialMinX;
+               const originalHeight = initialMaxY - initialMinY;
 
-         this.updateLinesPointTo(textResize);
-      } else if (lineResize) {
-         lineResizeLogic({
-            mouseX,
-            mouseY,
-            line: lineResize,
-            direction: this.resizeElement.direction,
-            index: this.resizeElement.index,
-         });
-         this.lineConnectParams(mouseX, mouseY);
-      } else if (figResize) {
-         squareResize(figResize);
-         for (const [_, rect] of this.rectMap) {
-            if (
-               rect.x > figResize.x &&
-               rect.x + rect.width < figResize.x + figResize.width &&
-               rect.y > figResize.y &&
-               rect.t + rect.height < figResize.y + figResize.height
-            ) {
-               rect.containerId = this.resizeElement?.key;
-               rect.isActive = true;
-            } else {
-               rect.containerId = null;
-            }
-         }
-      } else if (pencilResize) {
-         const { initialMaxX, initialMinX, initialMinY, initialMaxY } =
-            this.resizeElement;
-         const originalWidth = initialMaxX - initialMinX;
-         const originalHeight = initialMaxY - initialMinY;
+               if (this.resizeElement.direction == "left-edge") {
+                  // Determine new boundaries based on the mouse position
+                  let newMinX = mouseX > initialMaxX ? initialMaxX : mouseX;
+                  let newMaxX = mouseX > initialMaxX ? mouseX : initialMaxX;
 
-         if (this.resizeElement.direction == "left-edge") {
-            // Determine new boundaries based on the mouse position
-            let newMinX = mouseX > initialMaxX ? initialMaxX : mouseX;
-            let newMaxX = mouseX > initialMaxX ? mouseX : initialMaxX;
+                  // Calculate the original dimensions and new width
+                  const newWidth = newMaxX - newMinX;
 
-            // Calculate the original dimensions and new width
-            const newWidth = newMaxX - newMinX;
-
-            if (originalWidth === 0) {
-               return;
-            }
-
-            // Calculate the width scale factor
-            const widthScaleFactor = newWidth / originalWidth;
-
-            // Adjust the points based on the offsetX and width scale factor
-            pencilResize.points.forEach((point) => {
-               point.x = newMinX + point.offsetX * widthScaleFactor;
-            });
-
-            // Update the resized shape
-            pencilResize.minX = newMinX;
-            pencilResize.maxX = newMaxX;
-         } else if (this.resizeElement.direction == "right-edge") {
-            // Determine new boundaries based on the mouse position
-            let newMinX = mouseX > initialMinX ? initialMinX : mouseX;
-            let newMaxX = mouseX > initialMinX ? mouseX : initialMinX;
-
-            // Calculate the original dimensions and new width
-            const newWidth = newMaxX - newMinX;
-
-            if (originalWidth === 0) {
-               return;
-            }
-
-            // Calculate the width scale factor
-            const widthScaleFactor = newWidth / originalWidth;
-
-            // Adjust the points based on the offsetX and width scale factor
-            pencilResize.points.forEach((point) => {
-               point.x = newMaxX + point.offsetX * widthScaleFactor;
-            });
-
-            // Update the resized shape
-            pencilResize.minX = newMinX;
-            pencilResize.maxX = newMaxX;
-         } else if (this.resizeElement.direction == "top-edge") {
-            // Determine new boundaries based on the mouse position
-            let newMinY = mouseY > initialMaxY ? initialMaxY : mouseY;
-            let newMaxY = mouseY > initialMaxY ? mouseY : initialMaxY;
-
-            // Calculate the original dimensions and new height
-            const newHeight = newMaxY - newMinY;
-
-            if (originalHeight === 0) {
-               return;
-            }
-
-            // Calculate the height scale factor
-            const heightScaleFactor = newHeight / originalHeight;
-
-            // Adjust the points based on the offsetY and height scale factor
-            pencilResize.points.forEach((point) => {
-               point.y = newMinY + point.offsetY * heightScaleFactor;
-            });
-
-            // Update the resized shape
-            pencilResize.minY = newMinY;
-            pencilResize.maxY = newMaxY;
-         } else if (this.resizeElement.direction == "bottom-edge") {
-            // Determine new boundaries based on the mouse position
-            let newMinY = mouseY > initialMinY ? initialMinY : mouseY;
-            let newMaxY = mouseY > initialMinY ? mouseY : initialMinY;
-
-            // Calculate the original dimensions and new height
-            const newHeight = newMaxY - newMinY;
-
-            if (originalHeight === 0) {
-               return;
-            }
-
-            // Calculate the height scale factor
-            const heightScaleFactor = newHeight / originalHeight;
-
-            // Adjust the points based on the offsetY and height scale factor
-            pencilResize.points.forEach((point) => {
-               point.y = newMaxY + point.offsetY * heightScaleFactor;
-            });
-
-            // Update the resized shape
-            pencilResize.minY = newMinY;
-            pencilResize.maxY = newMaxY;
-         } else {
-            let newMinX, newMaxX, newMinY, newMaxY;
-            let newWidth, newHeight, heightScaleFactor, widthScalingFactor;
-            switch (this.resizeElement.direction) {
-               case "top-left":
-                  newMinX = Math.min(initialMaxX, mouseX);
-                  newMinY = Math.min(initialMaxY, mouseY);
-                  newMaxX = Math.max(initialMaxX, mouseX);
-                  newMaxY = Math.max(initialMaxY, mouseY);
-
-                  newWidth = newMaxX - newMinX;
-                  newHeight = newMaxY - newMinY;
-
-                  if (originalHeight === 0 && originalWidth === 0) {
+                  if (originalWidth === 0) {
                      return;
                   }
-                  widthScalingFactor = newWidth / originalWidth;
-                  heightScaleFactor = newHeight / originalHeight;
-                  pencilResize.points.forEach((point) => {
+
+                  // Calculate the width scale factor
+                  const widthScaleFactor = newWidth / originalWidth;
+
+                  // Adjust the points based on the offsetX and width scale factor
+                  theResizeElement.points.forEach((point) => {
+                     point.x = newMinX + point.offsetX * widthScaleFactor;
+                  });
+
+                  // Update the resized shape
+                  theResizeElement.minX = newMinX;
+                  theResizeElement.maxX = newMaxX;
+               } else if (this.resizeElement.direction == "right-edge") {
+                  // Determine new boundaries based on the mouse position
+                  let newMinX = mouseX > initialMinX ? initialMinX : mouseX;
+                  let newMaxX = mouseX > initialMinX ? mouseX : initialMinX;
+
+                  // Calculate the original dimensions and new width
+                  const newWidth = newMaxX - newMinX;
+
+                  if (originalWidth === 0) {
+                     return;
+                  }
+
+                  // Calculate the width scale factor
+                  const widthScaleFactor = newWidth / originalWidth;
+
+                  // Adjust the points based on the offsetX and width scale factor
+                  theResizeElement.points.forEach((point) => {
+                     point.x = newMaxX + point.offsetX * widthScaleFactor;
+                  });
+
+                  // Update the resized shape
+                  theResizeElement.minX = newMinX;
+                  theResizeElement.maxX = newMaxX;
+               } else if (this.resizeElement.direction == "top-edge") {
+                  // Determine new boundaries based on the mouse position
+                  let newMinY = mouseY > initialMaxY ? initialMaxY : mouseY;
+                  let newMaxY = mouseY > initialMaxY ? mouseY : initialMaxY;
+
+                  // Calculate the original dimensions and new height
+                  const newHeight = newMaxY - newMinY;
+
+                  if (originalHeight === 0) {
+                     return;
+                  }
+
+                  // Calculate the height scale factor
+                  const heightScaleFactor = newHeight / originalHeight;
+
+                  // Adjust the points based on the offsetY and height scale factor
+                  theResizeElement.points.forEach((point) => {
                      point.y = newMinY + point.offsetY * heightScaleFactor;
-                     point.x = newMinX + point.offsetX * widthScalingFactor;
                   });
-                  break;
-               case "top-right":
-                  newMinX = Math.min(initialMinX, mouseX);
-                  newMaxX = Math.max(initialMinX, mouseX);
-                  newMinY = Math.min(initialMaxY, mouseY);
-                  newMaxY = Math.max(initialMaxY, mouseY);
 
-                  newWidth = newMaxX - newMinX;
-                  newHeight = newMaxY - newMinY;
+                  // Update the resized shape
+                  theResizeElement.minY = newMinY;
+                  theResizeElement.maxY = newMaxY;
+               } else if (this.resizeElement.direction == "bottom-edge") {
+                  // Determine new boundaries based on the mouse position
+                  let newMinY = mouseY > initialMinY ? initialMinY : mouseY;
+                  let newMaxY = mouseY > initialMinY ? mouseY : initialMinY;
 
-                  if (originalHeight === 0 && originalWidth === 0) {
+                  // Calculate the original dimensions and new height
+                  const newHeight = newMaxY - newMinY;
+
+                  if (originalHeight === 0) {
                      return;
                   }
-                  widthScalingFactor = newWidth / originalWidth;
-                  heightScaleFactor = newHeight / originalHeight;
-                  pencilResize.points.forEach((point) => {
-                     point.y = newMinY + point.offsetY * heightScaleFactor;
-                     point.x = newMaxX + point.offsetX * widthScalingFactor;
-                  });
-                  break;
-               case "bottom-left":
-                  newMinX = Math.min(initialMaxX, mouseX);
-                  newMaxX = Math.max(initialMaxX, mouseX);
-                  newMinY = Math.min(initialMinY, mouseY);
-                  newMaxY = Math.max(initialMinY, mouseY);
 
-                  newWidth = newMaxX - newMinX;
-                  newHeight = newMaxY - newMinY;
+                  // Calculate the height scale factor
+                  const heightScaleFactor = newHeight / originalHeight;
 
-                  if (originalHeight === 0 && originalWidth === 0) {
-                     return;
-                  }
-                  widthScalingFactor = newWidth / originalWidth;
-                  heightScaleFactor = newHeight / originalHeight;
-                  pencilResize.points.forEach((point) => {
+                  // Adjust the points based on the offsetY and height scale factor
+                  theResizeElement.points.forEach((point) => {
                      point.y = newMaxY + point.offsetY * heightScaleFactor;
-                     point.x = newMinX + point.offsetX * widthScalingFactor;
                   });
-                  break;
-               case "bottom-right":
-                  newMinX = Math.min(initialMinX, mouseX);
-                  newMaxX = Math.max(initialMinX, mouseX);
-                  newMinY = Math.min(initialMinY, mouseY);
-                  newMaxY = Math.max(initialMinY, mouseY);
 
-                  newWidth = newMaxX - newMinX;
-                  newHeight = newMaxY - newMinY;
+                  // Update the resized shape
+                  theResizeElement.minY = newMinY;
+                  theResizeElement.maxY = newMaxY;
+               } else {
+                  let newMinX, newMaxX, newMinY, newMaxY;
+                  let newWidth,
+                     newHeight,
+                     heightScaleFactor,
+                     widthScalingFactor;
+                  switch (this.resizeElement.direction) {
+                     case "top-left":
+                        newMinX = Math.min(initialMaxX, mouseX);
+                        newMinY = Math.min(initialMaxY, mouseY);
+                        newMaxX = Math.max(initialMaxX, mouseX);
+                        newMaxY = Math.max(initialMaxY, mouseY);
 
-                  if (originalHeight === 0 && originalWidth === 0) {
-                     return;
+                        newWidth = newMaxX - newMinX;
+                        newHeight = newMaxY - newMinY;
+
+                        if (originalHeight === 0 && originalWidth === 0) {
+                           return;
+                        }
+                        widthScalingFactor = newWidth / originalWidth;
+                        heightScaleFactor = newHeight / originalHeight;
+                        theResizeElement.points.forEach((point) => {
+                           point.y =
+                              newMinY + point.offsetY * heightScaleFactor;
+                           point.x =
+                              newMinX + point.offsetX * widthScalingFactor;
+                        });
+                        break;
+                     case "top-right":
+                        newMinX = Math.min(initialMinX, mouseX);
+                        newMaxX = Math.max(initialMinX, mouseX);
+                        newMinY = Math.min(initialMaxY, mouseY);
+                        newMaxY = Math.max(initialMaxY, mouseY);
+
+                        newWidth = newMaxX - newMinX;
+                        newHeight = newMaxY - newMinY;
+
+                        if (originalHeight === 0 && originalWidth === 0) {
+                           return;
+                        }
+                        widthScalingFactor = newWidth / originalWidth;
+                        heightScaleFactor = newHeight / originalHeight;
+                        theResizeElement.points.forEach((point) => {
+                           point.y =
+                              newMinY + point.offsetY * heightScaleFactor;
+                           point.x =
+                              newMaxX + point.offsetX * widthScalingFactor;
+                        });
+                        break;
+                     case "bottom-left":
+                        newMinX = Math.min(initialMaxX, mouseX);
+                        newMaxX = Math.max(initialMaxX, mouseX);
+                        newMinY = Math.min(initialMinY, mouseY);
+                        newMaxY = Math.max(initialMinY, mouseY);
+
+                        newWidth = newMaxX - newMinX;
+                        newHeight = newMaxY - newMinY;
+
+                        if (originalHeight === 0 && originalWidth === 0) {
+                           return;
+                        }
+                        widthScalingFactor = newWidth / originalWidth;
+                        heightScaleFactor = newHeight / originalHeight;
+                        theResizeElement.points.forEach((point) => {
+                           point.y =
+                              newMaxY + point.offsetY * heightScaleFactor;
+                           point.x =
+                              newMinX + point.offsetX * widthScalingFactor;
+                        });
+                        break;
+                     case "bottom-right":
+                        newMinX = Math.min(initialMinX, mouseX);
+                        newMaxX = Math.max(initialMinX, mouseX);
+                        newMinY = Math.min(initialMinY, mouseY);
+                        newMaxY = Math.max(initialMinY, mouseY);
+
+                        newWidth = newMaxX - newMinX;
+                        newHeight = newMaxY - newMinY;
+
+                        if (originalHeight === 0 && originalWidth === 0) {
+                           return;
+                        }
+                        widthScalingFactor = newWidth / originalWidth;
+                        heightScaleFactor = newHeight / originalHeight;
+                        theResizeElement.points.forEach((point) => {
+                           point.y =
+                              newMaxY + point.offsetY * heightScaleFactor;
+                           point.x =
+                              newMaxX + point.offsetX * widthScalingFactor;
+                        });
+                        break;
                   }
-                  widthScalingFactor = newWidth / originalWidth;
-                  heightScaleFactor = newHeight / originalHeight;
-                  pencilResize.points.forEach((point) => {
-                     point.y = newMaxY + point.offsetY * heightScaleFactor;
-                     point.x = newMaxX + point.offsetX * widthScalingFactor;
-                  });
-                  break;
-            }
-            // Update the resized shape
-            pencilResize.minY = newMinY;
-            pencilResize.maxY = newMaxY;
-            pencilResize.maxX = newMaxX;
-            pencilResize.minX = newMinX;
+                  // Update the resized shape
+                  theResizeElement.minY = newMinY;
+                  theResizeElement.maxY = newMaxY;
+                  theResizeElement.maxX = newMaxX;
+                  theResizeElement.minX = newMinX;
+               }
+               this.drawImage();
+               break;
+            case shapeTypes.line:
+               lineResizeLogic({
+                  mouseX,
+                  mouseY,
+                  line: theResizeElement,
+                  direction: this.resizeElement.direction,
+                  index: this.resizeElement.i,
+               });
+               this.lineConnectParams(mouseX, mouseY);
+               break;
+            default:
+               break;
          }
-         this.drawImage();
-      } else if (otherResize) {
-         const { initailX } = this.resizeElement;
-         otherResize.radius = Math.abs(otherResize.x - mouseX);
-         otherResize.width = 2 * otherResize.radius;
-         otherResize.height = 2 * otherResize.radius;
-         this.updateLinesPointTo(otherResize);
       }
 
-      if (this.resizeElement?.key) {
+      // if (rectResize) {
+      //    squareResize(rectResize);
+      //    this.updateLinesPointTo(rectResize);
+      // } else if (imageResize) {
+      //    squareResize(imageResize);
+      //    this.updateLinesPointTo(imageResize);
+      //    const { x, y, width, height, isActive } = imageResize;
+      //    this.breakPointsCtx.clearRect(
+      //       0,
+      //       0,
+      //       this.canvasbreakPoints.width,
+      //       this.canvasbreakPoints.height,
+      //    );
+
+      //    this.breakPointsCtx.save();
+      //    this.breakPointsCtx.translate(
+      //       -scrollBar.scrollPositionX,
+      //       -scrollBar.scrollPositionY,
+      //    );
+      //    if (isActive) {
+      //       this.dots(
+      //          { x: x - this.tolerance, y: y - this.tolerance },
+      //          { x: x + width + this.tolerance, y: y - this.tolerance },
+      //          {
+      //             x: x + width + this.tolerance,
+      //             y: y + height + this.tolerance,
+      //          },
+      //          { x: x - this.tolerance, y: y + height + this.tolerance },
+      //          { context: this.breakPointsCtx },
+      //       );
+
+      //       this.breakPointsCtx.strokeStyle = this.activeColor;
+      //       this.breakPointsCtx.rect(
+      //          x - this.tolerance,
+      //          y - this.tolerance,
+      //          width + 2 * this.tolerance,
+      //          height + 2 * this.tolerance,
+      //       );
+      //       this.breakPointsCtx.stroke();
+      //    }
+      //    this.breakPointsCtx.scale(Scale.scale, Scale.scale);
+      //    this.breakPointsCtx.drawImage(
+      //       this.resizeElement?.img,
+      //       x,
+      //       y,
+      //       width,
+      //       height,
+      //    );
+      //    this.breakPointsCtx.restore();
+      // } else if (circleResize) {
+      //    if (this.resizeElement.direction === "horizontel") {
+      //       circleResize.isActive = true;
+      //       circleResize.xRadius = Math.abs(mouseX - circleResize.x);
+      //    } else if (this.resizeElement.direction === "vertical") {
+      //       circleResize.isActive = true;
+      //       circleResize.yRadius = Math.abs(mouseY - circleResize.y);
+      //    } else {
+      //       circleResize.isActive = true;
+      //       circleResize.xRadius = Math.abs(mouseX - circleResize.x);
+      //       circleResize.yRadius = Math.abs(mouseY - circleResize.y);
+      //    }
+      //    this.updateLinesPointTo(circleResize);
+      // } else if (textResize) {
+      //    if (mouseX > textResize.x && mouseY > textResize.y) {
+      //       const { initialSize } = this.resizeElement;
+      //       textResize.textSize =
+      //          Math.max(
+      //             12, // Minimum size to prevent text from becoming too small
+      //             (mouseX - textResize.x) * 0.2 + (mouseY - textResize.y) * 0.3,
+      //          ) * 0.5;
+      //    }
+
+      //    this.updateLinesPointTo(textResize);
+      // } else if (lineResize) {
+      //    lineResizeLogic({
+      //       mouseX,
+      //       mouseY,
+      //       line: lineResize,
+      //       direction: this.resizeElement.direction,
+      //       index: this.resizeElement.index,
+      //    });
+      //    this.lineConnectParams(mouseX, mouseY);
+      // } else if (figResize) {
+      //    squareResize(figResize);
+      //    for (const [_, rect] of this.rectMap) {
+      //       if (
+      //          rect.x > figResize.x &&
+      //          rect.x + rect.width < figResize.x + figResize.width &&
+      //          rect.y > figResize.y &&
+      //          rect.t + rect.height < figResize.y + figResize.height
+      //       ) {
+      //          rect.containerId = this.resizeElement?.key;
+      //          rect.isActive = true;
+      //       } else {
+      //          rect.containerId = null;
+      //       }
+      //    }
+      // } else if (pencilResize) {
+      //    const { initialMaxX, initialMinX, initialMinY, initialMaxY } =
+      //       this.resizeElement;
+      //    const originalWidth = initialMaxX - initialMinX;
+      //    const originalHeight = initialMaxY - initialMinY;
+
+      //    if (this.resizeElement.direction == "left-edge") {
+      //       // Determine new boundaries based on the mouse position
+      //       let newMinX = mouseX > initialMaxX ? initialMaxX : mouseX;
+      //       let newMaxX = mouseX > initialMaxX ? mouseX : initialMaxX;
+
+      //       // Calculate the original dimensions and new width
+      //       const newWidth = newMaxX - newMinX;
+
+      //       if (originalWidth === 0) {
+      //          return;
+      //       }
+
+      //       // Calculate the width scale factor
+      //       const widthScaleFactor = newWidth / originalWidth;
+
+      //       // Adjust the points based on the offsetX and width scale factor
+      //       pencilResize.points.forEach((point) => {
+      //          point.x = newMinX + point.offsetX * widthScaleFactor;
+      //       });
+
+      //       // Update the resized shape
+      //       pencilResize.minX = newMinX;
+      //       pencilResize.maxX = newMaxX;
+      //    } else if (this.resizeElement.direction == "right-edge") {
+      //       // Determine new boundaries based on the mouse position
+      //       let newMinX = mouseX > initialMinX ? initialMinX : mouseX;
+      //       let newMaxX = mouseX > initialMinX ? mouseX : initialMinX;
+
+      //       // Calculate the original dimensions and new width
+      //       const newWidth = newMaxX - newMinX;
+
+      //       if (originalWidth === 0) {
+      //          return;
+      //       }
+
+      //       // Calculate the width scale factor
+      //       const widthScaleFactor = newWidth / originalWidth;
+
+      //       // Adjust the points based on the offsetX and width scale factor
+      //       pencilResize.points.forEach((point) => {
+      //          point.x = newMaxX + point.offsetX * widthScaleFactor;
+      //       });
+
+      //       // Update the resized shape
+      //       pencilResize.minX = newMinX;
+      //       pencilResize.maxX = newMaxX;
+      //    } else if (this.resizeElement.direction == "top-edge") {
+      //       // Determine new boundaries based on the mouse position
+      //       let newMinY = mouseY > initialMaxY ? initialMaxY : mouseY;
+      //       let newMaxY = mouseY > initialMaxY ? mouseY : initialMaxY;
+
+      //       // Calculate the original dimensions and new height
+      //       const newHeight = newMaxY - newMinY;
+
+      //       if (originalHeight === 0) {
+      //          return;
+      //       }
+
+      //       // Calculate the height scale factor
+      //       const heightScaleFactor = newHeight / originalHeight;
+
+      //       // Adjust the points based on the offsetY and height scale factor
+      //       pencilResize.points.forEach((point) => {
+      //          point.y = newMinY + point.offsetY * heightScaleFactor;
+      //       });
+
+      //       // Update the resized shape
+      //       pencilResize.minY = newMinY;
+      //       pencilResize.maxY = newMaxY;
+      //    } else if (this.resizeElement.direction == "bottom-edge") {
+      //       // Determine new boundaries based on the mouse position
+      //       let newMinY = mouseY > initialMinY ? initialMinY : mouseY;
+      //       let newMaxY = mouseY > initialMinY ? mouseY : initialMinY;
+
+      //       // Calculate the original dimensions and new height
+      //       const newHeight = newMaxY - newMinY;
+
+      //       if (originalHeight === 0) {
+      //          return;
+      //       }
+
+      //       // Calculate the height scale factor
+      //       const heightScaleFactor = newHeight / originalHeight;
+
+      //       // Adjust the points based on the offsetY and height scale factor
+      //       pencilResize.points.forEach((point) => {
+      //          point.y = newMaxY + point.offsetY * heightScaleFactor;
+      //       });
+
+      //       // Update the resized shape
+      //       pencilResize.minY = newMinY;
+      //       pencilResize.maxY = newMaxY;
+      //    } else {
+      //       let newMinX, newMaxX, newMinY, newMaxY;
+      //       let newWidth, newHeight, heightScaleFactor, widthScalingFactor;
+      //       switch (this.resizeElement.direction) {
+      //          case "top-left":
+      //             newMinX = Math.min(initialMaxX, mouseX);
+      //             newMinY = Math.min(initialMaxY, mouseY);
+      //             newMaxX = Math.max(initialMaxX, mouseX);
+      //             newMaxY = Math.max(initialMaxY, mouseY);
+
+      //             newWidth = newMaxX - newMinX;
+      //             newHeight = newMaxY - newMinY;
+
+      //             if (originalHeight === 0 && originalWidth === 0) {
+      //                return;
+      //             }
+      //             widthScalingFactor = newWidth / originalWidth;
+      //             heightScaleFactor = newHeight / originalHeight;
+      //             pencilResize.points.forEach((point) => {
+      //                point.y = newMinY + point.offsetY * heightScaleFactor;
+      //                point.x = newMinX + point.offsetX * widthScalingFactor;
+      //             });
+      //             break;
+      //          case "top-right":
+      //             newMinX = Math.min(initialMinX, mouseX);
+      //             newMaxX = Math.max(initialMinX, mouseX);
+      //             newMinY = Math.min(initialMaxY, mouseY);
+      //             newMaxY = Math.max(initialMaxY, mouseY);
+
+      //             newWidth = newMaxX - newMinX;
+      //             newHeight = newMaxY - newMinY;
+
+      //             if (originalHeight === 0 && originalWidth === 0) {
+      //                return;
+      //             }
+      //             widthScalingFactor = newWidth / originalWidth;
+      //             heightScaleFactor = newHeight / originalHeight;
+      //             pencilResize.points.forEach((point) => {
+      //                point.y = newMinY + point.offsetY * heightScaleFactor;
+      //                point.x = newMaxX + point.offsetX * widthScalingFactor;
+      //             });
+      //             break;
+      //          case "bottom-left":
+      //             newMinX = Math.min(initialMaxX, mouseX);
+      //             newMaxX = Math.max(initialMaxX, mouseX);
+      //             newMinY = Math.min(initialMinY, mouseY);
+      //             newMaxY = Math.max(initialMinY, mouseY);
+
+      //             newWidth = newMaxX - newMinX;
+      //             newHeight = newMaxY - newMinY;
+
+      //             if (originalHeight === 0 && originalWidth === 0) {
+      //                return;
+      //             }
+      //             widthScalingFactor = newWidth / originalWidth;
+      //             heightScaleFactor = newHeight / originalHeight;
+      //             pencilResize.points.forEach((point) => {
+      //                point.y = newMaxY + point.offsetY * heightScaleFactor;
+      //                point.x = newMinX + point.offsetX * widthScalingFactor;
+      //             });
+      //             break;
+      //          case "bottom-right":
+      //             newMinX = Math.min(initialMinX, mouseX);
+      //             newMaxX = Math.max(initialMinX, mouseX);
+      //             newMinY = Math.min(initialMinY, mouseY);
+      //             newMaxY = Math.max(initialMinY, mouseY);
+
+      //             newWidth = newMaxX - newMinX;
+      //             newHeight = newMaxY - newMinY;
+
+      //             if (originalHeight === 0 && originalWidth === 0) {
+      //                return;
+      //             }
+      //             widthScalingFactor = newWidth / originalWidth;
+      //             heightScaleFactor = newHeight / originalHeight;
+      //             pencilResize.points.forEach((point) => {
+      //                point.y = newMaxY + point.offsetY * heightScaleFactor;
+      //                point.x = newMaxX + point.offsetX * widthScalingFactor;
+      //             });
+      //             break;
+      //       }
+      //       // Update the resized shape
+      //       pencilResize.minY = newMinY;
+      //       pencilResize.maxY = newMaxY;
+      //       pencilResize.maxX = newMaxX;
+      //       pencilResize.minX = newMinX;
+      //    }
+      //    this.drawImage();
+      // } else if (otherResize) {
+      //    const { initailX } = this.resizeElement;
+      //    otherResize.radius = Math.abs(otherResize.x - mouseX);
+      //    otherResize.width = 2 * otherResize.radius;
+      //    otherResize.height = 2 * otherResize.radius;
+      //    this.updateLinesPointTo(otherResize);
+      // }
+
+      if (theResizeElement) {
          this.draw();
          return;
       }
+      const thedragElement = this.canvasShapes[this.dragElement];
 
-      // Dragging
-      let rect = this.rectMap.get(this.dragElement);
-      let arc = this.circleMap.get(this.dragElement);
-      let text = this.textMap.get(this.dragElement);
-      let line = this.lineMap.get(this.dragElement);
-      let image = this.imageMap.get(this.dragElement?.key);
-      let pencilDrag = this.pencilMap.get(this.dragElement);
-      let figDrag = this.figureMap.get(this.dragElement);
-      let otherDrag = this.otherShapes.get(this.dragElement);
+      if (thedragElement) {
+         thedragElement.isActive = true;
+         switch (thedragElement.type) {
+            case shapeTypes.rect:
+               thedragElement.x = mouseX - thedragElement.offsetX;
+               thedragElement.y = mouseY - thedragElement.offsetY;
 
-      if (rect) {
-         rect.isActive = true;
-         rect.x = mouseX - rect.offsetX;
-         rect.y = mouseY - rect.offsetY;
+               this.showGuides(
+                  thedragElement.x,
+                  thedragElement.y,
+                  thedragElement.width,
+                  thedragElement.height,
+                  this.dragElement,
+                  thedragElement,
+               );
+               this.drawRenderCanvas(thedragElement.type, thedragElement);
 
-         this.showGuides(
-            rect.x,
-            rect.y,
-            rect.width,
-            rect.height,
-            this.dragElement,
-            rect,
-         );
-         //  this.drawRenderCanvas(rect.type, rect);
+               this.updateLinesPointTo(thedragElement);
+               break;
+            case shapeTypes.circle:
+               thedragElement.x = mouseX - thedragElement.offsetX;
+               thedragElement.y = mouseY - thedragElement.offsetY;
+               this.showGuides(
+                  thedragElement.x - thedragElement.xRadius,
+                  thedragElement.y - thedragElement.yRadius,
+                  2 * thedragElement.xRadius,
+                  2 * thedragElement.xRadius,
+                  this.dragElement,
+                  thedragElement,
+               );
+               //  this.drawRenderCanvas(arc.type, arc);
 
-         this.updateLinesPointTo(rect);
-      } else if (arc) {
-         arc.isActive = true;
-         arc.x = mouseX - arc.offsetX;
-         arc.y = mouseY - arc.offsetY;
-         this.showGuides(
-            arc.x - arc.xRadius,
-            arc.y - arc.yRadius,
-            2 * arc.xRadius,
-            2 * arc.xRadius,
-            this.dragElement,
-            arc,
-         );
-         //  this.drawRenderCanvas(arc.type, arc);
+               this.updateLinesPointTo(thedragElement);
+               break;
+            case shapeTypes.pencil:
+               thedragElement.minX = mouseX + thedragElement.offsetX;
+               thedragElement.minY = mouseY + thedragElement.offsetY;
+               thedragElement.maxY =
+                  thedragElement.minY + thedragElement.height;
+               thedragElement.maxX = thedragElement.minX + thedragElement.width;
 
-         this.updateLinesPointTo(arc);
-      } else if (text) {
-         text.x = mouseX - text.offsetX;
-         text.y = mouseY - text.offsetY;
-         this.showGuides(
-            text.x,
-            text.y,
-            text.width,
-            text.height,
-            this.dragElement,
-            text,
-         );
-
-         //  this.drawRenderCanvas("text", text);
-         this.updateLinesPointTo(text);
-      } else if (line) {
-         line.curvePoints.forEach((ele) => {
-            const deltaX = mouseX - ele.offsetX;
-            const deltaY = mouseY - ele.offsetY;
-            this.showGuides(
-               line.curvePoints[0].x,
-               line.curvePoints[0].y,
-               line.maxX - line.minX,
-               line.maxY - line.minY,
-               this.dragElement,
-               line,
-            );
-            ele.x = deltaX;
-            ele.y = deltaY;
-         });
-      } else if (image) {
-         image.x = mouseX - image.offsetX;
-         image.y = mouseY - image.offsetY;
-
-         const { x, y, width, height, isActive } = image;
-         this.breakPointsCtx.clearRect(
-            0,
-            0,
-            this.canvasbreakPoints.width,
-            this.canvasbreakPoints.height,
-         );
-
-         this.breakPointsCtx.save();
-         this.breakPointsCtx.translate(
-            -scrollBar.scrollPositionX,
-            -scrollBar.scrollPositionY,
-         );
-         if (isActive) {
-            this.dots(
-               { x: x - this.tolerance, y: y - this.tolerance },
-               { x: x + width + this.tolerance, y: y - this.tolerance },
-               {
-                  x: x + width + this.tolerance,
-                  y: y + height + this.tolerance,
-               },
-               { x: x - this.tolerance, y: y + height + this.tolerance },
-               { context: this.breakPointsCtx },
-            );
-
-            this.breakPointsCtx.strokeStyle = this.activeColor;
-            this.breakPointsCtx.rect(
-               x - this.tolerance,
-               y - this.tolerance,
-               width + 2 * this.tolerance,
-               height + 2 * this.tolerance,
-            );
-            this.breakPointsCtx.stroke();
-         }
-
-         this.breakPointsCtx.scale(Scale.scale, Scale.scale);
-         this.breakPointsCtx.drawImage(
-            this.dragElement?.src,
-            x,
-            y,
-            width,
-            height,
-         );
-         this.breakPointsCtx.restore();
-         this.updateLinesPointTo(image);
-      } else if (pencilDrag) {
-         pencilDrag.minX = mouseX + pencilDrag.offsetX;
-         pencilDrag.minY = mouseY + pencilDrag.offsetY;
-         pencilDrag.maxY = pencilDrag.minY + pencilDrag.height;
-         pencilDrag.maxX = pencilDrag.minX + pencilDrag.width;
-
-         pencilDrag.points.forEach((point) => {
-            point.x = mouseX + point.offsetX;
-            point.y = mouseY + point.offsetY;
-         });
-         this.drawImage();
-         this.showGuides(
-            pencilDrag.minX,
-            pencilDrag.minY,
-            pencilDrag.maxX - pencilDrag.minX,
-            pencilDrag.maxY - pencilDrag.minY,
-            this.dragElement,
-            pencilDrag,
-         );
-         return;
-      } else if (figDrag) {
-         figDrag.x = mouseX - figDrag.offsetX;
-         figDrag.y = mouseY - figDrag.offsetY;
-
-         this.rectMap.forEach((rect) => {
-            if (rect.containerId === this.dragElement) {
-               rect.x = mouseX - rect.offsetX;
-               rect.y = mouseY - rect.offsetY;
-               if (rect.pointTo.length > 0) {
-                  this.updateLinesPointTo(rect);
-               }
-            }
-         });
-
-         this.circleMap.forEach((circle) => {
-            if (circle.containerId === this.dragElement) {
-               circle.x = mouseX - circle.offsetX;
-               circle.y = mouseY - circle.offsetY;
-               if (circle.pointTo.length > 0) {
-                  this.updateLinesPointTo(circle);
-               }
-            }
-         });
-
-         this.lineMap.forEach((line) => {
-            if (line.containerId === this.dragElement) {
-               line.minX = mouseX + line.offsetX;
-               line.minY = mouseY + line.offsetY;
-               line.maxX = line.minX + line.width;
-               line.maxY = line.minY + line.height;
-               line.curvePoints.forEach((point) => {
+               thedragElement.points.forEach((point) => {
                   point.x = mouseX + point.offsetX;
                   point.y = mouseY + point.offsetY;
                });
-            }
-         });
-
-         this.textMap.forEach((text) => {
-            if (text.containerId === this.dragElement) {
-               text.x = mouseX - text.offsetX;
-               text.y = mouseY - text.offsetY;
-            }
-         });
-
-         this.imageMap.forEach((image) => {
-            if (image.containerId === this.dragElement) {
-               image.x = mouseX - image.offsetX;
-               image.y = mouseY - image.offsetY;
-            }
-         });
-
-         this.pencilMap.forEach((pencil) => {
-            if (pencil.containerId !== this.dragElement) return;
-            pencil.minX = mouseX - pencil.offsetX;
-            pencil.minY = mouseY - pencil.offsetY;
-            pencil.maxY = pencil.minX + pencil.width;
-            pencil.maxY = pencil.minY + pencil.height;
-            pencil.points.forEach((point) => {
-               point.x = mouseX - point.offsetX;
-               point.y = mouseY - point.offsetY;
-            });
-         });
-      } else if (otherDrag) {
-         otherDrag.x = mouseX - otherDrag.offsetX;
-         otherDrag.y = mouseY - otherDrag.offsetY;
-         this.showGuides(
-            otherDrag.x - otherDrag.radius,
-            otherDrag.y - otherDrag.radius,
-            otherDrag.width,
-            otherDrag.height,
-            this.dragElement,
-            otherDrag,
-         );
-         this.updateLinesPointTo(otherDrag);
+               this.drawImage();
+               this.showGuides(
+                  thedragElement.minX,
+                  thedragElement.minY,
+                  thedragElement.maxX - thedragElement.minX,
+                  thedragElement.maxY - thedragElement.minY,
+                  this.dragElement,
+                  thedragElement,
+               );
+               this.drawImage();
+               return;
+            case shapeTypes.line:
+               thedragElement.curvePoints.forEach((ele) => {
+                  const deltaX = mouseX - ele.offsetX;
+                  const deltaY = mouseY - ele.offsetY;
+                  this.showGuides(
+                     thedragElement.curvePoints[0].x,
+                     thedragElement.curvePoints[0].y,
+                     thedragElement.maxX - thedragElement.minX,
+                     thedragElement.maxY - thedragElement.minY,
+                     this.dragElement,
+                     thedragElement,
+                  );
+                  ele.x = deltaX;
+                  ele.y = deltaY;
+               });
+               break;
+            case shapeTypes.others:
+               console.log(thedragElement.isActive);
+               thedragElement.x = mouseX - thedragElement.offsetX;
+               thedragElement.y = mouseY - thedragElement.offsetY;
+               this.showGuides(
+                  thedragElement.x - thedragElement.radius,
+                  thedragElement.y - thedragElement.radius,
+                  thedragElement.width,
+                  thedragElement.height,
+                  this.dragElement,
+                  thedragElement,
+               );
+               this.updateLinesPointTo(thedragElement);
+               break;
+            default:
+               break;
+         }
       }
+
+      // if (this.resizeElement?.key) {
+      //    this.draw();
+      //    return;
+      // }
+
+      // Dragging
+      // let rect = this.rectMap.get(this.dragElement);
+      // let arc = this.circleMap.get(this.dragElement);
+      // let text = this.textMap.get(this.dragElement);
+      // let line = this.lineMap.get(this.dragElement);
+      // let image = this.imageMap.get(this.dragElement?.key);
+      // let pencilDrag = this.pencilMap.get(this.dragElement);
+      // let figDrag = this.figureMap.get(this.dragElement);
+      // let otherDrag = this.otherShapes.get(this.dragElement);
+
+      // if (rect) {
+      //    rect.isActive = true;
+      //    rect.x = mouseX - rect.offsetX;
+      //    rect.y = mouseY - rect.offsetY;
+
+      //    this.showGuides(
+      //       rect.x,
+      //       rect.y,
+      //       rect.width,
+      //       rect.height,
+      //       this.dragElement,
+      //       rect,
+      //    );
+      //    //  this.drawRenderCanvas(rect.type, rect);
+
+      //    this.updateLinesPointTo(rect);
+      // } else if (arc) {
+      //    arc.isActive = true;
+      //    arc.x = mouseX - arc.offsetX;
+      //    arc.y = mouseY - arc.offsetY;
+      //    this.showGuides(
+      //       arc.x - arc.xRadius,
+      //       arc.y - arc.yRadius,
+      //       2 * arc.xRadius,
+      //       2 * arc.xRadius,
+      //       this.dragElement,
+      //       arc,
+      //    );
+      //    //  this.drawRenderCanvas(arc.type, arc);
+
+      //    this.updateLinesPointTo(arc);
+      // } else if (text) {
+      //    text.x = mouseX - text.offsetX;
+      //    text.y = mouseY - text.offsetY;
+      //    this.showGuides(
+      //       text.x,
+      //       text.y,
+      //       text.width,
+      //       text.height,
+      //       this.dragElement,
+      //       text,
+      //    );
+
+      //    //  this.drawRenderCanvas("text", text);
+      //    this.updateLinesPointTo(text);
+      // } else if (line) {
+      //    line.curvePoints.forEach((ele) => {
+      //       const deltaX = mouseX - ele.offsetX;
+      //       const deltaY = mouseY - ele.offsetY;
+      //       this.showGuides(
+      //          line.curvePoints[0].x,
+      //          line.curvePoints[0].y,
+      //          line.maxX - line.minX,
+      //          line.maxY - line.minY,
+      //          this.dragElement,
+      //          line,
+      //       );
+      //       ele.x = deltaX;
+      //       ele.y = deltaY;
+      //    });
+      // } else if (image) {
+      //    image.x = mouseX - image.offsetX;
+      //    image.y = mouseY - image.offsetY;
+
+      //    const { x, y, width, height, isActive } = image;
+      //    this.breakPointsCtx.clearRect(
+      //       0,
+      //       0,
+      //       this.canvasbreakPoints.width,
+      //       this.canvasbreakPoints.height,
+      //    );
+
+      //    this.breakPointsCtx.save();
+      //    this.breakPointsCtx.translate(
+      //       -scrollBar.scrollPositionX,
+      //       -scrollBar.scrollPositionY,
+      //    );
+      //    if (isActive) {
+      //       this.dots(
+      //          { x: x - this.tolerance, y: y - this.tolerance },
+      //          { x: x + width + this.tolerance, y: y - this.tolerance },
+      //          {
+      //             x: x + width + this.tolerance,
+      //             y: y + height + this.tolerance,
+      //          },
+      //          { x: x - this.tolerance, y: y + height + this.tolerance },
+      //          { context: this.breakPointsCtx },
+      //       );
+
+      //       this.breakPointsCtx.strokeStyle = this.activeColor;
+      //       this.breakPointsCtx.rect(
+      //          x - this.tolerance,
+      //          y - this.tolerance,
+      //          width + 2 * this.tolerance,
+      //          height + 2 * this.tolerance,
+      //       );
+      //       this.breakPointsCtx.stroke();
+      //    }
+
+      //    this.breakPointsCtx.scale(Scale.scale, Scale.scale);
+      //    this.breakPointsCtx.drawImage(
+      //       this.dragElement?.src,
+      //       x,
+      //       y,
+      //       width,
+      //       height,
+      //    );
+      //    this.breakPointsCtx.restore();
+      //    this.updateLinesPointTo(image);
+      // } else if (pencilDrag) {
+      // pencilDrag.minX = mouseX + pencilDrag.offsetX;
+      // pencilDrag.minY = mouseY + pencilDrag.offsetY;
+      // pencilDrag.maxY = pencilDrag.minY + pencilDrag.height;
+      // pencilDrag.maxX = pencilDrag.minX + pencilDrag.width;
+
+      // pencilDrag.points.forEach((point) => {
+      //    point.x = mouseX + point.offsetX;
+      //    point.y = mouseY + point.offsetY;
+      // });
+      // this.drawImage();
+      // this.showGuides(
+      //    pencilDrag.minX,
+      //    pencilDrag.minY,
+      //    pencilDrag.maxX - pencilDrag.minX,
+      //    pencilDrag.maxY - pencilDrag.minY,
+      //    this.dragElement,
+      //    pencilDrag,
+      // );
+      // return;
+      // } else if (figDrag) {
+      //    figDrag.x = mouseX - figDrag.offsetX;
+      //    figDrag.y = mouseY - figDrag.offsetY;
+
+      //    this.rectMap.forEach((rect) => {
+      //       if (rect.containerId === this.dragElement) {
+      //          rect.x = mouseX - rect.offsetX;
+      //          rect.y = mouseY - rect.offsetY;
+      //          if (rect.pointTo.length > 0) {
+      //             this.updateLinesPointTo(rect);
+      //          }
+      //       }
+      //    });
+
+      //    this.circleMap.forEach((circle) => {
+      //       if (circle.containerId === this.dragElement) {
+      //          circle.x = mouseX - circle.offsetX;
+      //          circle.y = mouseY - circle.offsetY;
+      //          if (circle.pointTo.length > 0) {
+      //             this.updateLinesPointTo(circle);
+      //          }
+      //       }
+      //    });
+
+      //    this.lineMap.forEach((line) => {
+      //       if (line.containerId === this.dragElement) {
+      //          line.minX = mouseX + line.offsetX;
+      //          line.minY = mouseY + line.offsetY;
+      //          line.maxX = line.minX + line.width;
+      //          line.maxY = line.minY + line.height;
+      //          line.curvePoints.forEach((point) => {
+      //             point.x = mouseX + point.offsetX;
+      //             point.y = mouseY + point.offsetY;
+      //          });
+      //       }
+      //    });
+
+      //    this.textMap.forEach((text) => {
+      //       if (text.containerId === this.dragElement) {
+      //          text.x = mouseX - text.offsetX;
+      //          text.y = mouseY - text.offsetY;
+      //       }
+      //    });
+
+      //    this.imageMap.forEach((image) => {
+      //       if (image.containerId === this.dragElement) {
+      //          image.x = mouseX - image.offsetX;
+      //          image.y = mouseY - image.offsetY;
+      //       }
+      //    });
+
+      //    this.pencilMap.forEach((pencil) => {
+      //       if (pencil.containerId !== this.dragElement) return;
+      //       pencil.minX = mouseX - pencil.offsetX;
+      //       pencil.minY = mouseY - pencil.offsetY;
+      //       pencil.maxY = pencil.minX + pencil.width;
+      //       pencil.maxY = pencil.minY + pencil.height;
+      //       pencil.points.forEach((point) => {
+      //          point.x = mouseX - point.offsetX;
+      //          point.y = mouseY - point.offsetY;
+      //       });
+      //    });
+      // } else if (otherDrag) {
+      //    otherDrag.x = mouseX - otherDrag.offsetX;
+      //    otherDrag.y = mouseY - otherDrag.offsetY;
+      //    this.showGuides(
+      //       otherDrag.x - otherDrag.radius,
+      //       otherDrag.y - otherDrag.radius,
+      //       otherDrag.width,
+      //       otherDrag.height,
+      //       this.dragElement,
+      //       otherDrag,
+      //    );
+      //    this.updateLinesPointTo(otherDrag);
+      // }
       this.draw();
       this.drawImage();
    }
 
    mouseUp(e) {
       if (config.mode == "handsFree" || e.altKey) return;
+
+      // insert a shape
       this.insertNew();
 
       if (this.copies.length > 0) {
          Bin.insert({ type: redoType.revert, shapes: this.copies });
+         this.copies = [];
       }
 
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
@@ -3520,7 +4283,10 @@ export default class Shapes {
          }
       }
 
-      if (!this.resizeElement && !this.dragElement) return;
+      // if (!this.resizeElement && !this.dragElement) return;
+      const theDragElement = this.canvasShapes[this.dragElement];
+      const theResizeElement = this.canvasShapes[this.resizeElement?.index];
+      if (!theResizeElement && !theDragElement) return;
       this.breakPointsCtx.clearRect(
          0,
          0,
@@ -3528,393 +4294,798 @@ export default class Shapes {
          this.canvasbreakPoints.height,
       );
 
-      const rect = this.rectMap.get(this.resizeElement?.key);
-      const line = this.lineMap.get(this.resizeElement?.key);
-      const sphere = this.circleMap.get(this.resizeElement?.key);
-      const imageResize = this.imageMap.get(this.resizeElement?.key);
-      const figResize = this.figureMap.get(this.resizeElement?.key);
-      const pencilResize = this.pencilMap.get(this.resizeElement?.key);
-      const otherShapeResize = this.otherShapes.get(this.resizeElement?.key);
+      if (theResizeElement) {
+         switch (theResizeElement.type) {
+            case shapeTypes.rect:
+               theResizeElement.isActive = true;
+               theResizeElement.width = Math.max(theResizeElement.width, 20);
+               theResizeElement.height = Math.max(theResizeElement.height, 20);
 
-      if (rect) {
-         rect.isActive = true;
-         rect.width = Math.max(rect.width, 20);
-         rect.height = Math.max(rect.height, 20);
+               // update line minMx
+               theResizeElement.pointTo.forEach((p) => {
+                  this.updateLineMinMax(p);
+               });
 
-         // update line minMx
-         rect.pointTo.forEach((p) => {
-            this.updateLineMinMax(p);
-         });
-
-         if (this.resizeElement?.key)
-            this.updateGuides(
-               this.resizeElement.key,
-               rect.x,
-               rect.y,
-               rect.x + rect.width,
-               rect.y + rect.height,
-            );
-      } else if (imageResize) {
-         imageResize.width = Math.max(imageResize.width, 20);
-         imageResize.height = Math.max(imageResize.height, 20);
-         imageResize.isActive = true;
-         this.breakPointsCtx.clearRect(
-            0,
-            0,
-            this.canvasbreakPoints.width,
-            this.canvasbreakPoints.height,
-         );
-
-         this.updateGuides(
-            this.resizeElement?.key,
-            imageResize.x,
-            imageResize.y,
-            imageResize.x + imageResize.width,
-            imageResize.y + imageResize.height,
-         );
-
-         this.drawImage();
-         this.resizeElement = null;
-         return;
-      } else if (line) {
-         const key = this.resizeElement.key;
-         if (this.resizeElement.direction === "resizeStart") {
-            let keyUsed = false;
-            if (line.startTo) {
-               const { rect, sphere, text, image, otherShapes } = this.getShape(
-                  line.startTo,
-               );
-
-               if (rect && rect.pointTo.length > 0) {
-                  if (
-                     line.curvePoints[0].x < rect.x ||
-                     line.curvePoints[0].x > rect.x + rect.width ||
-                     line.curvePoints[0].y < rect.y ||
-                     line.curvePoints[0].y > rect.y + rect.height
-                  ) {
-                     rect.pointTo = rect.pointTo.filter((r) => r !== key);
-                     line.startTo = null;
-                  }
-               }
-
-               if (sphere && sphere.pointTo.length > 0) {
-                  const distance = Math.sqrt(
-                     (line.curvePoints[0].x - sphere.x) ** 2 +
-                        (line.curvePoints[0].y - sphere.y) ** 2,
+               if (this.resizeElement?.key)
+                  this.updateGuides(
+                     this.resizeElement.key,
+                     theResizeElement.x,
+                     theResizeElement.y,
+                     theResizeElement.x + theResizeElement.width,
+                     theResizeElement.y + theResizeElement.height,
                   );
-                  if (distance > sphere.xRadius || distance > sphere.yRadius) {
-                     sphere.pointTo = sphere.pointTo.filter((s) => s !== key);
-                     line.startTo = null;
+               break;
+            case shapeTypes.pencil:
+               theResizeElement.width =
+                  theResizeElement.maxX - theResizeElement.minX;
+               theResizeElement.height =
+                  theResizeElement.maxY - theResizeElement.min;
+               break;
+            case shapeTypes.line:
+               const key = theResizeElement.id;
+               if (this.resizeElement.direction === "resizeStart") {
+                  let keyUsed = false;
+                  if (theResizeElement.startTo) {
+                     let matchedConnection = null;
+
+                     for (let i = 0; i < this.canvasShapes.length; i++) {
+                        if (
+                           this.canvasShapes[i].id ===
+                              theResizeElement.startTo &&
+                           this.canvasShapes[i].type !== shapeTypes.line
+                        ) {
+                           matchedConnection = i;
+                           break;
+                        }
+                     }
+
+                     if (matchedConnection != null) {
+                        let theShape = this.canvasShapes[matchedConnection];
+
+                        switch (theShape.type) {
+                           case shapeTypes.rect:
+                              if (
+                                 theResizeElement.curvePoints[0].x <
+                                    theShape.x ||
+                                 theResizeElement.curvePoints[0].x >
+                                    theShape.x + theShape.width ||
+                                 theResizeElement.curvePoints[0].y <
+                                    theShape.y ||
+                                 theResizeElement.curvePoints[0].y >
+                                    theShape.y + theShape.height
+                              ) {
+                                 theShape = theShape.pointTo.filter(
+                                    (r) => r !== key,
+                                 );
+                                 theResizeElement.startTo = null;
+                              }
+                              break;
+                           case shapeTypes.circle:
+                              const distance = Math.sqrt(
+                                 (theResizeElement.curvePoints[0].x -
+                                    theShape.x) **
+                                    2 +
+                                    (theResizeElement.curvePoints[0].y -
+                                       theShape.y) **
+                                       2,
+                              );
+                              if (
+                                 distance > theShape.xRadius ||
+                                 distance > theShape.yRadius
+                              ) {
+                                 theShape.pointTo = theShape.pointTo.filter(
+                                    (s) => s !== key,
+                                 );
+                                 theResizeElement.startTo = null;
+                              }
+                              break;
+                           case shapeTypes.text:
+                              if (
+                                 theResizeElement.curvePoints[0].x <
+                                    theShape.x ||
+                                 theResizeElement.curvePoints[0].x >
+                                    theShape.x + theShape.width ||
+                                 theResizeElement.curvePoints[0].y <
+                                    theShape.y ||
+                                 theResizeElement.curvePoints[0].y >
+                                    theShape.y + theShape.height
+                              ) {
+                                 theShape.pointTo = theShape.pointTo.filter(
+                                    (r) => {
+                                       return r !== key;
+                                    },
+                                 );
+                                 theResizeElement.startTo = null;
+                              }
+                              break;
+                           case shapeTypes.image:
+                              if (
+                                 theResizeElement.curvePoints[0].x <
+                                    theShape.x ||
+                                 theResizeElement.curvePoints[0].x >
+                                    theShape.x + theShape.width ||
+                                 theResizeElement.curvePoints[0].y <
+                                    theShape.y ||
+                                 theResizeElement.curvePoints[0].y >
+                                    theShape.y + theShape.height
+                              ) {
+                                 theShape.pointTo = theShape.pointTo.filter(
+                                    (p) => p !== key,
+                                 );
+                                 theResizeElement.startTo = null;
+                              }
+                              break;
+                           case shapeTypes.others:
+                              if (
+                                 theResizeElement.curvePoints[0].x <
+                                    theShape.x - theShape.radius ||
+                                 theResizeElement.curvePoints[0].x >
+                                    theShape.x + theShape.radius ||
+                                 theResizeElement.curvePoints[0].y <
+                                    theShape.y - theShape.radius ||
+                                 theResizeElement.curvePoints[0].y >
+                                    theShape.y + theShape.radius
+                              ) {
+                                 theShape.pointTo = theShape.pointTo.filter(
+                                    (p) => p !== key,
+                                 );
+                                 theResizeElement.startTo = null;
+                              }
+                              break;
+                           default:
+                              break;
+                        }
+                     }
                   }
-               }
 
-               if (text && text.pointTo.length > 0) {
-                  if (
-                     line.curvePoints[0].x < text.x ||
-                     line.curvePoints[0].x > text.x + text.width ||
-                     line.curvePoints[0].y < text.y ||
-                     line.curvePoints[0].y > text.y + text.height
-                  ) {
-                     text.pointTo = text.pointTo.filter((r) => {
-                        return r !== key;
-                     });
-                     line.startTo = null;
+                  this.canvasShapes.forEach((shape) => {
+                     const { type, id } = shape;
+                     if (keyUsed) return;
+                     const cond = () => {
+                        if (
+                           shape.pointTo.includes(key) ||
+                           theResizeElement.endTo === id
+                        )
+                           return;
+
+                        shape.pointTo.push(key);
+                        theResizeElement.startTo = id;
+                        keyUsed = true;
+                     };
+
+                     switch (type) {
+                        case shapeTypes.rect:
+                           cond();
+                           break;
+                        case shapeTypes.circle:
+                           const { xRadius, yRadius, x, y } = shape;
+                           const distance = Math.sqrt(
+                              (mouseX - x) ** 2 + (mouseY - y) ** 2,
+                           );
+
+                           if (
+                              (Math.abs(distance - xRadius) <= this.tolerance ||
+                                 Math.abs(distance - yRadius) <=
+                                    this.tolerance) &&
+                              !keyUsed
+                           ) {
+                              cond();
+                           }
+                           break;
+                        case shapeTypes.text:
+                           if (
+                              theResizeElement.curvePoints[0].x >= shape.x &&
+                              theResizeElement.curvePoints[0].x <=
+                                 shape.x + shape.width &&
+                              theResizeElement.curvePoints[0].y >= shape.y &&
+                              theResizeElement.curvePoints[0].y <=
+                                 shape.y + shape.height &&
+                              !keyUsed
+                           ) {
+                              cond();
+                           }
+                           break;
+                        case shapeTypes.imageMap:
+                           if (
+                              this.squareLineParams(shape, mouseX, mouseY) &&
+                              !keyUsed
+                           ) {
+                              cond();
+                           }
+                           break;
+                        case shapeTypes.others:
+                           const { radius } = shape;
+                           if (
+                              mouseX > shape.x - radius &&
+                              mouseX < shape.x + radius &&
+                              mouseY > shape.y - radius &&
+                              mouseY < shape.y + radius
+                           ) {
+                              cond();
+                           }
+                           break;
+                     }
+                  });
+
+                  keyUsed = false;
+               } else if (this.resizeElement.direction === "resizeEnd") {
+                  const length = theResizeElement.curvePoints.length - 1;
+                  let keyUsed = false;
+
+                  if (theResizeElement.endTo) {
+                     let matchedConnection = null;
+
+                     for (let i = 0; i < this.canvasShapes.length; i++) {
+                        if (
+                           this.canvasShapes[i].id === theResizeElement.endTo &&
+                           this.canvasShapes[i].type !== shapeTypes.line
+                        ) {
+                           matchedConnection = i;
+                           break;
+                        }
+                     }
+
+                     const theShape = this.canvasShapes[matchedConnection];
+                     if (matchedConnection !== null) {
+                        const { type } = theShape;
+
+                        switch (type) {
+                           case shapeTypes.rect:
+                              if (
+                                 theResizeElement.curvePoints[length].x <
+                                    theShape.x ||
+                                 theResizeElement.curvePoints[length].x >
+                                    theShape.x + theShape.width ||
+                                 theResizeElement.curvePoints[length].y <
+                                    theShape.y ||
+                                 theResizeElement.curvePoints[length].y >
+                                    theShape.y + theShape.height
+                              ) {
+                                 theShape.pointTo = theShape.pointTo.filter(
+                                    (r) => {
+                                       return r !== key;
+                                    },
+                                 );
+                                 theResizeElement.endTo = null;
+                              }
+                              break;
+                           case shapeTypes.text:
+                              if (
+                                 theResizeElement.curvePoints[length].x <
+                                    theShape.x ||
+                                 theResizeElement.curvePoints[length].x >
+                                    theShape.x + theShape.width ||
+                                 theResizeElement.curvePoints[length].y <
+                                    theShape.y ||
+                                 theResizeElement.curvePoints[length].y >
+                                    theShape.y + theShape.height
+                              ) {
+                                 theShape.pointTo = theShape.pointTo.filter(
+                                    (r) => {
+                                       return r !== key;
+                                    },
+                                 );
+                                 theResizeElement.endTo = null;
+                              }
+                              break;
+                           case shapeTypes.circle:
+                              const distance = Math.sqrt(
+                                 (theResizeElement.curvePoints[length].x -
+                                    theShape.x) **
+                                    2 +
+                                    (theResizeElement.curvePoints[length].y -
+                                       theShape.y) **
+                                       2,
+                              );
+                              if (
+                                 distance > theShape.xRadius ||
+                                 distance > theShape.yRadius
+                              ) {
+                                 theShape.pointTo = theShape.pointTo.filter(
+                                    (s) => s !== key,
+                                 );
+                                 theResizeElement.endTo = null;
+                              }
+                              break;
+                           case shapeTypes.image:
+                              if (
+                                 theResizeElement.curvePoints[length].x <
+                                    theShape.x ||
+                                 theResizeElement.curvePoints[length].x >
+                                    theShape.x + theShape.width ||
+                                 theResizeElement.curvePoints[length].y <
+                                    theShape.y ||
+                                 theResizeElement.curvePoints[length].y >
+                                    theShape.y + theShape.height
+                              ) {
+                                 theShape.pointTo = theShape.pointTo.filter(
+                                    (p) => p !== key,
+                                 );
+                                 theResizeElement.endTo = null;
+                              }
+                              break;
+                           case shapeTypes.others:
+                              if (
+                                 mouseX < theShape.x - theShape.radius ||
+                                 mouseX > theShape.x + theShape.radius ||
+                                 mouseY < theShape.y - theShape.radius ||
+                                 mouseY > theShape.y + theShape.radius
+                              ) {
+                                 otherShapes.pointTo =
+                                    otherShapes.pointTo.filter(
+                                       (p) => p !== key,
+                                    );
+                                 theResizeElement.endTo = null;
+                              }
+                              break;
+                        }
+                     }
                   }
-               }
 
-               if (image && image.length > 0) {
-                  if (
-                     line.curvePoints[0].x < image.x ||
-                     line.curvePoints[0].x > image.x + image.width ||
-                     line.curvePoints[0].y < image.y ||
-                     line.curvePoints[0].y > image.y + image.height
-                  ) {
-                     image.pointTo = image.pointTo.filter((p) => p !== key);
-                     line.startTo = null;
-                  }
-               }
+                  this.canvasShapes.forEach((shape) => {
+                     const { type, id } = shape;
+                     if (keyUsed) return;
+                     const cond = () => {
+                        if (
+                           (theResizeElement.startTo === id ||
+                              shape.pointTo.includes(key)) &&
+                           shape.type === shapeTypes.line
+                        )
+                           return;
 
-               if (otherShapes && otherShapes.pointTo.length > 0) {
-                  if (
-                     line.curvePoints[0].x <
-                        otherShapes.x - otherShapes.radius ||
-                     line.curvePoints[0].x >
-                        otherShapes.x + otherShapes.radius ||
-                     line.curvePoints[0].y <
-                        otherShapes.y - otherShapes.radius ||
-                     line.curvePoints[0].y > otherShapes.y + otherShapes.radius
-                  ) {
-                     otherShapes.pointTo = otherShapes.pointTo.filter(
-                        (p) => p !== key,
-                     );
-                     line.startTo = null;
-                  }
-               }
-            }
+                        shape.pointTo.push(key);
+                        theResizeElement.endTo = id;
+                        console.log("shape ", shape);
+                        keyUsed = true;
+                     };
 
-            this.rectMap.forEach((rect, rectKey) => {
-               if (this.squareLineParams(rect, mouseX, mouseY) && !keyUsed) {
-                  if (rect.pointTo.includes(key) || line.endTo === rectKey) {
-                     return;
-                  }
-                  rect.pointTo.push(key);
-                  line.startTo = rectKey;
-                  keyUsed = true;
-               }
-            });
+                     switch (type) {
+                        case shapeTypes.rect:
+                           if (this.squareLineParams(shape, mouseX, mouseY))
+                              cond();
+                           break;
+                        case shapeTypes.circle:
+                           const { xRadius, yRadius, x, y, pointTo } = shape;
+                           const distance = Math.sqrt(
+                              (mouseX - x) ** 2 + (mouseY - y) ** 2,
+                           );
 
-            this.circleMap.forEach((circle, circleKey) => {
-               const { xRadius, yRadius, x, y } = circle;
-               const distance = Math.sqrt(
-                  (mouseX - x) ** 2 + (mouseY - y) ** 2,
-               );
+                           if (
+                              Math.abs(distance - xRadius) <= this.tolerance ||
+                              Math.abs(distance - yRadius) <= this.tolerance
+                           )
+                              cond();
+                           break;
+                        case shapeTypes.text:
+                           if (
+                              theResizeElement.curvePoints[length].x >=
+                                 shape.x &&
+                              theResizeElement.curvePoints[length].x <=
+                                 shape.x + shape.width &&
+                              theResizeElement.curvePoints[length].y >=
+                                 shape.y &&
+                              theResizeElement.curvePoints[length].y <=
+                                 shape.y + shape.height &&
+                              !keyUsed
+                           )
+                              cond();
+                           break;
+                        case shapeTypes.image:
+                           if (
+                              this.squareLineParams(shape, mouseX, mouseY) &&
+                              !keyUsed
+                           )
+                              cond();
+                           break;
+                        case shapeTypes.others:
+                           const { radius } = o;
+                           if (
+                              mouseX > shape.x - radius &&
+                              mouseX < shape.x + radius &&
+                              mouseY > shape.y - radius &&
+                              mouseY < shape.y + radius
+                           )
+                              cond();
+                           break;
+                     }
+                  });
 
-               if (
-                  (Math.abs(distance - xRadius) <= this.tolerance ||
-                     Math.abs(distance - yRadius) <= this.tolerance) &&
-                  !keyUsed
-               ) {
-                  if (
-                     circle.pointTo.includes(key) ||
-                     circleKey === line.endTo
-                  ) {
-                     return;
-                  }
-                  circle.pointTo.push(key);
-                  line.startTo = circleKey;
-                  keyUsed = true;
-               }
-            });
-
-            this.textMap.forEach((text, textKey) => {
-               if (
-                  line.curvePoints[0].x >= text.x &&
-                  line.curvePoints[0].x <= text.x + text.width &&
-                  line.curvePoints[0].y >= text.y &&
-                  line.curvePoints[0].y <= text.y + text.height &&
-                  !keyUsed
-               ) {
-                  if (text.pointTo.includes(key) || textKey === line.endTo)
-                     return;
-                  text.pointTo.push(key);
-                  line.startTo = textKey;
-                  keyUsed = true;
-               }
-            });
-
-            this.imageMap.forEach((image, imageKey) => {
-               if (this.squareLineParams(image, mouseX, mouseY) && !keyUsed) {
-                  if (image.pointTo.includes(key) || line.endTo === imageKey) {
-                     return;
-                  }
-                  image.pointTo.push(key);
-                  line.startTo = imageKey;
-                  keyUsed = true;
-               }
-            });
-
-            this.otherShapes.forEach((o, okey) => {
-               const { radius, x, y } = o;
-               if (
-                  mouseX > x - radius &&
-                  mouseX < x + radius &&
-                  mouseY > y - radius &&
-                  mouseY < y + radius &&
-                  !keyUsed
-               ) {
-                  if (o.pointTo.includes(key) || line.endTo === okey) return;
-                  o.pointTo.push(key);
-                  line.startTo = okey;
-                  keyUsed = true;
-               }
-            });
-
-            keyUsed = false;
-         } else if (this.resizeElement.direction === "resizeEnd") {
-            const length = line.curvePoints.length - 1;
-            let keyUsed = false;
-
-            if (line.endTo) {
-               const { rect, sphere, text, image, otherShapes } = this.getShape(
-                  line.endTo,
-               );
-               if (rect && rect.pointTo.length > 0) {
-                  if (
-                     line.curvePoints[length].x < rect.x ||
-                     line.curvePoints[length].x > rect.x + rect.width ||
-                     line.curvePoints[length].y < rect.y ||
-                     line.curvePoints[length].y > rect.y + rect.height
-                  ) {
-                     rect.pointTo = rect.pointTo.filter((r) => {
-                        return r !== key;
-                     });
-                     line.endTo = null;
-                  }
-               }
-
-               if (sphere && sphere.pointTo.length > 0) {
-                  const distance = Math.sqrt(
-                     (line.curvePoints[length].x - sphere.x) ** 2 +
-                        (line.curvePoints[length].y - sphere.y) ** 2,
-                  );
-                  if (distance > sphere.xRadius || distance > sphere.yRadius) {
-                     sphere.pointTo = sphere.pointTo.filter((s) => s !== key);
-                     line.endTo = null;
-                  }
-               }
-
-               if (text && text.pointTo.length > 0) {
-                  if (
-                     line.curvePoints[length].x < text.x ||
-                     line.curvePoints[length].x > text.x + text.width ||
-                     line.curvePoints[length].y < text.y ||
-                     line.curvePoints[length].y > text.y + text.height
-                  ) {
-                     text.pointTo = text.pointTo.filter((r) => {
-                        return r !== key;
-                     });
-                     line.endTo = null;
-                  }
-               }
-
-               if (image && image.pointTo.length > 0) {
-                  if (
-                     line.curvePoints[length].x < image.x ||
-                     line.curvePoints[length].x > image.x + image.width ||
-                     line.curvePoints[length].y < image.y ||
-                     line.curvePoints[length].y > image.y + image.height
-                  ) {
-                     image.pointTo = image.pointTo.filter((p) => p !== key);
-                     line.endTo = null;
-                  }
-               }
-
-               if (otherShapes && otherShapes.pointTo.length > 0) {
-                  if (
-                     mouseX < otherShapes.x - otherShapes.radius ||
-                     mouseX > otherShapes.x + otherShapes.radius ||
-                     mouseY < otherShapes.y - otherShapes.radius ||
-                     mouseY > otherShapes.y + otherShapes.radius
-                  ) {
-                     otherShapes.pointTo = otherShapes.pointTo.filter(
-                        (p) => p !== key,
-                     );
-                     line.endTo = null;
-                  }
-               }
-            }
-
-            this.rectMap.forEach((rect, rectKey) => {
-               const { pointTo } = rect;
-               if (this.squareLineParams(rect, mouseX, mouseY) && !keyUsed) {
-                  if (line.startTo === rectKey || pointTo.includes(key)) return;
-                  pointTo.push(key);
-                  line.endTo = rectKey;
-                  keyUsed = true;
-               }
-            });
-
-            this.circleMap.forEach((circle, circleKey) => {
-               const { xRadius, yRadius, x, y, pointTo } = circle;
-               const distance = Math.sqrt(
-                  (mouseX - x) ** 2 + (mouseY - y) ** 2,
-               );
-
-               if (
-                  (Math.abs(distance - xRadius) <= this.tolerance ||
-                     Math.abs(distance - yRadius) <= this.tolerance) &&
-                  !keyUsed
-               ) {
-                  if (pointTo.includes(key) || circleKey === line.startTo)
-                     return;
-                  pointTo.push(key);
-                  line.endTo = circleKey;
-                  keyUsed = true;
-               }
-            });
-
-            this.textMap.forEach((text, textKey) => {
-               if (
-                  line.curvePoints[length].x >= text.x &&
-                  line.curvePoints[length].x <= text.x + text.width &&
-                  line.curvePoints[length].y >= text.y &&
-                  line.curvePoints[length].y <= text.y + text.height &&
-                  !keyUsed
-               ) {
-                  if (text.pointTo.includes(key) || textKey === line.startTo)
-                     return;
-                  text.pointTo.push(key);
-                  line.endTo = textKey;
-                  keyUsed = true;
-               }
-            });
-
-            this.imageMap.forEach((img, imgKey) => {
-               if (this.squareLineParams(img, mouseX, mouseY) && !keyUsed) {
-                  if (line.startTo === imgKey || img.pointTo.includes(key))
-                     return;
-                  img.pointTo.push(key);
-                  line.endTo = imgKey;
                   keyUsed = false;
                }
-            });
-
-            this.otherShapes.forEach((o, okey) => {
-               const { x, y, radius } = o;
-               if (
-                  mouseX > x - radius &&
-                  mouseX < x + radius &&
-                  mouseY > y - radius &&
-                  mouseY < y + radius &&
-                  !keyUsed
-               ) {
-                  if (o.pointTo.includes(key) || line.startTo === okey) return;
-
-                  o.pointTo.push(key);
-                  line.endTo = okey;
-                  keyUsed = false;
-               }
-            });
-
-            keyUsed = false;
+               theResizeElement.isActive = true;
+               this.updateLineMinMax(this.resizeElement.key);
+               break;
+            default:
+               break;
          }
-
-         line.isActive = true;
-         this.updateLineMinMax(this.resizeElement.key);
-      } else if (sphere) {
-         sphere.xRadius = Math.max(sphere.xRadius, 15);
-         sphere.yRadius = Math.max(sphere.yRadius, 15);
-
-         sphere.isActive = true;
-         if (this.resizeElement?.key) {
-            this.updateGuides(
-               this.resizeElement.key,
-               sphere.x - sphere.xRadius,
-               sphere.y - sphere.yRadius,
-               sphere.x + sphere.xRadius,
-               sphere.y + sphere.yRadius,
-            );
-         }
-      } else if (figResize) {
-         figResize.width = Math.max(figResize.width, 20);
-         figResize.height = Math.max(figResize.height, 20);
-
-         const { x, y, width, height } = figResize;
-         this.getShapesInsideFigure(figResize, this.resizeElement?.key);
-
-         this.updateGuides(figResize.id, x, y, x + width, y + height);
-      } else if (pencilResize) {
-         pencilResize.width = pencilResize.maxX - pencilResize.minX;
-         pencilResize.height = pencilResize.maxY - pencilResize.min;
-      } else if (otherShapeResize) {
-         this.updateGuides(
-            this.resizeElement?.key,
-            otherShapeResize.x - otherShapeResize.radius,
-            otherShapeResize.y - otherShapeResize.radius,
-            otherShapeResize.x + otherShapeResize.radius,
-            otherShapeResize.y + otherShapeResize.radius,
-         );
       }
+
+      // const rect = this.rectMap.get(this.resizeElement?.key);
+      // const line = this.lineMap.get(this.resizeElement?.key);
+      // const sphere = this.circleMap.get(this.resizeElement?.key);
+      // const imageResize = this.imageMap.get(this.resizeElement?.key);
+      // const figResize = this.figureMap.get(this.resizeElement?.key);
+      // const pencilResize = this.pencilMap.get(this.resizeElement?.key);
+      // const otherShapeResize = this.otherShapes.get(this.resizeElement?.key);
+      // if (rect) {
+      //    rect.isActive = true;
+      //    rect.width = Math.max(rect.width, 20);
+      //    rect.height = Math.max(rect.height, 20);
+
+      //    // update line minMx
+      //    rect.pointTo.forEach((p) => {
+      //       this.updateLineMinMax(p);
+      //    });
+
+      //    if (this.resizeElement?.key)
+      //       this.updateGuides(
+      //          this.resizeElement.key,
+      //          rect.x,
+      //          rect.y,
+      //          rect.x + rect.width,
+      //          rect.y + rect.height,
+      //       );
+      // } else if (imageResize) {
+      //    imageResize.width = Math.max(imageResize.width, 20);
+      //    imageResize.height = Math.max(imageResize.height, 20);
+      //    imageResize.isActive = true;
+      //    this.breakPointsCtx.clearRect(
+      //       0,
+      //       0,
+      //       this.canvasbreakPoints.width,
+      //       this.canvasbreakPoints.height,
+      //    );
+
+      //    this.updateGuides(
+      //       this.resizeElement?.key,
+      //       imageResize.x,
+      //       imageResize.y,
+      //       imageResize.x + imageResize.width,
+      //       imageResize.y + imageResize.height,
+      //    );
+
+      //    this.drawImage();
+      //    this.resizeElement = null;
+      //    return;
+      // } else if (line) {
+      //    const key = this.resizeElement.key;
+      //    if (this.resizeElement.direction === "resizeStart") {
+      //       let keyUsed = false;
+      //       if (line.startTo) {
+      //          const { rect, sphere, text, image, otherShapes } = this.getShape(
+      //             line.startTo,
+      //          );
+
+      //          if (rect && rect.pointTo.length > 0) {
+      //             if (
+      //                line.curvePoints[0].x < rect.x ||
+      //                line.curvePoints[0].x > rect.x + rect.width ||
+      //                line.curvePoints[0].y < rect.y ||
+      //                line.curvePoints[0].y > rect.y + rect.height
+      //             ) {
+      //                rect.pointTo = rect.pointTo.filter((r) => r !== key);
+      //                line.startTo = null;
+      //             }
+      //          }
+
+      //          if (sphere && sphere.pointTo.length > 0) {
+      //             const distance = Math.sqrt(
+      //                (line.curvePoints[0].x - sphere.x) ** 2 +
+      //                   (line.curvePoints[0].y - sphere.y) ** 2,
+      //             );
+      //             if (distance > sphere.xRadius || distance > sphere.yRadius) {
+      //                sphere.pointTo = sphere.pointTo.filter((s) => s !== key);
+      //                line.startTo = null;
+      //             }
+      //          }
+
+      //          if (text && text.pointTo.length > 0) {
+      //             if (
+      //                line.curvePoints[0].x < text.x ||
+      //                line.curvePoints[0].x > text.x + text.width ||
+      //                line.curvePoints[0].y < text.y ||
+      //                line.curvePoints[0].y > text.y + text.height
+      //             ) {
+      //                text.pointTo = text.pointTo.filter((r) => {
+      //                   return r !== key;
+      //                });
+      //                line.startTo = null;
+      //             }
+      //          }
+
+      //          if (image && image.length > 0) {
+      //             if (
+      //                line.curvePoints[0].x < image.x ||
+      //                line.curvePoints[0].x > image.x + image.width ||
+      //                line.curvePoints[0].y < image.y ||
+      //                line.curvePoints[0].y > image.y + image.height
+      //             ) {
+      //                image.pointTo = image.pointTo.filter((p) => p !== key);
+      //                line.startTo = null;
+      //             }
+      //          }
+
+      //          if (otherShapes && otherShapes.pointTo.length > 0) {
+      //             if (
+      //                line.curvePoints[0].x <
+      //                   otherShapes.x - otherShapes.radius ||
+      //                line.curvePoints[0].x >
+      //                   otherShapes.x + otherShapes.radius ||
+      //                line.curvePoints[0].y <
+      //                   otherShapes.y - otherShapes.radius ||
+      //                line.curvePoints[0].y > otherShapes.y + otherShapes.radius
+      //             ) {
+      //                otherShapes.pointTo = otherShapes.pointTo.filter(
+      //                   (p) => p !== key,
+      //                );
+      //                line.startTo = null;
+      //             }
+      //          }
+      //       }
+
+      //       this.rectMap.forEach((rect, rectKey) => {
+      //          if (this.squareLineParams(rect, mouseX, mouseY) && !keyUsed) {
+      //             if (rect.pointTo.includes(key) || line.endTo === rectKey) {
+      //                return;
+      //             }
+      //             rect.pointTo.push(key);
+      //             line.startTo = rectKey;
+      //             keyUsed = true;
+      //          }
+      //       });
+
+      //       this.circleMap.forEach((circle, circleKey) => {
+      //          const { xRadius, yRadius, x, y } = circle;
+      //          const distance = Math.sqrt(
+      //             (mouseX - x) ** 2 + (mouseY - y) ** 2,
+      //          );
+
+      //          if (
+      //             (Math.abs(distance - xRadius) <= this.tolerance ||
+      //                Math.abs(distance - yRadius) <= this.tolerance) &&
+      //             !keyUsed
+      //          ) {
+      //             if (
+      //                circle.pointTo.includes(key) ||
+      //                circleKey === line.endTo
+      //             ) {
+      //                return;
+      //             }
+      //             circle.pointTo.push(key);
+      //             line.startTo = circleKey;
+      //             keyUsed = true;
+      //          }
+      //       });
+
+      //       this.textMap.forEach((text, textKey) => {
+      //          if (
+      //             line.curvePoints[0].x >= text.x &&
+      //             line.curvePoints[0].x <= text.x + text.width &&
+      //             line.curvePoints[0].y >= text.y &&
+      //             line.curvePoints[0].y <= text.y + text.height &&
+      //             !keyUsed
+      //          ) {
+      //             if (text.pointTo.includes(key) || textKey === line.endTo)
+      //                return;
+      //             text.pointTo.push(key);
+      //             line.startTo = textKey;
+      //             keyUsed = true;
+      //          }
+      //       });
+
+      //       this.imageMap.forEach((image, imageKey) => {
+      //          if (this.squareLineParams(image, mouseX, mouseY) && !keyUsed) {
+      //             if (image.pointTo.includes(key) || line.endTo === imageKey) {
+      //                return;
+      //             }
+      //             image.pointTo.push(key);
+      //             line.startTo = imageKey;
+      //             keyUsed = true;
+      //          }
+      //       });
+
+      //       this.otherShapes.forEach((o, okey) => {
+      //          const { radius, x, y } = o;
+      //          if (
+      //             mouseX > x - radius &&
+      //             mouseX < x + radius &&
+      //             mouseY > y - radius &&
+      //             mouseY < y + radius &&
+      //             !keyUsed
+      //          ) {
+      //             if (o.pointTo.includes(key) || line.endTo === okey) return;
+      //             o.pointTo.push(key);
+      //             line.startTo = okey;
+      //             keyUsed = true;
+      //          }
+      //       });
+
+      //       keyUsed = false;
+      //    } else if (this.resizeElement.direction === "resizeEnd") {
+      //       const length = line.curvePoints.length - 1;
+      //       let keyUsed = false;
+
+      //       if (line.endTo) {
+      //          const { rect, sphere, text, image, otherShapes } = this.getShape(
+      //             line.endTo,
+      //          );
+      //          if (rect && rect.pointTo.length > 0) {
+      //             if (
+      //                line.curvePoints[length].x < rect.x ||
+      //                line.curvePoints[length].x > rect.x + rect.width ||
+      //                line.curvePoints[length].y < rect.y ||
+      //                line.curvePoints[length].y > rect.y + rect.height
+      //             ) {
+      //                rect.pointTo = rect.pointTo.filter((r) => {
+      //                   return r !== key;
+      //                });
+      //                line.endTo = null;
+      //             }
+      //          }
+
+      //          if (sphere && sphere.pointTo.length > 0) {
+      //             const distance = Math.sqrt(
+      //                (line.curvePoints[length].x - sphere.x) ** 2 +
+      //                   (line.curvePoints[length].y - sphere.y) ** 2,
+      //             );
+      //             if (distance > sphere.xRadius || distance > sphere.yRadius) {
+      //                sphere.pointTo = sphere.pointTo.filter((s) => s !== key);
+      //                line.endTo = null;
+      //             }
+      //          }
+
+      //          if (text && text.pointTo.length > 0) {
+      //             if (
+      //                line.curvePoints[length].x < text.x ||
+      //                line.curvePoints[length].x > text.x + text.width ||
+      //                line.curvePoints[length].y < text.y ||
+      //                line.curvePoints[length].y > text.y + text.height
+      //             ) {
+      //                text.pointTo = text.pointTo.filter((r) => {
+      //                   return r !== key;
+      //                });
+      //                line.endTo = null;
+      //             }
+      //          }
+
+      //          if (image && image.pointTo.length > 0) {
+      //             if (
+      //                line.curvePoints[length].x < image.x ||
+      //                line.curvePoints[length].x > image.x + image.width ||
+      //                line.curvePoints[length].y < image.y ||
+      //                line.curvePoints[length].y > image.y + image.height
+      //             ) {
+      //                image.pointTo = image.pointTo.filter((p) => p !== key);
+      //                line.endTo = null;
+      //             }
+      //          }
+
+      //          if (otherShapes && otherShapes.pointTo.length > 0) {
+      //             if (
+      //                mouseX < otherShapes.x - otherShapes.radius ||
+      //                mouseX > otherShapes.x + otherShapes.radius ||
+      //                mouseY < otherShapes.y - otherShapes.radius ||
+      //                mouseY > otherShapes.y + otherShapes.radius
+      //             ) {
+      //                otherShapes.pointTo = otherShapes.pointTo.filter(
+      //                   (p) => p !== key,
+      //                );
+      //                line.endTo = null;
+      //             }
+      //          }
+      //       }
+
+      //       this.rectMap.forEach((rect, rectKey) => {
+      //          const { pointTo } = rect;
+      //          if (this.squareLineParams(rect, mouseX, mouseY) && !keyUsed) {
+      //             if (line.startTo === rectKey || pointTo.includes(key)) return;
+      //             pointTo.push(key);
+      //             line.endTo = rectKey;
+      //             keyUsed = true;
+      //          }
+      //       });
+
+      //       this.circleMap.forEach((circle, circleKey) => {
+      //          const { xRadius, yRadius, x, y, pointTo } = circle;
+      //          const distance = Math.sqrt(
+      //             (mouseX - x) ** 2 + (mouseY - y) ** 2,
+      //          );
+
+      //          if (
+      //             (Math.abs(distance - xRadius) <= this.tolerance ||
+      //                Math.abs(distance - yRadius) <= this.tolerance) &&
+      //             !keyUsed
+      //          ) {
+      //             if (pointTo.includes(key) || circleKey === line.startTo)
+      //                return;
+      //             pointTo.push(key);
+      //             line.endTo = circleKey;
+      //             keyUsed = true;
+      //          }
+      //       });
+
+      //       this.textMap.forEach((text, textKey) => {
+      //          if (
+      //             line.curvePoints[length].x >= text.x &&
+      //             line.curvePoints[length].x <= text.x + text.width &&
+      //             line.curvePoints[length].y >= text.y &&
+      //             line.curvePoints[length].y <= text.y + text.height &&
+      //             !keyUsed
+      //          ) {
+      //             if (text.pointTo.includes(key) || textKey === line.startTo)
+      //                return;
+      //             text.pointTo.push(key);
+      //             line.endTo = textKey;
+      //             keyUsed = true;
+      //          }
+      //       });
+
+      //       this.imageMap.forEach((img, imgKey) => {
+      //          if (this.squareLineParams(img, mouseX, mouseY) && !keyUsed) {
+      //             if (line.startTo === imgKey || img.pointTo.includes(key))
+      //                return;
+      //             img.pointTo.push(key);
+      //             line.endTo = imgKey;
+      //             keyUsed = false;
+      //          }
+      //       });
+
+      //       this.otherShapes.forEach((o, okey) => {
+      //          const { x, y, radius } = o;
+      //          if (
+      //             mouseX > x - radius &&
+      //             mouseX < x + radius &&
+      //             mouseY > y - radius &&
+      //             mouseY < y + radius &&
+      //             !keyUsed
+      //          ) {
+      //             if (o.pointTo.includes(key) || line.startTo === okey) return;
+
+      //             o.pointTo.push(key);
+      //             line.endTo = okey;
+      //             keyUsed = false;
+      //          }
+      //       });
+
+      //       keyUsed = false;
+      //    }
+
+      //    line.isActive = true;
+      //    this.updateLineMinMax(this.resizeElement.key);
+      // } else if (sphere) {
+      //    sphere.xRadius = Math.max(sphere.xRadius, 15);
+      //    sphere.yRadius = Math.max(sphere.yRadius, 15);
+
+      //    sphere.isActive = true;
+      //    if (this.resizeElement?.key) {
+      //       this.updateGuides(
+      //          this.resizeElement.key,
+      //          sphere.x - sphere.xRadius,
+      //          sphere.y - sphere.yRadius,
+      //          sphere.x + sphere.xRadius,
+      //          sphere.y + sphere.yRadius,
+      //       );
+      //    }
+      // } else if (figResize) {
+      //    figResize.width = Math.max(figResize.width, 20);
+      //    figResize.height = Math.max(figResize.height, 20);
+
+      //    const { x, y, width, height } = figResize;
+      //    this.getShapesInsideFigure(figResize, this.resizeElement?.key);
+
+      //    this.updateGuides(figResize.id, x, y, x + width, y + height);
+      // } else if (pencilResize) {
+      //    pencilResize.width = pencilResize.maxX - pencilResize.minX;
+      //    pencilResize.height = pencilResize.maxY - pencilResize.min;
+      // } else if (otherShapeResize) {
+      //    this.updateGuides(
+      //       this.resizeElement?.key,
+      //       otherShapeResize.x - otherShapeResize.radius,
+      //       otherShapeResize.y - otherShapeResize.radius,
+      //       otherShapeResize.x + otherShapeResize.radius,
+      //       otherShapeResize.y + otherShapeResize.radius,
+      //    );
+      // }
 
       if (this.resizeElement) {
          this.draw();
@@ -3923,119 +5094,194 @@ export default class Shapes {
          return;
       }
 
-      const rectDrag = this.rectMap.get(this.dragElement);
-      const arcDrag = this.circleMap.get(this.dragElement);
-      const lineDrag = this.lineMap.get(this.dragElement);
-      const textDrag = this.textMap.get(this.dragElement);
-      const image = this.imageMap.get(this.dragElement?.key);
-      const figDrag = this.figureMap.get(this.dragElement);
-      const otherShapeDrag = this.otherShapes.get(this.dragElement);
-      const pencilDrag = this.pencilMap.get(this.dragElement);
+      // const rectDrag = this.rectMap.get(this.dragElement);
+      // const arcDrag = this.circleMap.get(this.dragElement);
+      // const lineDrag = this.lineMap.get(this.dragElement);
+      // const textDrag = this.textMap.get(this.dragElement);
+      // const image = this.imageMap.get(this.dragElement?.key);
+      // const figDrag = this.figureMap.get(this.dragElement);
+      // const otherShapeDrag = this.otherShapes.get(this.dragElement);
+      // const pencilDrag = this.pencilMap.get(this.dragElement);
 
-      if (rectDrag) {
-         this.updateGuides(
-            this.dragElement,
-            rectDrag.x,
-            rectDrag.y,
-            rectDrag.x + rectDrag.width,
-            rectDrag.y + rectDrag.height,
-         );
+      if (theDragElement) {
+         switch (theDragElement.type) {
+            case shapeTypes.rect:
+               this.updateGuides(
+                  this.dragElement,
+                  theDragElement.x,
+                  theDragElement.y,
+                  theDragElement.x + theDragElement.width,
+                  theDragElement.y + theDragElement.height,
+               );
 
-         if (rectDrag.pointTo?.length > 0) {
-            rectDrag.pointTo.forEach((l) => {
-               this.updateLineMinMax(l);
-            });
+               if (theDragElement.pointTo?.length > 0) {
+                  theDragElement.pointTo.forEach((l) => {
+                     this.updateLineMinMax(l);
+                  });
+               }
+               this.checkShapeIfInContainer(
+                  theDragElement.x,
+                  theDragElement.y,
+                  theDragElement.width,
+                  theDragElement.height,
+                  theDragElement,
+               );
+               break;
+            case shapeTypes.circle:
+               // this.updateGuides(
+               //    this.dragElement,
+               //    arcDrag.x - arcDrag.xRadius,
+               //    arcDrag.y - arcDrag.yRadius,
+               //    arcDrag.x + arcDrag.xRadius,
+               //    arcDrag.y + arcDrag.yRadius,
+               // );
+               theDragElement.width = 2 * theDragElement.xRadius;
+               theDragElement.height = 2 * theDragElement.yRadius;
+               if (theDragElement.pointTo?.length > 0) {
+                  // theDragElement.pointTo.forEach((l) => {
+                  //    this.updateLineMinMax(l);
+                  // });
+               }
+               // this.checkShapeIfInContainer(
+               //    theDragElement.x - theDragElement.xRadius,
+               //    theDragElement.y - theDragElement.yRadius,
+               //    2 * theDragElement.xRadius,
+               //    2 * theDragElement.yRadius,
+               //    theDragElement,
+               // );
+               break;
+            case shapeTypes.line:
+               // this.updateLineMinMax(this.dragElement);
+               theDragElement.isActive = true;
+               theDragElement.width = theDragElement.maxX - theDragElement.minX;
+               theDragElement.height =
+                  theDragElement.maxY - theDragElement.minY;
+               this.checkShapeIfInContainer(
+                  theDragElement.minX,
+                  theDragElement.minY,
+                  theDragElement.maxX - theDragElement.minX,
+                  theDragElement.maxY - theDragElement.minY,
+                  theDragElement,
+               );
+               break;
+            case shapeTypes.others:
+               this.updateGuides(
+                  this.dragElement,
+                  theDragElement.x - theDragElement.radius,
+                  theDragElement.y - theDragElement.radius,
+                  theDragElement.x + theDragElement.radius,
+                  theDragElement.y + theDragElement.radius,
+               );
+               break;
+            default:
+               break;
          }
-         this.checkShapeIfInContainer(
-            rectDrag.x,
-            rectDrag.y,
-            rectDrag.width,
-            rectDrag.height,
-            rectDrag,
-         );
-      } else if (arcDrag) {
-         this.updateGuides(
-            this.dragElement,
-            arcDrag.x - arcDrag.xRadius,
-            arcDrag.y - arcDrag.yRadius,
-            arcDrag.x + arcDrag.xRadius,
-            arcDrag.y + arcDrag.yRadius,
-         );
-         arcDrag.width = 2 * arcDrag.xRadius;
-         arcDrag.height = 2 * arcDrag.yRadius;
-         if (arcDrag.pointTo?.length > 0) {
-            arcDrag.pointTo.forEach((l) => {
-               this.updateLineMinMax(l);
-            });
-         }
-         this.checkShapeIfInContainer(
-            arcDrag.x - arcDrag.xRadius,
-            arcDrag.y - arcDrag.yRadius,
-            2 * arcDrag.xRadius,
-            2 * arcDrag.yRadius,
-            arcDrag,
-         );
-      } else if (lineDrag) {
-         this.updateLineMinMax(this.dragElement);
-         lineDrag.isActive = true;
-         lineDrag.width = lineDrag.maxX - lineDrag.minX;
-         lineDrag.height = lineDrag.maxY - lineDrag.minY;
-         this.checkShapeIfInContainer(
-            lineDrag.minX,
-            lineDrag.minY,
-            lineDrag.maxX - lineDrag.minX,
-            lineDrag.maxY - lineDrag.minY,
-            lineDrag,
-         );
-      } else if (textDrag) {
-         this.checkShapeIfInContainer(
-            textDrag.x,
-            textDrag.y,
-            textDrag.width,
-            textDrag.height,
-            textDrag,
-         );
-      } else if (image) {
-         this.updateGuides(
-            this.dragElement.key,
-            image.x,
-            image.y,
-            image.x + image.width,
-            image.y + image.height,
-         );
-         this.dragElement = null;
-         this.breakPointsCtx.clearRect(
-            0,
-            0,
-            this.canvasbreakPoints.width,
-            this.canvasbreakPoints.height,
-         );
-         this.checkShapeIfInContainer(
-            image.x,
-            image.y,
-            image.width,
-            image.height,
-            image,
-         );
-         this.drawImage();
-         if (image.pointTo.length > 0) this.draw();
-         return;
-      } else if (figDrag) {
-         const { x, id, y, width, height } = figDrag;
-         this.getShapesInsideFigure(figDrag, this.dragElement);
-         this.updateGuides(id, x, y, x + width, y + height);
-      } else if (otherShapeDrag) {
-         this.updateGuides(
-            this.dragElement,
-            otherShapeDrag.x - otherShapeDrag.radius,
-            otherShapeDrag.y - otherShapeDrag.radius,
-            otherShapeDrag.x + otherShapeDrag.radius,
-            otherShapeDrag.y + otherShapeDrag.radius,
-         );
-      } else if (pencilDrag) {
-         pencilDrag.width = pencilDrag.maxX - pencilDrag.minX;
-         pencilDrag.height = pencilDrag.maxY - pencilDrag.minY;
       }
+
+      // if (rectDrag) {
+      //    this.updateGuides(
+      //       this.dragElement,
+      //       rectDrag.x,
+      //       rectDrag.y,
+      //       rectDrag.x + rectDrag.width,
+      //       rectDrag.y + rectDrag.height,
+      //    );
+
+      //    if (rectDrag.pointTo?.length > 0) {
+      //       rectDrag.pointTo.forEach((l) => {
+      //          this.updateLineMinMax(l);
+      //       });
+      //    }
+      //    this.checkShapeIfInContainer(
+      //       rectDrag.x,
+      //       rectDrag.y,
+      //       rectDrag.width,
+      //       rectDrag.height,
+      //       rectDrag,
+      //    );
+      // } else if (arcDrag) {
+      // this.updateGuides(
+      //    this.dragElement,
+      //    arcDrag.x - arcDrag.xRadius,
+      //    arcDrag.y - arcDrag.yRadius,
+      //    arcDrag.x + arcDrag.xRadius,
+      //    arcDrag.y + arcDrag.yRadius,
+      // );
+      // arcDrag.width = 2 * arcDrag.xRadius;
+      // arcDrag.height = 2 * arcDrag.yRadius;
+      // if (arcDrag.pointTo?.length > 0) {
+      //    arcDrag.pointTo.forEach((l) => {
+      //       this.updateLineMinMax(l);
+      //    });
+      // }
+      // this.checkShapeIfInContainer(
+      //    arcDrag.x - arcDrag.xRadius,
+      //    arcDrag.y - arcDrag.yRadius,
+      //    2 * arcDrag.xRadius,
+      //    2 * arcDrag.yRadius,
+      //    arcDrag,
+      // );
+      // } else if (lineDrag) {
+      //    this.updateLineMinMax(this.dragElement);
+      //    lineDrag.isActive = true;
+      //    lineDrag.width = lineDrag.maxX - lineDrag.minX;
+      //    lineDrag.height = lineDrag.maxY - lineDrag.minY;
+      //    this.checkShapeIfInContainer(
+      //       lineDrag.minX,
+      //       lineDrag.minY,
+      //       lineDrag.maxX - lineDrag.minX,
+      //       lineDrag.maxY - lineDrag.minY,
+      //       lineDrag,
+      //    );
+      // } else if (textDrag) {
+      //    this.checkShapeIfInContainer(
+      //       textDrag.x,
+      //       textDrag.y,
+      //       textDrag.width,
+      //       textDrag.height,
+      //       textDrag,
+      //    );
+      // } else if (image) {
+      //    this.updateGuides(
+      //       this.dragElement.key,
+      //       image.x,
+      //       image.y,
+      //       image.x + image.width,
+      //       image.y + image.height,
+      //    );
+      //    this.dragElement = null;
+      //    this.breakPointsCtx.clearRect(
+      //       0,
+      //       0,
+      //       this.canvasbreakPoints.width,
+      //       this.canvasbreakPoints.height,
+      //    );
+      //    this.checkShapeIfInContainer(
+      //       image.x,
+      //       image.y,
+      //       image.width,
+      //       image.height,
+      //       image,
+      //    );
+      //    this.drawImage();
+      //    if (image.pointTo.length > 0) this.draw();
+      //    return;
+      // } else if (figDrag) {
+      //    const { x, id, y, width, height } = figDrag;
+      //    this.getShapesInsideFigure(figDrag, this.dragElement);
+      //    this.updateGuides(id, x, y, x + width, y + height);
+      // } else if (otherShapeDrag) {
+      //    this.updateGuides(
+      //       this.dragElement,
+      //       otherShapeDrag.x - otherShapeDrag.radius,
+      //       otherShapeDrag.y - otherShapeDrag.radius,
+      //       otherShapeDrag.x + otherShapeDrag.radius,
+      //       otherShapeDrag.y + otherShapeDrag.radius,
+      //    );
+      // } else if (pencilDrag) {
+      //    pencilDrag.width = pencilDrag.maxX - pencilDrag.minX;
+      //    pencilDrag.height = pencilDrag.maxY - pencilDrag.minY;
+      // }
 
       this.resizeElement = null;
       this.dragElement = null;
@@ -4850,6 +6096,21 @@ export default class Shapes {
       adjust.minY = y;
       adjust.maxX = width;
       adjust.maxY = height;
+   }
+
+   getCanvasShape(id) {
+      let shapeFound = null;
+      for (let i = 0; i < this.canvasShapes.length; i++) {
+         if (
+            id === this.canvasShapes[i].id &&
+            this.canvasShapes[i].type !== shapeTypes.line
+         ) {
+            shapeFound = this.canvasShapes[i];
+            break;
+         }
+      }
+      return shapeFound;
+      I;
    }
 
    getShape(key) {

@@ -152,7 +152,6 @@ export function lineResizeWhenConnected({
                      startShape.type === shapeTypes.circle
                         ? ex + ewidth * 0.5
                         : ex + ewidth * 0.5 - swidth * 0.5;
-
                   line.curvePoints[1] = {
                      x: ex + ewidth / 2,
                      y: ey + eheight + (sy - (ey + eheight)) * 0.5,
