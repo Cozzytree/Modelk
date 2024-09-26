@@ -18,6 +18,7 @@ export function drawRect(rect, context) {
       strokeStyle,
    } = rect;
    const path = new Path2D();
+   context.beginPath();
    path.moveTo(x + radius, y);
    path.lineTo(x + width - radius, y);
    path.arcTo(x + width, y, x + width, y + radius, radius);
@@ -33,6 +34,7 @@ export function drawRect(rect, context) {
    context.fillStyle = fillStyle || "transparent";
    context.fill(path);
    context.stroke(path);
+   context.closePath();
 
    renderText(
       text,
@@ -172,8 +174,9 @@ export function drawText(text, tolerance, context) {
       text;
    // Set the font size and style before measuring the text
    context.fillStyle = fillStyle;
-   context.font = `${fontVarient} ${fontWeight} ${textSize}px ${font || "Arial"
-      }`;
+   context.font = `${fontVarient} ${fontWeight} ${textSize}px ${
+      font || "Arial"
+   }`;
 
    let maxWidth = 0;
    content.forEach((c) => {
@@ -278,12 +281,17 @@ export function drawLine({ line, headlen, context }) {
          const endPoint = curvePoints[i];
 
          path.arcTo(
-            startPoint.x, startPoint.y, // Start point of the arc
-            endPoint.x, endPoint.y,     // End point of the arc
-            line.radius                 // Radius of the arc
+            startPoint.x,
+            startPoint.y, // Start point of the arc
+            endPoint.x,
+            endPoint.y, // End point of the arc
+            line.radius, // Radius of the arc
          );
       }
-      path.lineTo(curvePoints[curvePoints.length - 1].x, curvePoints[curvePoints.length - 1].y)
+      path.lineTo(
+         curvePoints[curvePoints.length - 1].x,
+         curvePoints[curvePoints.length - 1].y,
+      );
    } else {
       path.moveTo(curvePoints[0].x, curvePoints[0].y);
       const t = 0.8;

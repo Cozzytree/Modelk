@@ -11,7 +11,7 @@ class Stack {
    store = [];
 
    insert(val) {
-      if (this.store.length >= 40) return;
+      if (this.store.length >= 100) return;
       this.store.push(JSON.parse(JSON.stringify(val)));
    }
 
