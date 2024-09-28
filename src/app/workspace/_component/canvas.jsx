@@ -378,15 +378,7 @@ export default function Canvas({ id }) {
       const record = canvasR.current;
       let interval;
       interval = setInterval(() => {
-         record.updateCurrentState(
-            shape.rectMap,
-            shape.circleMap,
-            shape.lineMap,
-            shape.textMap,
-            shape.pencilMap,
-            shape.imageMap,
-            shape.figureMap,
-         );
+         record.updateCurrentState(shape.canvasShapes);
          const { newShape, updated } = record.pushRecords();
          if (
             newShape.length > 0 ||

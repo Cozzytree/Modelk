@@ -8,25 +8,17 @@ class CanvasRecord {
    }
 
    // Method to set initial state
-   setInitialState(state) {
+   setInitialState(state = []) {
       this.initialState = new Map(
-         state.map((shape) => [
-            shape.Params.id,
-            { Params: { ...shape.Params, shapeId: shape._id } },
-         ]),
+         state.map((shape) => [shape.Params.id, shape]),
       );
    }
 
    // Method to update the current state
-   updateCurrentState(...maps) {
+   updateCurrentState(maps = []) {
       this.currentState = new Map();
-      maps.forEach((map) => {
-         map.forEach((value, key) => {
-            this.currentState.set(
-               key,
-               JSON.parse(JSON.stringify({ Params: value })),
-            );
-         });
+      maps.forEach((shape) => {
+         this.currentState.set(shape.id, shape);
       });
    }
 
@@ -35,6 +27,7 @@ class CanvasRecord {
       this.updatedShapes = new Map();
       this.newShapes = new Map();
       this.deletedShapes = new Set();
+
       // Determine deleted shapes
       this.initialState.forEach((shape, id) => {
          if (!this.currentState.has(id)) {
@@ -47,10 +40,10 @@ class CanvasRecord {
          const initialShape = this.initialState.get(id);
          if (!initialShape) {
             // New shape
-            this.newShapes.set(id, shape.Params);
-         } else if (this.shapeHasChanged(initialShape.Params, shape.Params)) {
+            this.newShapes.set(id, shape);
+         } else if (this.shapeHasChanged(initialShape, shape)) {
             // Updated shape
-            this.updatedShapes.set(id, shape.Params);
+            this.updatedShapes.set(id, shape);
          }
       });
    }
