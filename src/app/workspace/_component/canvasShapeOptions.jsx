@@ -86,7 +86,10 @@ export default function CanvasShapeOptions({
             config.currentActive.borderColor = color;
          } else config.currentActive.fillStyle = color;
          setCurrent(config.currentActive);
-         if (shapeClassRef) shapeClassRef.draw();
+
+         if (shapeClassRef) {
+            shapeClassRef.draw();
+         }
       }
    };
 
@@ -147,6 +150,9 @@ export default function CanvasShapeOptions({
                   >
                      T
                   </Button>
+                  {/* <div contentEditable onFocus={true}>
+                     {" "}
+                  </div> */}
                   {inputText && (
                      <textarea
                         ref={inputTextRef}
@@ -533,6 +539,17 @@ export default function CanvasShapeOptions({
                      </MenubarContent>
                   </MenubarMenu>
                )}
+
+               <MenubarMenu>
+                  <MenubarTrigger className="relative h-full w-full">
+                     <BoxIcon />
+                     <BoxIcon className="absolute top-[1.3em] left-[1.5em] bg-blue-600" />
+                  </MenubarTrigger>
+                  <MenubarContent>
+                     <p>Go Below</p>
+                     <p>Go Top</p>
+                  </MenubarContent>
+               </MenubarMenu>
             </Menubar>
          </div>
       </>

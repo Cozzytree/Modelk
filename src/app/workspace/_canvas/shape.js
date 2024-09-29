@@ -13,6 +13,7 @@ import {
 import { Bin, Restore, redoType } from "./../_recycleBin.js";
 import { lineResizeLogic, lineResizeWhenConnected } from "./resize/lineResize";
 import {
+   drawFigure,
    drawLine,
    drawRect,
    drawSHapes,
@@ -20,6 +21,7 @@ import {
    drawText,
    findSlope,
 } from "./utilsFunc.js";
+import { rectResizeParams } from "./resize/rectResize";
 
 const getStrokeOptions = {
    size: 3,
@@ -673,11 +675,9 @@ export default class Shapes {
             radius,
             lineWidth,
             borderColor,
-            fillStyle,
             text,
             textSize,
             isActive,
-            fillType,
             textPosition,
             fontVarient,
             font,
@@ -793,6 +793,38 @@ export default class Shapes {
                this.context.closePath();
 
                break;
+            case shapeTypes.others:
+               drawDotsAndRect(
+                  x - radius,
+                  y - radius,
+                  width,
+                  height,
+                  this.tolerance,
+                  isActive,
+               );
+               drawSHapes(shape, this.context);
+               break;
+            case shapeTypes.figure:
+               if (isActive) {
+                  this.dots(
+                     { x: x, y: y },
+                     { x: x + width, y: y },
+                     {
+                        x: x + width,
+                        y: y + height,
+                     },
+                     { x: x, y: y + height },
+                     { context: this.context },
+                  );
+               }
+               const v = drawFigure(
+                  shape,
+                  this.canvasDiv,
+                  this.context,
+                  this.activeColor,
+               );
+               figPath.push({ path: v.path, isActive: v.isActive });
+               break;
             default:
                break;
          }
@@ -807,182 +839,6 @@ export default class Shapes {
 
          drawSHapes(shape, this.context);
       });
-
-      // this.rectMap.forEach((rect) => {
-      //    const {
-      //       x,
-      //       y,
-      //       width,
-      //       height,
-      //       radius,
-      //       lineWidth,
-      //       borderColor,
-      //       fillStyle,
-      //       text,
-      //       textSize,
-      //       isActive,
-      //       fillType,
-      //       textPosition,
-      //       fontVarient,
-      //       font,
-      //       fontWeight,
-      //       allignVertical,
-      //    } = rect;
-
-      //    drawDotsAndRect(x, y, width, height, this.tolerance, isActive);
-
-      //    // Draw rounded rectangle
-      //    drawRect(rect, this.context);
-      // });
-
-      // Draw circles
-      // this.circleMap.forEach((sphere) => {
-      //    const {
-      //       xRadius,
-      //       yRadius,
-      //       text,
-      //       textPosition,
-      //       lineWidth,
-      //       fillStyle,
-      //       borderColor,
-      //       textSize,
-      //       isActive,
-      //       fontWeight,
-      //       fontVarient,
-      //       font,
-      //       allignVertical,
-      //    } = sphere;
-      //    const x = sphere.x - xRadius;
-      //    const y = sphere.y - yRadius;
-      //    const width = 2 * xRadius;
-      //    const height = 2 * yRadius;
-
-      //    drawDotsAndRect(x, y, width, height, this.tolerance, isActive);
-
-      //    drawSphere(sphere, this.context);
-      // });
-
-      // Draw text blocks
-      // this.textMap.forEach((t) => {
-      //    const {
-      //       x,
-      //       y,
-      //       width,
-      //       height,
-      //       textSize,
-      //       font,
-      //       fillStyle,
-      //       content,
-      //       isActive,
-      //       fontWeight,
-      //       fontVarient,
-      //    } = t;
-
-      //    // Set the font size and style before measuring the text
-      //    drawText(t, this.tolerance, this.context);
-
-      //    drawDotsAndRect(
-      //       x,
-      //       y,
-      //       width,
-      //       height,
-      //       this.tolerance,
-      //       isActive,
-      //       this.activeColor,
-      //    );
-      // });
-
-      // Draw lines
-      // this.lineMap.forEach((line) => {
-      //    const {
-      //       curvePoints,
-      //       lineWidth,
-      //       lineType,
-      //       borderColor,
-      //       radius,
-      //       isActive,
-      //       arrowLeft,
-      //       arrowRight,
-      //       text,
-      //       minX,
-      //       maxX,
-      //       minY,
-      //       maxY,
-      //       textSize,
-      //       textPosition,
-      //       fontVarient,
-      //       fontWeight,
-      //       font,
-      //       allignVertical,
-      //    } = line;
-
-      //    this.context.beginPath();
-      //    this.context.lineWidth = lineWidth;
-
-      //    if (isActive) {
-      //       if (lineType === "curve") {
-      //          // Apply dotted line style
-      //          this.context.setLineDash([5, 15]); // Adjust the pattern if needed
-      //          this.context.lineWidth = 1; // Ensure this is the desired width for dotted lines
-      //          this.context.strokeStyle = "red"; // Use a specific color for dotted lines
-
-      //          // Draw the curve with the dotted line style
-      //          this.context.moveTo(curvePoints[0].x, curvePoints[0].y);
-      //          for (let i = 1; i < curvePoints.length; i++) {
-      //             this.context.lineTo(curvePoints[i].x, curvePoints[i].y);
-      //          }
-      //          this.context.stroke();
-      //          this.context.setLineDash([]); // Reset the line dash to solid lines for other drawing operations
-      //          this.context.closePath();
-      //       }
-
-      //       this.context.strokeStyle = this.activeColor;
-      //       if (!this.massiveSelection.isSelected) {
-      //          if (lineType === "curve") {
-      //             this.dots(...curvePoints, { context: this.context });
-      //          } else {
-      //             if (curvePoints[curvePoints.length - 1])
-      //                this.dots(
-      //                   { x: curvePoints[0].x, y: curvePoints[0].y },
-      //                   {
-      //                      x: curvePoints[curvePoints.length - 1].x,
-      //                      y: curvePoints[curvePoints.length - 1].y,
-      //                   },
-      //                   { context: this.context },
-      //                );
-      //          }
-      //       }
-      //    } else {
-      //       this.context.strokeStyle = borderColor;
-      //    }
-
-      //    const headlen = 12;
-      //    const path = drawLine({
-      //       line,
-      //       headlen,
-      //       context: this.context,
-      //       activeColor: this.activeColor,
-      //    });
-      //    linePath.push({ path, borderColor, isActive, lineWidth });
-
-      //    //render text
-      //    this.renderText(
-      //       text,
-      //       minX,
-      //       minY,
-      //       textSize,
-      //       maxY - minY,
-      //       maxX - minX,
-      //       textPosition,
-      //       fontWeight,
-      //       fontVarient,
-      //       font,
-      //       allignVertical,
-      //    );
-
-      //    this.context.stroke();
-      //    this.context.closePath();
-      // });
 
       // figures
       this.figureMap.forEach((figure) => {
@@ -1289,8 +1145,6 @@ export default class Shapes {
          mouseY <= this.massiveSelection.isSelectedMaxY &&
          (!this.resizeElement || !this.dragElement)
       ) {
-         const total = [];
-
          this.canvasShapes.forEach((shape) => {
             if (!shape.isActive) return;
 
@@ -1332,92 +1186,9 @@ export default class Shapes {
             }
          });
 
-         // this.rectMap.forEach((rect) => {
-         //    if (rect.isActive) {
-         //       rect.offsetX = rect.x - mouseX;
-         //       rect.offsetY = rect.y - mouseY;
-         //       this.copies.push(JSON.parse(JSON.stringify(rect)));
-         //       if (rect.pointTo.length) {
-         //          rect.pointTo.forEach((p) => {
-         //             const line = this.lineMap.get(p);
-         //             if (!line) return;
-         //             this.copies.push(JSON.parse(JSON.stringify(line)));
-         //          });
-         //       }
-         //    }
-         // });
-
-         // this.circleMap.forEach((circle) => {
-         //    if (circle.isActive) {
-         //       circle.offsetX = circle.x - mouseX;
-         //       circle.offsetY = circle.y - mouseY;
-         //       this.copies.push(JSON.parse(JSON.stringify(circle)));
-         //       if (circle.pointTo.length) {
-         //          circle.pointTo.forEach((p) => {
-         //             const l = this.lineMap.get(p);
-         //             if (!l) return;
-         //             this.copies.push(JSON.parse(JSON.stringify(l)));
-         //          });
-         //       }
-         //    }
-         // });
-
-         // this.textMap.forEach((text) => {
-         //    if (text.isActive) {
-         //       text.offsetX = text.x - mouseX;
-         //       text.offsetY = text.y - mouseY;
-         //       this.copies.push(JSON.parse(JSON.stringify(text)));
-         //    }
-         // });
-
-         // this.lineMap.forEach((line) => {
-         //    if (line.isActive) {
-         //       line.curvePoints.forEach((p) => {
-         //          p.offsetX = p.x - mouseX;
-         //          p.offsetY = p.y - mouseY;
-         //          total.push({ s: line, bp: null });
-         //       });
-         //    }
-         // });
-
-         // this.figureMap.forEach((fig) => {
-         //    if (fig.isActive) {
-         //       fig.isActive = true;
-         //       fig.offsetX = fig.x - mouseX;
-         //       fig.offsetY = fig.y - mouseY;
-         //    }
-         // });
-
-         // this.pencilMap.forEach((pencil) => {
-         //    if (pencil.isActive) {
-         //       pencil.offsetX = pencil.minX - mouseX;
-         //       pencil.offsetY = pencil.minY - mouseY;
-         //       pencil.width = pencil.maxX - pencil.minX;
-         //       pencil.height = pencil.maxY - pencil.minY;
-         //       pencil.points.forEach((point) => {
-         //          point.offsetX = point.x - mouseX;
-         //          point.offsetY = point.y - mouseY;
-         //       });
-         //    }
-         // });
-
-         // this.imageMap.forEach((image) => {
-         //    const { x, y, width, height, isActive } = image;
-         //    if (isActive) {
-         //       image.offsetX = x - mouseX;
-         //       image.offsetY = y - mouseY;
-         //    }
-         // });
-
-         // this.otherShapes.forEach((other) => {
-         //    const { x, y, width, height, isActive } = other;
-         //    if (isActive) {
-         //       other.offsetX = mouseX - x;
-         //       other.offsetY = mouseY - y;
-         //    }
-         // });
-
          this.massiveSelection.isSelectedDown = true;
+         this.massiveSelection.startX = mouseX;
+         this.massiveSelection.startY = mouseY;
          //calculatin offset and width
          this.massiveSelection.offsetX =
             this.massiveSelection.isSelectedMinX - mouseX;
@@ -1516,15 +1287,16 @@ export default class Shapes {
 
                break;
             case shapeTypes.rect:
-               const rectResizeParams = this.rectResizeParams(
+               const rectResize = rectResizeParams({
                   x,
                   y,
                   width,
                   height,
                   mouseX,
                   mouseY,
-               );
-               rectResizeParams.forEach((condition) => {
+                  tolerance: this.tolerance,
+               });
+               rectResize.forEach((condition) => {
                   if (condition.condition) {
                      checkAndSetActiveResizing({
                         x,
@@ -1592,10 +1364,6 @@ export default class Shapes {
             case shapeTypes.pencil:
                const { maxX, minY, maxY, minX, isActive, containerId } = shape;
 
-               if (!isActive) return;
-
-               const container = this.figureMap.get(containerId);
-
                const setActiveResizing = (resizeParams) => {
                   shape.isActive = true;
                   isResizing = true;
@@ -1661,14 +1429,15 @@ export default class Shapes {
                }
                break;
             case shapeTypes.others:
-               const oResizeParams = this.rectResizeParams(
-                  x - shape.radius,
-                  y - shape.radius,
+               const oResizeParams = rectResizeParams({
+                  x: x - shape.radius,
+                  y: y - shape.radius,
                   width,
                   height,
                   mouseX,
                   mouseY,
-               );
+                  tolerance: this.tolerance,
+               });
                oResizeParams.forEach((cond) => {
                   if (cond.condition) {
                      checkAndSetActiveResizing({ initailX: mouseX });
@@ -1676,8 +1445,35 @@ export default class Shapes {
                   }
                });
                break;
-            default:
+            case shapeTypes.figure:
+               const figResizeParams = rectResizeParams({
+                  x,
+                  y,
+                  width,
+                  height,
+                  mouseX,
+                  mouseX,
+                  tolerance: this.tolerance,
+               });
+               for (let i = 0; i < figResizeParams.length; i++) {
+                  if (figResizeParams[i].condition) {
+                     shape.isActive = true;
+                     isResizing = true;
+                     config.currentActive = shape;
+                     this.resizeElement = {
+                        direction: figResizeParams[i].side,
+                        x,
+                        y,
+                        index,
+                        width,
+                        height,
+                     };
+                     break;
+                  }
+               }
                break;
+            default:
+               return;
          }
       });
 
@@ -1714,321 +1510,6 @@ export default class Shapes {
       //    arr.forEach((c) => {
       //       if (c.condition === true) {
       //          resize({ x, y, width, height, key, direction: c.side });
-      //       }
-      //    });
-      // });
-      // if (isResizing) return;
-
-      // figure resize
-      this.figureMap.forEach((fig, key) => {
-         const { x, y, width, height, isActive } = fig;
-         if (!isActive) return;
-
-         const arr = this.rectResizeParams(x, y, width, height, mouseX, mouseY);
-         arr.forEach((cond) => {
-            if (cond.condition) {
-               fig.isActive = true;
-               isResizing = true;
-               config.currentActive = fig;
-               this.resizeElement = {
-                  direction: cond.side,
-                  key,
-                  x,
-                  y,
-                  width,
-                  height,
-               };
-               return;
-            }
-         });
-      });
-      if (isResizing) return;
-
-      // line resize
-      // this.lineMap.forEach((line, key) => {
-      //    if (!line.isActive) return;
-
-      //    let points = line.curvePoints;
-
-      //    const container = this.figureMap.get(line.containerId);
-
-      //    for (let i = 0; i < points.length; i++) {
-      //       if (
-      //          mouseX >= points[i].x - 5 &&
-      //          mouseX <= points[i].x + 5 &&
-      //          mouseY >= points[i].y - 5 &&
-      //          mouseY <= points[i].y + 5 &&
-      //          line.isActive
-      //       ) {
-      //          if (container && !container.isActive) {
-      //             line.isActive = true;
-      //             if (i == 0) {
-      //                this.resizeElement = {
-      //                   key,
-      //                   direction: "resizeStart",
-      //                };
-      //             } else if (i == points.length - 1) {
-      //                this.resizeElement = {
-      //                   key,
-      //                   direction: "resizeEnd",
-      //                };
-      //             } else {
-      //                this.resizeElement = {
-      //                   key,
-      //                   direction: null,
-      //                   index: i,
-      //                };
-      //             }
-      //             this.copies.push(JSON.parse(JSON.stringify(line)));
-      //             config.currentActive = line;
-      //             isResizing = true;
-      //          } else if (!line.containerId) {
-      //             line.isActive = true;
-      //             if (i == 0) {
-      //                this.resizeElement = {
-      //                   key,
-      //                   direction: "resizeStart",
-      //                };
-      //             } else if (i == points.length - 1) {
-      //                this.resizeElement = {
-      //                   key,
-      //                   direction: "resizeEnd",
-      //                };
-      //             } else {
-      //                this.resizeElement = {
-      //                   key,
-      //                   direction: null,
-      //                   index: i,
-      //                };
-      //             }
-      //             this.copies.push(JSON.parse(JSON.stringify(line)));
-      //             config.currentActive = line;
-      //             isResizing = true;
-      //          }
-      //       }
-      //    }
-      // });
-      // if (isResizing) return;
-
-      // rect resize
-      // this.rectMap.forEach((rect, key) => {
-      //    const { isActive, x, y, width, height, containerId } = rect;
-      //    if (!isActive) return;
-
-      //    const container = this.figureMap.get(containerId);
-
-      //    const setActiveResizing = (resizeParams) => {
-      //       rect.isActive = true;
-      //       isResizing = true;
-      //       config.currentActive = rect;
-      //       this.resizeElement = resizeParams;
-      //    };
-
-      //    const checkAndSetActiveResizing = (resizeParams) => {
-      //       if (container && !container.isActive) {
-      //          setActiveResizing(resizeParams);
-      //       } else if (!containerId) {
-      //          setActiveResizing(resizeParams);
-      //       }
-      //    };
-
-      //    const arr = this.rectResizeParams(x, y, width, height, mouseX, mouseY);
-      //    arr.forEach((condition) => {
-      //       if (condition.condition) {
-      //          checkAndSetActiveResizing({
-      //             x,
-      //             y,
-      //             width,
-      //             height,
-      //             key,
-      //             direction: condition.side,
-      //          });
-      //          this.copies.push(JSON.parse(JSON.stringify(rect)));
-      //          return;
-      //       }
-      //    });
-      // });
-      // if (isResizing) return;
-
-      // sphere resize
-      // this.circleMap.forEach((arc, key) => {
-      //    if (!arc.isActive) return;
-
-      //    const forXless = arc.x - arc.xRadius;
-      //    const forXmore = arc.x + arc.xRadius;
-      //    const forYless = arc.y - arc.yRadius;
-      //    const forYmore = arc.y + arc.yRadius;
-
-      //    //horizontel resizing
-      //    const leftEdge =
-      //       mouseX >= forXless - this.tolerance && mouseX <= forXless;
-      //    const rightEdge =
-      //       mouseX >= forXmore && mouseX <= forXmore + this.tolerance;
-      //    const verticalBounds =
-      //       mouseY >= forYless + this.tolerance &&
-      //       mouseY <= forYmore - this.tolerance;
-      //    //vertical resizing
-      //    const topEdge =
-      //       mouseY >= forYless - this.tolerance && mouseY <= forYless;
-      //    const bottomEdge =
-      //       mouseY >= forYmore && mouseY <= forYmore + this.tolerance;
-      //    const horizontalBounds =
-      //       mouseX >= forXless + this.tolerance &&
-      //       mouseX <= forXmore - this.tolerance;
-
-      //    const arcResize = (resizeParams) => {
-      //       arc.isActive = true; // Set the circle as active
-      //       arc.horizontelResizing = true; // Set the horizontal resizing flag
-      //       isResizing = true;
-      //       this.resizeElement = resizeParams;
-      //       config.currentActive = arc;
-      //    };
-
-      //    const checkAndResize = (resizeParams) => {
-      //       if (container && !container.isActive) {
-      //          arcResize(resizeParams);
-      //       } else if (!arc.containerId) {
-      //          arcResize(resizeParams);
-      //       }
-      //    };
-
-      //    const container = this.figureMap.get(arc.containerId);
-
-      //    if ((leftEdge || rightEdge) && verticalBounds) {
-      //       checkAndResize({ direction: "horizontel", key });
-      //       this.copies.push(JSON.parse(JSON.stringify(arc)));
-      //    } else if ((topEdge || bottomEdge) && horizontalBounds) {
-      //       checkAndResize({ direction: "vertical", key });
-      //       this.copies.push(JSON.parse(JSON.stringify(arc)));
-      //    } else if (
-      //       // Top-left corner
-      //       (mouseX >= forXless - this.tolerance &&
-      //          mouseX <= forXless + this.tolerance &&
-      //          mouseY >= forYless - this.tolerance &&
-      //          mouseY <= forYless + this.tolerance) ||
-      //       // Top-right corner
-      //       (mouseX >= forXmore - this.tolerance &&
-      //          mouseX <= forXmore + this.tolerance &&
-      //          mouseY >= forYless - this.tolerance &&
-      //          mouseY <= forYless + this.tolerance) ||
-      //       // Bottom-left corner
-      //       (mouseX >= forXless - this.tolerance &&
-      //          mouseX <= forXless + this.tolerance &&
-      //          mouseY >= forYmore - this.tolerance &&
-      //          mouseY <= forYmore + this.tolerance) ||
-      //       // Bottom-right corner
-      //       (mouseX >= forXmore - this.tolerance &&
-      //          mouseX <= forXmore + this.tolerance &&
-      //          mouseY >= forYmore - this.tolerance &&
-      //          mouseY <= forYmore + this.tolerance)
-      //    ) {
-      //       checkAndResize({ direction: "corners", key });
-      //       this.copies.push(JSON.parse(JSON.stringify(arc)));
-      //    }
-      // });
-      // if (isResizing) return;
-
-      //text resize
-      // this.textMap.forEach((text, key) => {
-      //    if (!text.isActive) return;
-
-      //    if (
-      //       mouseX > text.x + text.width - this.tolerance &&
-      //       mouseX <= text.x + text.width + this.tolerance &&
-      //       mouseY > text.y + text.height - this.tolerance &&
-      //       mouseY <= text.y + text.height + this.tolerance
-      //    ) {
-      //       if (text.containerId) {
-      //          const container = this.figureMap.get(text.containerId);
-      //          if (container && !container.isActive) {
-      //             isResizing = true;
-      //             this.resizeElement = {
-      //                key,
-      //             };
-      //             config.currentActive = text;
-      //          }
-      //          this.copies.push(JSON.parse(JSON.stringify(text)));
-      //       } else if (!text.containerId) {
-      //          isResizing = true;
-      //          this.resizeElement = {
-      //             key,
-      //          };
-      //          this.copies.push(JSON.parse(JSON.stringify(text)));
-      //          config.currentActive = text;
-      //       }
-      //    }
-      // });
-      // if (isResizing) return;
-
-      // this.pencilMap.forEach((pencil, key) => {
-      //    const { maxX, minY, maxY, minX, isActive, containerId } = pencil;
-
-      //    if (!isActive) return;
-
-      //    const container = this.figureMap.get(containerId);
-
-      //    const setActiveResizing = (resizeParams) => {
-      //       pencil.isActive = true;
-      //       isResizing = true;
-      //       config.currentActive = pencil;
-      //       this.resizeElement = resizeParams;
-      //       pencil.points.forEach((point) => {
-      //          point.offsetX = point.x - mouseX;
-      //          point.offsetY = point.y - mouseY;
-      //       });
-      //       this.copies.push(JSON.parse(JSON.stringify(pencil)));
-      //    };
-
-      //    const checkAndSetActiveResizing = (resizeParams) => {
-      //       if (container && !container.isActive) {
-      //          setActiveResizing(resizeParams);
-      //       } else if (!containerId) {
-      //          setActiveResizing(resizeParams);
-      //       }
-      //    };
-
-      //    // resize params
-      //    const arr = this.rectResizeParams(
-      //       minX,
-      //       minY,
-      //       maxX - minX,
-      //       maxY - minY,
-      //       mouseX,
-      //       mouseY,
-      //    );
-      //    arr.forEach((cond) => {
-      //       if (cond.condition) {
-      //          checkAndSetActiveResizing({
-      //             direction: cond.side,
-      //             key,
-      //             initialMaxX: maxX,
-      //             initialMinX: minX,
-      //             initialMaxY: maxY,
-      //             initialMinY: minY,
-      //          });
-      //       }
-      //    });
-      // });
-      // if (isResizing) return;
-
-      // this.otherShapes.forEach((other, key) => {
-      //    const { isActive, x, y, width, height, radius } = other;
-      //    if (!isActive) return;
-      //    const arr = this.rectResizeParams(
-      //       x - radius,
-      //       y - radius,
-      //       width,
-      //       height,
-      //       mouseX,
-      //       mouseY,
-      //    );
-      //    arr.forEach((cond) => {
-      //       if (cond.condition) {
-      //          this.resizeElement = { initailX: mouseX, key };
-      //          isResizing = true;
-      //          config.currentActive = other;
-      //          this.copies.push(JSON.parse(JSON.stringify(other)));
-      //          return;
       //       }
       //    });
       // });
@@ -2151,75 +1632,6 @@ export default class Shapes {
          }
       });
 
-      // drag logi for shapes
-      // const allShapes = [
-      //    ...Array.from(this.rectMap.entries()),
-      //    ...Array.from(this.circleMap.entries()),
-      //    ...Array.from(this.textMap.entries()),
-      //    ...Array.from(this.pencilMap.entries()),
-      //    ...Array.from(this.otherShapes.entries()),
-      //    ...Array.from(this.imageMap.entries()),
-      //    ...Array.from(this.figureMap.entries()),
-      // ];
-
-      // allShapes.forEach(([key, shape]) => {
-      //    if (shape.type === shapeTypes.figure && !shape.isActive) return;
-
-      //    const container = this.figureMap.get(shape.containerId);
-      //    if (shape.isActive) shape.isActive = false;
-      //    let x = 0;
-      //    let y = 0;
-      //    let width = 0;
-      //    let height = 0;
-      //    switch (shape.type) {
-      //       case shapeTypes.others:
-      //          x = shape.x - shape.radius;
-      //          y = shape.y - shape.radius;
-      //          width = shape.width;
-      //          height = shape.height;
-      //          break;
-      //       case shapeTypes.circle:
-      //          x = shape.x - shape.xRadius;
-      //          y = shape.y - shape.yRadius;
-      //          width = 2 * shape.xRadius;
-      //          height = 2 * shape.xRadius;
-      //          break;
-      //       case shapeTypes.pencil:
-      //          x = shape.minX;
-      //          y = shape.minY;
-      //          width = shape.maxX - shape.minX;
-      //          height = shape.maxY - shape.minY;
-      //          break;
-      //       default:
-      //          x = shape.x;
-      //          y = shape.y;
-      //          width = shape.width;
-      //          height = shape.height;
-      //          break;
-      //    }
-
-      //    if (this.isIn(mouseX, mouseY, 0, 0, x, y, width, height)) {
-      //       if (!container || !container.isActive) {
-      //          if (smallestShape === null || smallestShape.width > width) {
-      //             smallestShape = shape;
-      //             smallestShapeKey = key;
-      //             this.copies.push(JSON.parse(JSON.stringify(shape)));
-
-      //             // connected lines
-      //             if (shape.pointTo && shape.pointTo.length > 0) {
-      //                shape.pointTo.forEach((p) => {
-      //                   const theLIne = this.lineMap.get(p);
-      //                   if (theLIne) {
-      //                      this.copies.push(
-      //                         JSON.parse(JSON.stringify(theLIne)),
-      //                      );
-      //                   }
-      //                });
-      //             }
-      //          }
-      //       }
-      //    }
-      // });
       if (smallestShape && this.canvasShapes[smallestShapeKey]) {
          // config.currentActive = smallestShape;
          config.currentActive = this.canvasShapes[smallestShapeKey];
@@ -2314,79 +1726,6 @@ export default class Shapes {
          }
       }
 
-      //drag for line
-      // let smallestLine = null;
-      // const simpleLine = (l, key) => {
-      //    const { curvePoints, lineType, minX, maxX, minY, maxY } = l;
-      //    let inside = false;
-      //    if (l.isActive) l.isActive = false;
-      //    for (let i = 0; i < curvePoints.length - 1; i++) {
-      //       let slope1 = findSlope(
-      //          mouseY,
-      //          curvePoints[i].y,
-      //          mouseX,
-      //          curvePoints[i].x,
-      //       );
-      //       let slope2 = findSlope(
-      //          mouseY,
-      //          curvePoints[i + 1].y,
-      //          mouseX,
-      //          curvePoints[i + 1].x,
-      //       );
-      //       if (!isFinite(slope1)) slope1 = Infinity;
-      //       if (!isFinite(slope2)) slope2 = Infinity;
-
-      //       if (Math.abs(slope1 - slope2) <= 0.3) {
-      //          inside = true;
-      //          break;
-      //       }
-      //    }
-      //    if (
-      //       inside &&
-      //       mouseX >= minX - this.tolerance &&
-      //       mouseX <= maxX + this.tolerance &&
-      //       mouseY >= minY - this.tolerance &&
-      //       mouseY <= maxY + this.tolerance
-      //    ) {
-      //       if (l.containerId) {
-      //          const container = this.figureMap.get(l.containerId);
-      //          if (
-      //             !container.isActive &&
-      //             (smallestLine === null ||
-      //                smallestLine.l.maxX - smallestLine.l.minX > width)
-      //          ) {
-      //             smallestLine = { l, key };
-      //          }
-      //       } else {
-      //          if (
-      //             smallestLine === null ||
-      //             smallestLine.l.maxX - smallestLine.l.minX > l.maxX - l.minX
-      //          ) {
-      //             smallestLine = { l, key };
-      //          }
-      //       }
-      //    }
-      // };
-      // this.lineMap.forEach(simpleLine);
-      // if (smallestLine && smallestLine.l && smallestLine.key) {
-      //    config.currentActive = smallestLine.l;
-
-      //    if (smallestLine.l.startTo && smallestLine.l.endTo) {
-      //       smallestLine.l.isActive = true;
-      //       this.draw();
-      //       return;
-      //    } else {
-      //       this.copies.push(JSON.parse(JSON.stringify(smallestLine.l)));
-      //       smallestLine.l.isActive = true;
-      //       smallestLine.l.curvePoints.forEach((e) => {
-      //          e.offsetX = mouseX - e.x;
-      //          e.offsetY = mouseY - e.y;
-      //       });
-      //       if (smallestShape) smallestShape.isActive = false;
-      //       this.dragElement = smallestLine.key;
-      //    }
-      // }
-
       // for massSelection
       if (!this.dragElement && !this.resizeElement && config.mode === "free") {
          this.massiveSelection.isDown = true;
@@ -2402,16 +1741,23 @@ export default class Shapes {
    mouseDownForFif(e) {
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
       let shouldDraw = false;
-      for (const [key, value] of this.figureMap) {
-         const { id, isActive, x, y, width, height } = value;
+
+      if (this.massiveSelection.isSelected) return;
+      for (let i = 0; i < this.canvasShapes.length; i++) {
+         if (
+            !this.canvasShapes[i] ||
+            this.canvasShapes[i].type !== shapeTypes.figure
+         )
+            continue;
+
+         const { id, isActive, x, y, width, height } = this.canvasShapes[i];
          const element = document.querySelector(`[data-containerId="${id}"]`);
 
          // Check if the click happened inside any of the elements
-         if (this.massiveSelection.isSelected) return;
          if (element.contains(e.target)) {
             if (config.currentActive) config.currentActive.isActive = false;
-            config.currentActive = value;
-            value.isActive = true;
+            config.currentActive = this.canvasShapes[i];
+            this.canvasShapes[i].isActive = true;
             shouldDraw = true;
          } else if (
             isActive &&
@@ -2421,12 +1767,12 @@ export default class Shapes {
             mouseY <= y + height + this.tolerance
          ) {
             shouldDraw = true;
-            value.isActive = true;
-         } else value.isActive = false;
+            this.canvasShapes[i].isActive = true;
+         } else this.canvasShapes[i].isActive = false;
       }
-
       // Re-render the figures
       shouldDraw && this.draw();
+      this.onChange();
    }
 
    updateCurvePoint(object, x, y, index) {
@@ -2932,74 +2278,6 @@ export default class Shapes {
                   break;
             }
          });
-         //this.rectMap.forEach((rect) => {
-         //   if (rect.isActive) {
-         //      const { offsetX, offsetY } = rect;
-         //      rect.x = mouseX + offsetX;
-         //      rect.y = mouseY + offsetY;
-         //   }
-         //});
-         //
-         //this.circleMap.forEach((circle) => {
-         //   if (circle.isActive) {
-         //      const { offsetX, offsetY } = circle;
-         //      circle.x = mouseX + offsetX;
-         //      circle.y = mouseY + offsetY;
-         //   }
-         //});
-         //
-         //this.textMap.forEach((text) => {
-         //   if (text.isActive) {
-         //      const { offsetX, offsetY } = text;
-         //      text.x = mouseX + offsetX;
-         //      text.y = mouseY + offsetY;
-         //   }
-         //});
-         //
-         //this.lineMap.forEach((line) => {
-         //   if (line.isActive) {
-         //      line.curvePoints.forEach((p) => {
-         //         p.x = mouseX + p.offsetX;
-         //         p.y = mouseY + p.offsetY;
-         //      });
-         //   }
-         //});
-         //
-         //this.figureMap.forEach((fig) => {
-         //   if (fig.isActive) {
-         //      fig.x = mouseX + fig.offsetX;
-         //      fig.y = mouseY + fig.offsetY;
-         //   }
-         //});
-         //
-         //this.pencilMap.forEach((pencil) => {
-         //   if (pencil.isActive) {
-         //      pencil.minX = mouseX + pencil.offsetX;
-         //      pencil.minY = mouseY + pencil.offsetY;
-         //      pencil.maxY = pencil.minY + pencil.height;
-         //      pencil.maxX = pencil.minX + pencil.width;
-         //
-         //      pencil.points.forEach((point) => {
-         //         point.x = mouseX + point.offsetX;
-         //         point.y = mouseY + point.offsetY;
-         //      });
-         //   }
-         //});
-         //
-         //this.imageMap.forEach((image) => {
-         //   if (image.isActive) {
-         //      image.x = mouseX + image.offsetX;
-         //      image.y = mouseY + image.offsetY;
-         //   }
-         //});
-         //
-         //this.otherShapes.forEach((other) => {
-         //   if (other.isActive) {
-         //      other.x = mouseX - other.offsetX;
-         //      other.y = mouseY - other.offsetY;
-         //   }
-         //});
-         //
          this.massiveSelectionRect(
             this.massiveSelection.isSelectedMinX - this.tolerance,
             this.massiveSelection.isSelectedMinY - this.tolerance,
@@ -3062,6 +2340,7 @@ export default class Shapes {
          this.breakPointsCtx.restore();
 
          this.canvasShapes.forEach((shape) => {
+            if (!shape) return;
             let sx,
                sy,
                swidth,
@@ -3562,6 +2841,9 @@ export default class Shapes {
                theResizeElement.width = 2 * theResizeElement.radius;
                theResizeElement.height = 2 * theResizeElement.radius;
                this.updateLinesPointTo(theResizeElement);
+               break;
+            case shapeTypes.figure:
+               squareResize(theResizeElement);
                break;
             default:
                break;
@@ -4229,6 +3511,7 @@ export default class Shapes {
          let maxY = Math.max(mouseY, startY);
 
          this.canvasShapes.forEach((shape) => {
+            if (!shape) return;
             let sx,
                sy,
                swidth,
@@ -4280,77 +3563,6 @@ export default class Shapes {
             }
          });
 
-         // this.pencilMap.forEach((pencil) => {
-         //    const { minX: x, maxX: width, minY: y, maxY: height } = pencil;
-         //    if (
-         //       this.isIn(
-         //          x,
-         //          y,
-         //          width - x,
-         //          height - y,
-         //          minX,
-         //          minY,
-         //          maxX - minX,
-         //          maxY - minY,
-         //       )
-         //    ) {
-         //       if (!this.massiveSelection.isSelected) {
-         //          this.massiveSelection.isSelected = true;
-         //       }
-         //       this.adjustMassiveSelectionXandY(x, y, width - x, height - y);
-         //       pencil.isActive = true;
-         //    }
-         // });
-
-         // this.imageMap.forEach((image) => {
-         //    const { x, y, width, height } = image;
-         //    if (
-         //       this.isIn(
-         //          x,
-         //          y,
-         //          width,
-         //          height,
-         //          minX,
-         //          minY,
-         //          maxX - minX,
-         //          maxY - minY,
-         //       )
-         //    ) {
-         //       if (!this.massiveSelection.isSelected) {
-         //          this.massiveSelection.isSelected = true;
-         //       }
-         //       this.adjustMassiveSelectionXandY(x, y, width, height);
-         //       image.isActive = true;
-         //    }
-         // });
-
-         // this.otherShapes.forEach((other) => {
-         //    const { x, y, width, height, radius } = other;
-         //    if (
-         //       this.isIn(
-         //          x - radius,
-         //          y - radius,
-         //          width,
-         //          height,
-         //          minX,
-         //          minY,
-         //          maxX - minX,
-         //          maxY - minY,
-         //       )
-         //    ) {
-         //       if (!this.massiveSelection.isSelected) {
-         //          this.massiveSelection.isSelected = true;
-         //       }
-         //       this.adjustMassiveSelectionXandY(
-         //          x - radius,
-         //          y - radius,
-         //          width,
-         //          height,
-         //       );
-         //       other.isActive = true;
-         //    }
-         // });
-
          // Only draw the selection rectangle if at least one rectangle is selected
          this.massiveSelectionRect(
             this.massiveSelection.isSelectedMinX - this.tolerance,
@@ -4370,6 +3582,18 @@ export default class Shapes {
       if (this.massiveSelection.isSelectedDown) {
          this.massiveSelection.isSelectedDown = false;
          this.massiveSelection.isDown = false;
+
+         if (Math.abs(this.massiveSelection.startX - mouseX) <= 10) {
+            this.massiveSelection.isSelected = false;
+            this.removeActiveForAll();
+            this.breakPointsCtx.clearRect(
+               0,
+               0,
+               this.canvasbreakPoints.width,
+               this.canvasbreakPoints.height,
+            );
+            return;
+         }
 
          // massive is selected
          if (this.massiveSelection.isSelected) {
@@ -5510,83 +4734,6 @@ export default class Shapes {
          }
       });
 
-      // this.circleMap.forEach((circle, key) => {
-      //    const { x, y, xRadius, yRadius, isActive } = circle;
-      //    if (isActive) {
-      //       this.adjustMassiveSelectionXandY(
-      //          x - xRadius,
-      //          y - yRadius,
-      //          2 * xRadius,
-      //          2 * yRadius,
-      //       );
-      //       this.updateGuides(
-      //          key,
-      //          x - xRadius,
-      //          y - yRadius,
-      //          x + xRadius,
-      //          y + yRadius,
-      //       );
-      //    }
-      // });
-
-      // this.textMap.forEach((text) => {
-      //    if (text.isActive) {
-      //       this.adjustMassiveSelectionXandY(
-      //          text.x,
-      //          text.y,
-      //          text.width,
-      //          text.height,
-      //       );
-      //    }
-      // });
-
-      // this.lineMap.forEach((line, key) => {
-      //    this.updateLineMinMax(key);
-      //    const { minX: x, minY: y, maxX: width, maxY: height } = line;
-      //    if (line.isActive) {
-      //       this.adjustMassiveSelectionXandY(x, y, width - x, height - y);
-      //    }
-      // });
-
-      // this.figureMap.forEach((fig, key) => {
-      //    const { isActive, x, y, width, height } = fig;
-      //    if (isActive) {
-      //       this.adjustMassiveSelectionXandY(x, y, width, height);
-      //    }
-      //    this.updateGuides(key, x, y, x + width, y + width);
-      // });
-
-      // this.pencilMap.forEach((pencil) => {
-      //    if (pencil.isActive) {
-      //       this.adjustMassiveSelectionXandY(
-      //          pencil.minX,
-      //          pencil.minY,
-      //          pencil.width,
-      //          pencil.height,
-      //       );
-      //    }
-      // });
-
-      // this.imageMap.forEach((image, key) => {
-      //    if (image.isActive) {
-      //       const { x, y, width, height } = image;
-      //       this.adjustMassiveSelectionXandY(x, y, width, height);
-      //       this.updateGuides(key, x, y, x + width, y + height);
-      //    }
-      // });
-
-      // this.otherShapes.forEach((other, key) => {
-      //    if (other.isActive) {
-      //       const { x, y, width, height, radius } = other;
-      //       this.adjustMassiveSelectionXandY(
-      //          x - radius,
-      //          y - radius,
-      //          width,
-      //          height,
-      //       );
-      //    }
-      // });
-
       this.massiveSelectionRect(
          this.massiveSelection.isSelectedMinX - this.tolerance,
          this.massiveSelection.isSelectedMinY - this.tolerance,
@@ -6713,15 +5860,8 @@ export default class Shapes {
 
       if (e.ctrlKey && e.key === "c") {
          e.preventDefault();
-         const allShapes = [
-            ...this.rectMap.values(),
-            ...this.circleMap.values(),
-            ...this.otherShapes.values(),
-            ...this.textMap.values(),
-            ...this.lineMap.values(),
-         ];
 
-         allShapes.forEach((shape) => {
+         this.canvasShapes.forEach((shape) => {
             if (!shape.isActive) return;
             this.copyShapes.push(shape);
          });
@@ -6731,88 +5871,17 @@ export default class Shapes {
          this.copyShapes.forEach((shape) => {
             shape.isActive = false;
             const type = shape.type;
-            if (type === "rect") {
-               const newRect = new Rect(
-                  shape.x + (x - shape.x),
-                  shape.y + (y - shape.y),
-                  shape.width,
-                  shape.height,
-                  shape.text,
-                  shape.textSize,
-                  true,
-               );
-               this.rectMap.set(newRect.id, newRect);
-               //set new breakpoint
-               this.breakPoints.set(newRect.key, {
-                  minX: newRect.x,
-                  minY: newRect.y,
-                  maxX: newRect.x + newRect.width,
-                  maxY: newRect.y + newRect.height,
-               });
-            } else if (type === "sphere") {
-               const newSphere = new Circle(
-                  x,
-                  y,
-                  shape.xRadius,
-                  shape.yRadius,
-                  shape.text,
-                  shape.textSize,
-                  true,
-               );
-               this.circleMap.set(newSphere.id, newSphere);
-               this.breakPoints.set(newSphere.id, {
-                  minX: newSphere.x - newSphere.xRadius,
-                  minY: newSphere.y - newSphere.yRadius,
-                  maxX: 2 * newSphere.xRadius,
-                  maxY: 2 * newSphere.yRadius,
-               });
-            } else if (type === "text") {
-               const newText = new Text(
-                  x,
-                  y,
-                  shape.size,
-                  shape.content,
-                  shape.font,
-                  true,
-                  shape.height,
-                  shape.width,
-               );
 
-               this.textMap.set(newText.id, newText);
-            } else if (type === "polygon") {
-               const newOther = new Polygons(x, y, shape.inset, shape.lines);
-               this.otherShapes.set(newOther.id, newOther);
+            const newShape = { ...shape };
+            newShape.id = Date.now();
+            newShape.x = shape.x + (x - shape.x);
+            newShape.y = shape.y + (y - shape.y);
 
-               this.breakPoints.set(newOther.id, {
-                  minX: newOther.x - newOther.radius,
-                  minY: newOther.y - newOther.radius,
-                  maxX: newOther.x + newOther.radius,
-                  maxY: newOther.y + newOther.radius,
-               });
-            } else if (type === "line") {
-               const deltaX = x - shape.minX;
-               const deltaY = y - shape.minY;
-
-               const newPoints = shape.curvePoints.map((point) => ({
-                  x: point.x + deltaX,
-                  y: point.y + deltaY,
-               }));
-
-               const newLine = new Line(
-                  shape.lineType,
-                  shape.minX + deltaX,
-                  shape.minY + deltaY,
-                  shape.maxX + deltaX,
-                  shape.maxY + deltaY,
-                  newPoints,
-                  true,
-               );
-
-               newLine.width = shape.width;
-               newLine.height = shape.height;
-               shape.isActive = false;
-
-               this.lineMap.set(newLine.id, newLine);
+            const poppedIndex = this.emptyIndexes.pop();
+            if (poppedIndex != null) {
+               this.canvasShapes[poppedIndex] = newShape;
+            } else {
+               this.canvasShapes.push(newShape);
             }
          });
          this.copyShapes = [];
@@ -6822,132 +5891,6 @@ export default class Shapes {
          this.copies = [];
          let id = null;
          const padding = 10;
-
-         // this.rectMap.forEach((rect) => {
-         //    if (rect.isActive) {
-         //       let newRect = new Rect(
-         //          rect.x + padding,
-         //          rect.y + padding,
-         //          rect.width,
-         //          rect.height,
-         //          rect.text,
-         //          rect.textSize,
-         //          true,
-         //       );
-         //       newRect.radius = rect.radius;
-         //       newRect.text = rect.text;
-         //       newRect.fillStyle = rect.fillStyle;
-         //       newRect.borderColor = rect.borderColor;
-
-         //       this.rectMap.set(newRect.id, newRect);
-         //       this.breakPoints.set(newRect.id, {
-         //          minX: rect.x,
-         //          minY: rect.y,
-         //          maxX: rect.x + rect.width,
-         //          maxY: rect.y + rect.height,
-         //       });
-         //       rect.isActive = false;
-         //       this.copies.push(JSON.parse(JSON.stringify(rect)));
-
-         //       // changing the current active shape
-         //       config.currentActive = newRect;
-         //    }
-         // });
-         // this.circleMap.forEach((sphere) => {
-         //    if (!sphere.isActive) return;
-         //    const newSphere = new Circle(
-         //       sphere.x + padding,
-         //       sphere.y + padding,
-         //       sphere.xRadius,
-         //       sphere.yRadius,
-         //       sphere.text,
-         //       sphere.textSize,
-         //       true,
-         //    );
-         //    newSphere.fillStyle = sphere.fillStyle;
-         //    newSphere.borderColor = sphere.borderColor;
-         //    newSphere.text = sphere.text;
-
-         //    this.circleMap.set(newSphere.id, newSphere);
-         //    this.breakPoints.set(newSphere.id, {
-         //       minX: newSphere.x - newSphere.xRadius,
-         //       minY: newSphere.y - newSphere.yRadius,
-         //       maxX: newSphere.x + newSphere.xRadius,
-         //       maxY: newSphere.y + newSphere.xRadius,
-         //    });
-         //    sphere.isActive = false;
-         //    this.copies.push(JSON.parse(JSON.stringify(sphere)));
-         // });
-         // this.textMap.forEach((text) => {
-         //    if (!text.isActive) return;
-         //    const newText = new Text();
-         //    id = newText.id;
-         //    Object.assign(newText, text);
-         //    newText.x = text.x + padding;
-         //    newText.y = text.y + padding;
-         //    newText.id = id;
-         //    this.textMap.set(newText.id, newText);
-         //    text.isActive = false;
-         //    this.copies.push(JSON.parse(JSON.stringify(text)));
-         // });
-         // this.lineMap.forEach((line) => {
-         //    if (line.isActive) {
-         //       const curvePoints = line.curvePoints.map((p) => ({
-         //          x: p.x + padding,
-         //          y: p.y + padding,
-         //       }));
-         //       const newLine = new Line(
-         //          line.lineType,
-         //          line.minX + padding,
-         //          line.minY + padding,
-         //          line.maxX + padding,
-         //          line.maxY + padding,
-         //          curvePoints,
-         //          true,
-         //       );
-         //       this.lineMap.set(newLine.id, newLine);
-         //       line.isActive = false;
-         //       this.copies.push(JSON.parse(JSON.stringify(line)));
-         //    }
-         // });
-         // this.otherShapes.forEach((shape) => {
-         //    if (shape.isActive) {
-         //       const newS = new Polygons(
-         //          shape.x + padding,
-         //          shape.y + padding,
-         //          shape.inset,
-         //          shape.lines,
-         //       );
-         //       newS.radius = shape.radius;
-         //       newS.width = shape.width;
-         //       newS.height = shape.height;
-         //       newS.isActive = true;
-         //       this.otherShapes.set(newS.id, newS);
-         //       shape.isActive = false;
-         //       this.copies.push(JSON.parse(JSON.stringify(shape)));
-         //    }
-         // });
-         // this.pencilMap.forEach((pencil) => {
-         //    if (pencil?.isActive) {
-         //       const points = pencil.points.map((point) => {
-         //          return {
-         //             x: point.x + padding,
-         //             y: point.y + padding,
-         //          };
-         //       });
-         //       const newPencil = new Pencil(
-         //          points,
-         //          pencil.minX + padding,
-         //          pencil.minY + padding,
-         //          pencil.maxX + padding,
-         //          pencil.maxY + padding,
-         //       );
-         //       newPencil.isActive = true;
-         //       this.pencilMap.set(newPencil.id, newPencil);
-         //       pencil.isActive = false;
-         //       this.copies.push(JSON.parse(JSON.stringify(pencil)));
-         //    }
-         // });
 
          this.canvasShapes.forEach((shape) => {
             if (!shape) return;
@@ -7077,7 +6020,11 @@ export default class Shapes {
                   if (!func) return;
 
                   const result = func();
-                  this.canvasShapes.push(result);
+                  const poppedIndex = this.emptyIndexes.pop();
+                  if (poppedIndex != null) {
+                     this.canvasShapes[poppedIndex] = result;
+                  } else this.canvasShapes.push(result);
+
                   this.copies.push(JSON.parse(JSON.stringify(shape)));
                   config.currentActive = result;
                   break;
@@ -7454,6 +6401,7 @@ export default class Shapes {
    removeActiveForAll() {
       // Reset all shapes to inactive
       this.canvasShapes.forEach((shape) => {
+         if (!shape) return;
          shape.isActive = false;
       });
       this.massiveSelection.isSelected = null;

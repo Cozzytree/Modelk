@@ -1,3 +1,5 @@
+import { scrollBar, Scale } from "@/lib/utils";
+
 export function drawRect(rect, context) {
    const {
       x,
@@ -348,4 +350,43 @@ export function drawLine({ line, headlen, context }) {
    // Draw the path
    return path;
    // context.stroke(path);
+}
+
+export function drawFigure(figure, canvasDiv, context, activeColor) {
+   const { id, y, x, title, width, height, radius, isActive } = figure;
+   let ele = document.querySelector(`[data-containerId="${id}"]`);
+
+   if (!ele) {
+      // If the element does not exist, create a new one
+      ele = document.createElement("div");
+      ele.setAttribute("data-containerId", id);
+      ele.classList.add("z-[2]", "text-xs", "text-zinc-400", "p-[3px]");
+      canvasDiv.append(ele);
+   }
+   ele.style.pointerEvents = isActive ? "none" : "visible";
+   ele.textContent = title;
+   ele.style.padding = "2px 3px";
+   ele.style.position = "absolute";
+   ele.style.width = `${width} px`;
+   ele.style.height = `${height} px`;
+   ele.style.border = isActive ? `1px solid ${activeColor}` : "none";
+   ele.style.borderRadius = "3px";
+
+   // Compute the unscaled position
+   const unscaledY = y - scrollBar.scrollPositionY / Scale.scale;
+   const unscaledX = x - scrollBar.scrollPositionX / Scale.scale;
+
+   // Adjust position inversely related to the scaling factor
+   ele.style.top = `${y - 32 - scrollBar.scrollPositionY / Scale.scale}px`;
+   ele.style.left = `${x - scrollBar.scrollPositionX / Scale.scale}px`;
+
+   // Apply scaling and translation using transform
+   ele.style.transform = `scale(${Scale.scale})`;
+   // ele.style.translate = `${scrollBar.scrollPositionX}px;`;
+   ele.style.transformOrigin = "top left"; // Ensure scaling from the top-left corner
+
+   //rect
+   const path = drawRect(figure, context, activeColor, true);
+   return { path, isActive };
+   // figPath.push({ path, isActive });
 }
