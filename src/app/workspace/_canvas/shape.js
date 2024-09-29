@@ -1145,6 +1145,7 @@ export default class Shapes {
          mouseY <= this.massiveSelection.isSelectedMaxY &&
          (!this.resizeElement || !this.dragElement)
       ) {
+<<<<<<< HEAD
          this.canvasShapes.forEach((shape) => {
             if (!shape.isActive) return;
 
@@ -1167,25 +1168,98 @@ export default class Shapes {
                   shape.curvePoints.forEach((point) => {
                      point.offsetX = point.x - mouseX;
                      point.offsetY = point.y - mouseY;
+=======
+         const total = [];
+
+         this.rectMap.forEach((rect) => {
+            if (rect.isActive) {
+               rect.offsetX = rect.x - mouseX;
+               rect.offsetY = rect.y - mouseY;
+               this.copies.push(JSON.parse(JSON.stringify(rect)));
+               if (rect.pointTo.length) {
+                  rect.pointTo.forEach((p) => {
+                     const line = this.lineMap.get(p);
+                     if (!line) return;
+                     this.copies.push(JSON.parse(JSON.stringify(line)));
+>>>>>>> parent of 428fe4b (updated the shape for massive selection)
                   });
-                  break;
-               case shapeTypes.pencil:
-                  shape.offsetX = shape.minX - mouseX;
-                  shape.offsetY = shape.minY - mouseY;
-                  shape.width = shape.maxX - shape.minX;
-                  shape.height = shape.maxY - shape.minY;
-                  shape.points.forEach((point) => {
-                     point.offsetX = point.x - mouseX;
-                     point.offsetY = point.y - mouseY;
-                  });
-                  break;
-               default:
-                  shape.offsetX = shape.x - mouseX;
-                  shape.offsetY = shape.y - mouseY;
-                  break;
+               }
             }
          });
 
+<<<<<<< HEAD
+=======
+         this.circleMap.forEach((circle) => {
+            if (circle.isActive) {
+               circle.offsetX = circle.x - mouseX;
+               circle.offsetY = circle.y - mouseY;
+               this.copies.push(JSON.parse(JSON.stringify(circle)));
+               if (circle.pointTo.length) {
+                  circle.pointTo.forEach((p) => {
+                     const l = this.lineMap.get(p);
+                     if (!l) return;
+                     this.copies.push(JSON.parse(JSON.stringify(l)));
+                  });
+               }
+            }
+         });
+
+         this.textMap.forEach((text) => {
+            if (text.isActive) {
+               text.offsetX = text.x - mouseX;
+               text.offsetY = text.y - mouseY;
+               this.copies.push(JSON.parse(JSON.stringify(text)));
+            }
+         });
+
+         this.lineMap.forEach((line) => {
+            if (line.isActive) {
+               line.curvePoints.forEach((p) => {
+                  p.offsetX = p.x - mouseX;
+                  p.offsetY = p.y - mouseY;
+                  total.push({ s: line, bp: null });
+               });
+            }
+         });
+
+         this.figureMap.forEach((fig) => {
+            if (fig.isActive) {
+               fig.isActive = true;
+               fig.offsetX = fig.x - mouseX;
+               fig.offsetY = fig.y - mouseY;
+            }
+         });
+
+         this.pencilMap.forEach((pencil) => {
+            if (pencil.isActive) {
+               pencil.offsetX = pencil.minX - mouseX;
+               pencil.offsetY = pencil.minY - mouseY;
+               pencil.width = pencil.maxX - pencil.minX;
+               pencil.height = pencil.maxY - pencil.minY;
+               pencil.points.forEach((point) => {
+                  point.offsetX = point.x - mouseX;
+                  point.offsetY = point.y - mouseY;
+               });
+            }
+         });
+
+         this.imageMap.forEach((image) => {
+            const { x, y, width, height, isActive } = image;
+            if (isActive) {
+               image.offsetX = x - mouseX;
+               image.offsetY = y - mouseY;
+            }
+         });
+
+         this.otherShapes.forEach((other) => {
+            const { x, y, width, height, isActive } = other;
+            if (isActive) {
+               other.offsetX = mouseX - x;
+               other.offsetY = mouseY - y;
+            }
+         });
+
+>>>>>>> parent of 428fe4b (updated the shape for massive selection)
          this.massiveSelection.isSelectedDown = true;
          this.massiveSelection.startX = mouseX;
          this.massiveSelection.startY = mouseY;
@@ -2251,33 +2325,77 @@ export default class Shapes {
          this.massiveSelection.isSelectedMinY =
             mouseY + this.massiveSelection.offsetY;
 
-         this.canvasShapes.forEach((shape) => {
-            if (!shape.isActive) return;
-            switch (shape.type) {
-               case shapeTypes.pencil:
-                  shape.minX = mouseX + shape.offsetX;
-                  shape.minY = mouseY + shape.offsetY;
-                  shape.maxY = shape.minY + shape.height;
-                  shape.maxX = shape.minX + shape.width;
-
-                  shape.points.forEach((point) => {
-                     point.x = mouseX + point.offsetX;
-                     point.y = mouseY + point.offsetY;
-                  });
-                  break;
-               case shapeTypes.line:
-                  shape.curvePoints.forEach((point) => {
-                     point.x = mouseX + point.offsetX;
-                     point.y = mouseY + point.offsetY;
-                  });
-                  break;
-               default:
-                  const { offsetY, offsetX } = shape;
-                  shape.x = mouseX + offsetX;
-                  shape.y = mouseY + offsetY;
-                  break;
+         this.rectMap.forEach((rect) => {
+            if (rect.isActive) {
+               const { offsetX, offsetY } = rect;
+               rect.x = mouseX + offsetX;
+               rect.y = mouseY + offsetY;
             }
          });
+<<<<<<< HEAD
+=======
+
+         this.circleMap.forEach((circle) => {
+            if (circle.isActive) {
+               const { offsetX, offsetY } = circle;
+               circle.x = mouseX + offsetX;
+               circle.y = mouseY + offsetY;
+            }
+         });
+
+         this.textMap.forEach((text) => {
+            if (text.isActive) {
+               const { offsetX, offsetY } = text;
+               text.x = mouseX + offsetX;
+               text.y = mouseY + offsetY;
+            }
+         });
+
+         this.lineMap.forEach((line) => {
+            if (line.isActive) {
+               line.curvePoints.forEach((p) => {
+                  p.x = mouseX + p.offsetX;
+                  p.y = mouseY + p.offsetY;
+               });
+            }
+         });
+
+         this.figureMap.forEach((fig) => {
+            if (fig.isActive) {
+               fig.x = mouseX + fig.offsetX;
+               fig.y = mouseY + fig.offsetY;
+            }
+         });
+
+         this.pencilMap.forEach((pencil) => {
+            if (pencil.isActive) {
+               pencil.minX = mouseX + pencil.offsetX;
+               pencil.minY = mouseY + pencil.offsetY;
+               pencil.maxY = pencil.minY + pencil.height;
+               pencil.maxX = pencil.minX + pencil.width;
+
+               pencil.points.forEach((point) => {
+                  point.x = mouseX + point.offsetX;
+                  point.y = mouseY + point.offsetY;
+               });
+            }
+         });
+
+         this.imageMap.forEach((image) => {
+            if (image.isActive) {
+               image.x = mouseX + image.offsetX;
+               image.y = mouseY + image.offsetY;
+            }
+         });
+
+         this.otherShapes.forEach((other) => {
+            if (other.isActive) {
+               other.x = mouseX - other.offsetX;
+               other.y = mouseY - other.offsetY;
+            }
+         });
+
+>>>>>>> parent of 428fe4b (updated the shape for massive selection)
          this.massiveSelectionRect(
             this.massiveSelection.isSelectedMinX - this.tolerance,
             this.massiveSelection.isSelectedMinY - this.tolerance,
@@ -3510,6 +3628,7 @@ export default class Shapes {
          let minY = Math.min(mouseY, startY);
          let maxY = Math.max(mouseY, startY);
 
+<<<<<<< HEAD
          this.canvasShapes.forEach((shape) => {
             if (!shape) return;
             let sx,
@@ -3543,12 +3662,16 @@ export default class Shapes {
                   break;
             }
 
+=======
+         this.rectMap.forEach((rect) => {
+            const { x, height, y, width } = rect;
+>>>>>>> parent of 428fe4b (updated the shape for massive selection)
             if (
                this.isIn(
-                  sx,
-                  sy,
-                  swidth,
-                  sheight,
+                  x,
+                  y,
+                  width,
+                  height,
                   minX,
                   minY,
                   maxX - minX,
@@ -3558,11 +3681,184 @@ export default class Shapes {
                if (!this.massiveSelection.isSelected) {
                   this.massiveSelection.isSelected = true;
                }
-               this.adjustMassiveSelectionXandY(sx, sy, swidth, sheight);
-               shape.isActive = true;
+               this.adjustMassiveSelectionXandY(x, y, width, height);
+
+               rect.isActive = true;
             }
          });
 
+<<<<<<< HEAD
+=======
+         this.circleMap.forEach((circle) => {
+            const { x, y, xRadius, yRadius } = circle;
+            if (
+               this.isIn(
+                  x - xRadius,
+                  y - yRadius,
+                  2 * xRadius,
+                  2 * yRadius,
+                  minX,
+                  minY,
+                  maxX - minX,
+                  maxY,
+                  minY,
+               )
+            ) {
+               if (!this.massiveSelection.isSelected) {
+                  this.massiveSelection.isSelected = true;
+               }
+               this.adjustMassiveSelectionXandY(
+                  x - xRadius,
+                  y - yRadius,
+                  2 * xRadius,
+                  2 * yRadius,
+               );
+               circle.isActive = true;
+            }
+         });
+
+         this.textMap.forEach((text) => {
+            if (
+               this.isIn(
+                  text.x,
+                  text.y,
+                  text.width,
+                  text.height,
+                  minX,
+                  minY,
+                  maxX - minX,
+                  maxY - minY,
+               )
+            ) {
+               if (!this.massiveSelection.isSelected) {
+                  this.massiveSelection.isSelected = true;
+               }
+               this.adjustMassiveSelectionXandY(
+                  text.x,
+                  text.y,
+                  text.width,
+                  text.height,
+               );
+               text.isActive = true;
+            }
+         });
+
+         this.lineMap.forEach((line) => {
+            const { minX: x, minY: y, maxX: width, maxY: height } = line;
+            if (
+               this.isIn(
+                  x,
+                  y,
+                  width - x,
+                  height - y,
+                  minX,
+                  minY,
+                  maxX - minX,
+                  maxY - minY,
+               )
+            ) {
+               if (!this.massiveSelection.isSelected) {
+                  this.massiveSelection.isSelected = true;
+               }
+               this.adjustMassiveSelectionXandY(x, y, width - x, height - y);
+               line.isActive = true;
+            }
+         });
+
+         this.figureMap.forEach((fig) => {
+            const { x, y, width, height } = fig;
+            if (
+               this.isIn(
+                  x,
+                  y,
+                  width,
+                  height,
+                  minX,
+                  minY,
+                  maxX - minX,
+                  maxY - minY,
+               )
+            ) {
+               if (!this.massiveSelection.isSelected) {
+                  this.massiveSelection.isSelected = true;
+               }
+               this.adjustMassiveSelectionXandY(x, y, width, height);
+               fig.isActive = true;
+            }
+         });
+
+         this.pencilMap.forEach((pencil) => {
+            const { minX: x, maxX: width, minY: y, maxY: height } = pencil;
+            if (
+               this.isIn(
+                  x,
+                  y,
+                  width - x,
+                  height - y,
+                  minX,
+                  minY,
+                  maxX - minX,
+                  maxY - minY,
+               )
+            ) {
+               if (!this.massiveSelection.isSelected) {
+                  this.massiveSelection.isSelected = true;
+               }
+               this.adjustMassiveSelectionXandY(x, y, width - x, height - y);
+               pencil.isActive = true;
+            }
+         });
+
+         this.imageMap.forEach((image) => {
+            const { x, y, width, height } = image;
+            if (
+               this.isIn(
+                  x,
+                  y,
+                  width,
+                  height,
+                  minX,
+                  minY,
+                  maxX - minX,
+                  maxY - minY,
+               )
+            ) {
+               if (!this.massiveSelection.isSelected) {
+                  this.massiveSelection.isSelected = true;
+               }
+               this.adjustMassiveSelectionXandY(x, y, width, height);
+               image.isActive = true;
+            }
+         });
+
+         this.otherShapes.forEach((other) => {
+            const { x, y, width, height, radius } = other;
+            if (
+               this.isIn(
+                  x - radius,
+                  y - radius,
+                  width,
+                  height,
+                  minX,
+                  minY,
+                  maxX - minX,
+                  maxY - minY,
+               )
+            ) {
+               if (!this.massiveSelection.isSelected) {
+                  this.massiveSelection.isSelected = true;
+               }
+               this.adjustMassiveSelectionXandY(
+                  x - radius,
+                  y - radius,
+                  width,
+                  height,
+               );
+               other.isActive = true;
+            }
+         });
+
+>>>>>>> parent of 428fe4b (updated the shape for massive selection)
          // Only draw the selection rectangle if at least one rectangle is selected
          this.massiveSelectionRect(
             this.massiveSelection.isSelectedMinX - this.tolerance,
@@ -4703,9 +4999,8 @@ export default class Shapes {
                   height = 2 * shape.yRadius;
                   break;
                case shapeTypes.line:
-                  this.updateLineMinMax(shape);
                   x = shape.minX;
-                  y = shape.minY;
+                  y: shape.minY;
                   width = shape.maxX - x;
                   height = shape.maxX - y;
                   break;
@@ -4728,7 +5023,6 @@ export default class Shapes {
                   height = shape.height;
                   break;
             }
-
             this.adjustMassiveSelectionXandY(x, y, width, height);
             this.updateGuides(shape.id, x, y, x + width, y + height);
          }
@@ -5400,6 +5694,7 @@ export default class Shapes {
    }
 
    updateLineMinMax(line) {
+      console.log(line);
       if (!line) {
          return;
       }
@@ -6400,9 +6695,22 @@ export default class Shapes {
 
    removeActiveForAll() {
       // Reset all shapes to inactive
+<<<<<<< HEAD
       this.canvasShapes.forEach((shape) => {
          if (!shape) return;
          shape.isActive = false;
+=======
+      const allShapes = [
+         ...this.rectMap.values(),
+         ...this.circleMap.values(),
+         ...this.textMap.values(),
+         ...this.lineMap.values(),
+         ...this.imageMap.values(),
+         ...this.figureMap.values(),
+      ];
+      allShapes.forEach((shape) => {
+         if (shape.isActive) shape.isActive = false;
+>>>>>>> parent of 428fe4b (updated the shape for massive selection)
       });
       this.massiveSelection.isSelected = null;
       this.breakPointsCtx.clearRect(
