@@ -332,6 +332,7 @@ export default class Shapes {
          this.newShapeParams = null;
          this.lastPoint = null;
          this.draw();
+         this.onChange(config.currentActive);
       }
    }
 
@@ -416,12 +417,14 @@ export default class Shapes {
 
    deleteAndSeletAll(e) {
       // select all
+      config.currentActive = [];
       if (e.ctrlKey && e.key === "a") {
          e.preventDefault();
-         this.canvasShapes.forEach((shape) => {
+         this.canvasShapes.forEach((shape, index) => {
             shape.isActive = true;
+            config.currentActive.push(index);
          });
-
+         this.onChange(config.currentActive);
          this.draw();
          this.drawImage();
       } else if (e.key === "Delete") {
@@ -1131,12 +1134,70 @@ export default class Shapes {
    }
 
    mouseDownDragAndResize(e) {
-      if (e.altKey || e.ctrlKey || config.mode === "handsFree") return;
+      if (e.altKey || config.mode === "handsFree") return;
       const { x: mouseX, y: mouseY } = this.getTransformedMouseCoords(e);
+
+      let ctrlSmallestShape = null;
+      if (e.ctrlKey) {
+         const { x: clickX, y: clickY } = this.getTransformedMouseCoords(e);
+         this.canvasShapes.forEach((shape, index) => {
+            if (!shape) return;
+
+            let x = 0;
+            let y = 0;
+            let width = 0;
+            let height = 0;
+
+            switch (shape.type) {
+               case shapeTypes.others:
+                  x = shape.x - shape.radius;
+                  y = shape.y - shape.radius;
+                  width = shape.width;
+                  height = shape.height;
+                  break;
+               case shapeTypes.sphere:
+                  x = shape.x - shape.xRadius;
+                  y = shape.y - shape.yRadius;
+                  width = 2 * shape.xRadius;
+                  height = 2 * shape.xRadius;
+                  break;
+               case shapeTypes.line:
+                  x = shape.minX;
+                  y = shape.minY;
+                  width = shape.maxX - shape.minX;
+                  height = shape.maxY - shape.minY;
+                  break;
+               default:
+                  x = shape.x;
+                  y = shape.y;
+                  width = shape.width;
+                  height = shape.height;
+                  break;
+            }
+            if (this.isIn(clickX, clickY, 0, 0, x, y, width, height)) {
+               if (
+                  ctrlSmallestShape == null ||
+                  this.canvasShapes[ctrlSmallestShape]?.width > width
+               ) {
+                  ctrlSmallestShape = index;
+               }
+            }
+         });
+         if (!this.canvasShapes[ctrlSmallestShape]) return;
+      }
+
+      if (ctrlSmallestShape !== null) {
+         this.canvasShapes[ctrlSmallestShape].isActive = true;
+         config.currentActive.push(ctrlSmallestShape);
+         this.onChange(config.currentActive);
+         this.draw();
+         return;
+      }
 
       // to sore the shape which have changed for undo and redo
       this.copies = [];
-      config.currentActive = null;
+      // config.currentActive = null;
+      config.currentActive = [];
 
       this.newShape(mouseX, mouseY);
       if (this.isDrawing || this.newShapeParams) return;
@@ -1241,7 +1302,7 @@ export default class Shapes {
          const setActiveResizing = (resizeParams) => {
             shape.isActive = true;
             isResizing = true;
-            config.currentActive = shape;
+            config.currentActive.push(shape);
             this.resizeElement = { ...resizeParams, index, type: shape.type };
             this.copies.push(JSON.parse(JSON.stringify(shape)));
          };
@@ -1596,7 +1657,8 @@ export default class Shapes {
 
       if (smallestShape && this.canvasShapes[smallestShapeKey]) {
          // config.currentActive = smallestShape;
-         config.currentActive = this.canvasShapes[smallestShapeKey];
+         // config.currentActive = this.canvasShapes[smallestShapeKey];
+         config.currentActive.push(smallestShapeKey);
          switch (smallestShape.type) {
             case shapeTypes.image:
                const img = new Image();
@@ -1695,7 +1757,7 @@ export default class Shapes {
          this.massiveSelection.startY = mouseY;
       }
 
-      this.onChange();
+      this.onChange(config.currentActive);
       this.draw();
       this.drawImage();
    }
@@ -3191,7 +3253,6 @@ export default class Shapes {
                });
                break;
             case shapeTypes.others:
-               console.log(thedragElement.isActive);
                thedragElement.x = mouseX - thedragElement.offsetX;
                thedragElement.y = mouseY - thedragElement.offsetY;
                this.showGuides(
@@ -3916,7 +3977,6 @@ export default class Shapes {
 
                         shape.pointTo.push(key);
                         theResizeElement.endTo = id;
-                        console.log("shape ", shape);
                         keyUsed = true;
                      };
 
@@ -5726,85 +5786,78 @@ export default class Shapes {
    }
 
    duplicate(e) {
-      if (e.altKey && config.mode === "free") {
-         const current = this.canvasClick(e);
-
-         if (current) {
-            const newShape = this.getCurrentShape(current);
-
-            const mouseMoveHandler = (moveEvent) => {
-               const { x, y } = this.getTransformedMouseCoords(moveEvent);
-               newShape.x = x;
-               newShape.y = y;
-               newShape.isActive = true;
-               config.currentActive = newShape;
-               this.onChange();
-               this.draw();
-            };
-
-            const mouseUpHandler = () => {
-               if (newShape.type === shapeTypes.rect) {
-                  this.breakPoints.set(newShape.id, {
-                     minX: newShape.x,
-                     maxX: newShape.x + newShape.width,
-                     minY: newShape.y,
-                     maxX: newShape.y + newShape.height,
-                  });
-               } else if (newShape.type === shapeTypes.circle) {
-                  this.breakPoints.set(newShape.id, {
-                     minX: newShape.x - newShape.xRadius,
-                     maxX: newShape.x + newShape.xRadius,
-                     minY: newShape.y - newShape.yRadius,
-                     maxX: newShape.y + newShape.yRadius,
-                  });
-               }
-               this.canvas.removeEventListener("mousemove", mouseMoveHandler);
-               this.canvas.removeEventListener("mouseup", mouseUpHandler);
-               this.canvas.removeEventListener("click", this.canvasClick);
-            };
-
-            this.canvas.addEventListener("mousemove", mouseMoveHandler);
-            this.canvas.addEventListener("mouseup", mouseUpHandler);
-         }
-      } else if (config.mode === "handsFree") {
-         let { x, y } = this.getTransformedMouseCoords(e);
-         const handlermove = (event) => {
-            const { x: moveX, y: moveY } =
-               this.getTransformedMouseCoords(event);
-            if (moveX > x) {
-               scrollBar.scrollPositionX =
-                  scrollBar.scrollPositionX - (moveX - x);
-            } else {
-               scrollBar.scrollPositionX =
-                  scrollBar.scrollPositionX + (x - moveX);
-            }
-
-            if (moveY > y) {
-               scrollBar.scrollPositionY =
-                  scrollBar.scrollPositionY - (moveY - y);
-            } else {
-               scrollBar.scrollPositionY =
-                  scrollBar.scrollPositionY + (y - moveY);
-            }
-
-            this.draw();
-            this.drawImage();
-         };
-         const handlerUp = () => {
-            this.canvas.removeEventListener("mousemove", handlermove);
-            this.canvas.removeEventListener("mouseup", handlerUp);
-         };
-         this.canvas.addEventListener("mousemove", handlermove);
-         this.canvas.addEventListener("mouseup", handlerUp);
-      } else if (e.ctrlKey) {
-         const current = this.canvasClick(e);
-         if (!current) return;
-         if (current?.isActive) {
-            current.isActive = false;
-         } else current.isActive = true;
-
-         this.draw();
-      }
+      // if (e.altKey && config.mode === "free") {
+      //    const current = this.canvasClick(e);
+      //    if (current) {
+      //       const newShape = this.getCurrentShape(current);
+      //       const mouseMoveHandler = (moveEvent) => {
+      //          const { x, y } = this.getTransformedMouseCoords(moveEvent);
+      //          newShape.x = x;
+      //          newShape.y = y;
+      //          newShape.isActive = true;
+      //          config.currentActive = newShape;
+      //          this.onChange();
+      //          this.draw();
+      //       };
+      //       const mouseUpHandler = () => {
+      //          if (newShape.type === shapeTypes.rect) {
+      //             this.breakPoints.set(newShape.id, {
+      //                minX: newShape.x,
+      //                maxX: newShape.x + newShape.width,
+      //                minY: newShape.y,
+      //                maxX: newShape.y + newShape.height,
+      //             });
+      //          } else if (newShape.type === shapeTypes.circle) {
+      //             this.breakPoints.set(newShape.id, {
+      //                minX: newShape.x - newShape.xRadius,
+      //                maxX: newShape.x + newShape.xRadius,
+      //                minY: newShape.y - newShape.yRadius,
+      //                maxX: newShape.y + newShape.yRadius,
+      //             });
+      //          }
+      //          this.canvas.removeEventListener("mousemove", mouseMoveHandler);
+      //          this.canvas.removeEventListener("mouseup", mouseUpHandler);
+      //          this.canvas.removeEventListener("click", this.canvasClick);
+      //       };
+      //       this.canvas.addEventListener("mousemove", mouseMoveHandler);
+      //       this.canvas.addEventListener("mouseup", mouseUpHandler);
+      //    }
+      // } else if (config.mode === "handsFree") {
+      //    let { x, y } = this.getTransformedMouseCoords(e);
+      //    const handlermove = (event) => {
+      //       const { x: moveX, y: moveY } =
+      //          this.getTransformedMouseCoords(event);
+      //       if (moveX > x) {
+      //          scrollBar.scrollPositionX =
+      //             scrollBar.scrollPositionX - (moveX - x);
+      //       } else {
+      //          scrollBar.scrollPositionX =
+      //             scrollBar.scrollPositionX + (x - moveX);
+      //       }
+      //       if (moveY > y) {
+      //          scrollBar.scrollPositionY =
+      //             scrollBar.scrollPositionY - (moveY - y);
+      //       } else {
+      //          scrollBar.scrollPositionY =
+      //             scrollBar.scrollPositionY + (y - moveY);
+      //       }
+      //       this.draw();
+      //       this.drawImage();
+      //    };
+      //    const handlerUp = () => {
+      //       this.canvas.removeEventListener("mousemove", handlermove);
+      //       this.canvas.removeEventListener("mouseup", handlerUp);
+      //    };
+      //    this.canvas.addEventListener("mousemove", handlermove);
+      //    this.canvas.addEventListener("mouseup", handlerUp);
+      // } else if (e.ctrlKey) {
+      //    const current = this.canvasClick(e);
+      //    if (!current) return;
+      //    if (current?.isActive) {
+      //       current.isActive = false;
+      //    } else current.isActive = true;
+      //    this.draw();
+      // }
    }
 
    documentKeyDown(e) {
@@ -5986,10 +6039,13 @@ export default class Shapes {
                   const poppedIndex = this.emptyIndexes.pop();
                   if (poppedIndex != null) {
                      this.canvasShapes[poppedIndex] = result;
-                  } else this.canvasShapes.push(result);
+                     config.currentActive = [poppedIndex];
+                  } else {
+                     this.canvasShapes.push(result);
+                     config.currentActive = [this.canvasShapes.length - 1];
+                  }
 
                   this.copies.push(JSON.parse(JSON.stringify(shape)));
-                  config.currentActive = result;
                   break;
                }
             }
@@ -5997,9 +6053,9 @@ export default class Shapes {
 
          Bin.insert({ type: redoType.fresh, shapes: this.copies });
          this.copies = [];
-         this.onChange();
+         console.log("duplicate :", config.currentActive);
+         this.onChange(config.currentActive);
          this.draw();
-         this.onChange();
       } else {
          this.redoEvent(e);
       }
@@ -6375,6 +6431,49 @@ export default class Shapes {
          this.canvasbreakPoints.height,
       );
       this.draw();
+   }
+
+   takeShapeToTop(current) {
+      let x, y, width, height;
+      switch (current.type) {
+         case shapeTypes.others:
+            x = current.x - current.radius;
+            y = current.y - current.radius;
+            width = current.width;
+            height = current.height;
+            break;
+         case currentTypes.sphere:
+            x = current.x - current.xRadius;
+            y = current.y - current.yRadius;
+            width = 2 * current.xRadius;
+            height = 2 * current.xRadius;
+            break;
+         case currentTypes.line:
+            x = current.minX;
+            y = current.minY;
+            width = current.maxX - current.minX;
+            height = current.maxY - current.minY;
+            break;
+         default:
+            x = current.x;
+            y = current.y;
+            width = current.width;
+            height = current.height;
+            break;
+      }
+      this.canvasShapes.forEach((shape, index) => {
+         if (!shape || current.id === shape.id) return;
+         if (
+            shape.x > x ||
+            shape.x + shape.width < x + width ||
+            shape.y > y ||
+            shape.y + shape.height < y + height
+         ) {
+            let temp = shape;
+            this.canvasShapes[index] = current;
+            current = shape;
+         }
+      });
    }
 
    initialize() {

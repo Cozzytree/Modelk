@@ -9,7 +9,7 @@ export const config = {
    mode: "free",
    docMode: "both",
    // for shape options
-   currentActive: null,
+   currentActive: [],
 };
 
 export const shapeTypes = {

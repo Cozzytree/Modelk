@@ -226,7 +226,7 @@ export default function Canvas({ id }) {
    const initialData = useRef(startupData);
    const [newImage, setImage] = useState(null);
    const [mode, setMode] = useState("free");
-   const [currentActive, setCurrentActive] = useState(null);
+   const [currentActive, setCurrentActive] = useState([]);
    const [scale, setScale] = useState(Scale.scale);
    const [shapeInitialized, setShapeInitialized] = useState(false);
 
@@ -264,9 +264,10 @@ export default function Canvas({ id }) {
          }
       }
 
-      const onChange = () => {
-         console.log(config.currentActive);
-         setCurrentActive(config.currentActive);
+      const onChange = (data) => {
+         if (data) {
+            setCurrentActive(data);
+         } else setCurrentActive(() => config.currentActive);
       };
 
       const shape = new Shape(
@@ -320,12 +321,12 @@ export default function Canvas({ id }) {
       const handler = (e) => {
          if (config.mode === "pencil") return;
 
-         if (
-            JSON.stringify(config.currentActive) !==
-            JSON.stringify(currentActive)
-         ) {
-            setCurrentActive(config.currentActive);
-         }
+         // if (
+         //    JSON.stringify(config.currentActive) !==
+         //    JSON.stringify(currentActive)
+         // ) {
+         //    setCurrentActive(config.currentActive);
+         // }
          if (config.mode !== mode) {
             setMode(config.mode);
          }
@@ -344,13 +345,13 @@ export default function Canvas({ id }) {
             setImage(null);
          }
 
-         if (e.ctrlKey) {
-            if (!shape) return;
-            const s = shape.canvasClick(e);
-            if (!s) return;
-            s.isActive = true;
-            shape.draw();
-         }
+         // if (e.ctrlKey) {
+         //    if (!shape) return;
+         //    const s = shape.canvasClick(e);
+         //    if (!s) return;
+         //    s.isActive = true;
+         //    shape.draw();
+         // }
          if (config.mode === "text") {
             const { x, y } = shape.getTransformedMouseCoords(e);
             shape.inputText(
@@ -411,10 +412,7 @@ export default function Canvas({ id }) {
    }, [id, shapeInitialized, insertShape, updateShapes, deleteShapes]);
 
    function checkCurrentShape() {
-      config.currentActive = null;
-      if (config.currentActive !== currentActive) {
-         setCurrentActive(config.currentActive);
-      }
+      setCurrentActive(config.currentActive);
    }
 
    if (isLoading) {
@@ -539,7 +537,7 @@ export default function Canvas({ id }) {
             </div>
          </TooltipProvider>
 
-         {currentActive && (
+         {currentActive?.length && (
             <CanvasShapeOptions
                shapeClassRef={shapeClassRef.current}
                currentActive={currentActive}

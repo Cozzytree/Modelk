@@ -9,7 +9,13 @@ import {
    MenubarSubTrigger,
    MenubarTrigger,
 } from "@/components/ui/menubar";
-import { config, thickness, lineType, shapeProps } from "@/lib/utils.ts";
+import {
+   config,
+   thickness,
+   lineType,
+   shapeProps,
+   shapeTypes,
+} from "@/lib/utils.ts";
 import {
    AlignCenterVerticallyIcon,
    ArrowLeftIcon,
@@ -43,20 +49,32 @@ export default function CanvasShapeOptions({
 }) {
    const [inputText, setInputText] = useState(false);
    const [textContent, setTextContent] = useState("");
-   const [fontSize, setFontSize] = useState(config.currentActive?.textSize);
+   const [fontSize, setFontSize] = useState(0);
    const inputTextRef = useRef(null);
 
    useEffect(() => {
       let text = "";
-      if (!currentActive.text) return;
+      console.log(shapeClassRef.canvasShapes[currentActive[0]]);
+      if (!shapeClassRef) {
+         console.error("shapeClassRef is undefined");
+         return;
+      }
 
-      currentActive.text.forEach((t) => {
+      if (
+         !currentActive ||
+         !shapeClassRef.canvasShapes ||
+         !shapeClassRef.canvasShapes[currentActive[0]] ||
+         !shapeClassRef.canvasShapes[currentActive[0]].text
+      ) {
+         return;
+      }
+      shapeClassRef.canvasShapes[currentActive[0]].text.forEach((t) => {
          if (t.length) text += t + "\n";
       });
 
       setTextContent(text);
-      setFontSize(currentActive?.textSize);
-   }, [currentActive]);
+      setFontSize(shapeClassRef.canvasShapes[currentActive[0]]?.textSize);
+   }, [currentActive, shapeClassRef]);
 
    const handleRadius = (val) => {
       setInputText(false);
@@ -78,36 +96,46 @@ export default function CanvasShapeOptions({
 
    const handleFillStyle = (color) => {
       setInputText(false);
-      if (config.currentActive) {
-         if (
-            config.currentActive.type === "line" ||
-            config.currentActive.type === "pencil"
-         ) {
-            config.currentActive.borderColor = color;
-         } else config.currentActive.fillStyle = color;
-         setCurrent(config.currentActive);
-
-         if (shapeClassRef) {
-            shapeClassRef.draw();
-         }
+      if (!shapeClassRef) return;
+      console.log(currentActive);
+      if (currentActive && currentActive.length) {
+         currentActive.forEach((c) => {
+            if (!shapeClassRef.canvasShapes[c]) return;
+            const theshape = shapeClassRef.canvasShapes[c];
+            if (
+               theshape.type === shapeTypes.line ||
+               theshape.type === shapeTypes.pencil
+            ) {
+               theshape.borderColor = color;
+            } else {
+               theshape.fillStyle = color;
+            }
+         });
+         shapeClassRef.draw();
       }
    };
 
    const lineColor = (color) => {
       setInputText(false);
-      if (config.currentActive) {
-         config.currentActive.borderColor = color;
-         setCurrent(config.currentActive);
-         if (shapeClassRef) shapeClassRef.draw();
+      if (!shapeClassRef) return;
+      if (currentActive && currentActive.length) {
+         currentActive.forEach((c) => {
+            if (shapeClassRef?.canvasShapes[c]) {
+               shapeClassRef.canvasShapes[c].borderColor = color;
+            }
+         });
+         shapeClassRef?.draw();
       }
    };
 
    const alignText = (allign) => {
-      if (config.currentActive) {
-         config.currentActive.textPosition = allign;
-         if (shapeClassRef) shapeClassRef.draw();
-         setCurrent(config.currentActive);
-      }
+      if (!currentActive || !currentActive.length || !shapeClassRef) return;
+
+      currentActive.forEach((c) => {
+         if (shapeClassRef?.canvasShapes[c]) return;
+         shapeClassRef.canvasShapes[0].textPosition = allign;
+      });
+      shapeClassRef.draw();
    };
 
    const changeFont = (font) => {
@@ -126,6 +154,15 @@ export default function CanvasShapeOptions({
       }
    };
 
+   const handleThickness = (thick) => {
+      if (!currentActive || !currentActive.length || !shapeClassRef) return;
+      currentActive.forEach((c) => {
+         if (!shapeClassRef?.canvasShapes[c]) return;
+         shapeClassRef.canvasShapes[c].lineWidth = thick;
+      });
+      shapeClassRef?.draw();
+   };
+
    const textAlignVertical = (position) => {
       if (config.currentActive) {
          config.currentActive.allignVertical = position;
@@ -137,37 +174,44 @@ export default function CanvasShapeOptions({
    return (
       <>
          <div className="absolute bottom-5 left-[50%] z-[999] translate-x-[-50%] flex items-center divide-x-2 border border-zinc-800 gap-1">
-            {currentActive.type !== "text" && (
-               <div className="relative">
-                  <Button
-                     variant="ghost"
-                     size="icon"
-                     onClick={() => {
-                        setInputText((o) => !o);
-                        inputTextRef.current && inputTextRef.current.focus();
-                     }}
-                     className="p-2 h-fit font-extrabold"
-                  >
-                     T
-                  </Button>
-                  {/* <div contentEditable onFocus={true}>
-                     {" "}
-                  </div> */}
-                  {inputText && (
-                     <textarea
-                        ref={inputTextRef}
-                        placeholder="text"
-                        className="text-xs absolute -top-[150%] left-0 p-1 bg-transparent outline-none focus:outline-none w-fit h-[5ch]"
-                        defaultValue={textContent}
-                        onBlur={(e) => {
-                           const content = e.target.value.split("\n");
-                           currentActive.text = content;
-                           shapeClassRef.draw();
+            {currentActive.length == 1 &&
+               currentActive[0]?.type !== shapeTypes.text && (
+                  <div className="relative">
+                     <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                           setInputText((o) => !o);
+                           inputTextRef.current && inputTextRef.current.focus();
                         }}
-                     />
-                  )}
-               </div>
-            )}
+                        className="p-2 h-fit font-extrabold"
+                     >
+                        T
+                     </Button>
+                     {/* <div contentEditable onFocus={true}>
+                  </div> */}
+                     {inputText && (
+                        <textarea
+                           ref={inputTextRef}
+                           placeholder="text"
+                           className="text-xs absolute -top-[150%] left-0 p-1 bg-transparent outline-none focus:outline-none w-fit h-[5ch]"
+                           defaultValue={textContent}
+                           onBlur={(e) => {
+                              const content = e.target.value.split("\n");
+                              shapeClassRef.canvasShapes[
+                                 currentActive[0]
+                              ].text = content;
+
+                              console.log(
+                                 shapeClassRef.canvasShapes[currentActive[0]]
+                                    .text,
+                              );
+                              shapeClassRef.draw();
+                           }}
+                        />
+                     )}
+                  </div>
+               )}
 
             <Menubar>
                <MenubarMenu className="p-1">
@@ -186,7 +230,7 @@ export default function CanvasShapeOptions({
                </MenubarMenu>
 
                {/* {text allign} */}
-               {currentActive.type !== "text" && (
+               {currentActive[0]?.type !== shapeTypes.text && (
                   <>
                      <MenubarMenu>
                         <MenubarTrigger className="w-full h-full">
@@ -269,11 +313,7 @@ export default function CanvasShapeOptions({
                            {thickness.map((thick) => (
                               <div
                                  onClick={() => {
-                                    if (config.currentActive) {
-                                       config.currentActive.lineWidth = thick.q;
-                                       setCurrent(config.currentActive);
-                                       if (shapeClassRef) shapeClassRef.draw();
-                                    }
+                                    handleThickness(thick.q);
                                  }}
                                  key={thick.size}
                                  className={`grid grid-cols-[0.6fr_1fr] items-center hover:bg-secondary hover:text-secondary-foreground transition-all duration-100 px-[5px] rounded-sm ${
@@ -421,7 +461,7 @@ export default function CanvasShapeOptions({
                   </MenubarContent>
                </MenubarMenu>
 
-               {currentActive.type === "line" && (
+               {currentActive[0]?.type === shapeTypes.line && (
                   <div className="flex gap-1 p-[1px] items-center justify-center h-full w-full">
                      <MenubarMenu>
                         <MenubarTrigger className="h-full w-full">
@@ -522,7 +562,7 @@ export default function CanvasShapeOptions({
                   </div>
                )}
 
-               {currentActive.type === "rect" && (
+               {currentActive[0]?.type === shapeTypes.rect && (
                   <MenubarMenu>
                      <MenubarTrigger className="w-full h-full">
                         <SquareIcon className="h-full" />
