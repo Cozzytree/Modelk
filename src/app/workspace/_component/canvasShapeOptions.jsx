@@ -18,9 +18,11 @@ import {
 } from "@/lib/utils.ts";
 import {
    AlignCenterVerticallyIcon,
+   ArrowDownIcon,
    ArrowLeftIcon,
    ArrowRightIcon,
    ArrowTopRightIcon,
+   ArrowUpIcon,
    BoxIcon,
    FontBoldIcon,
    FontFamilyIcon,
@@ -54,27 +56,25 @@ export default function CanvasShapeOptions({
 
    useEffect(() => {
       let text = "";
-      console.log(shapeClassRef.canvasShapes[currentActive[0]]);
       if (!shapeClassRef) {
-         console.error("shapeClassRef is undefined");
          return;
       }
 
-      if (
-         !currentActive ||
-         !shapeClassRef.canvasShapes ||
-         !shapeClassRef.canvasShapes[currentActive[0]] ||
-         !shapeClassRef.canvasShapes[currentActive[0]].text
-      ) {
+      const activeShape = shapeClassRef.canvasShapes[currentActive[0]];
+      if (!activeShape || !activeShape.text) {
          return;
       }
-      shapeClassRef.canvasShapes[currentActive[0]].text.forEach((t) => {
-         if (t.length) text += t + "\n";
-      });
 
+      text = activeShape.text.filter((t) => t.length).join("\n");
       setTextContent(text);
-      setFontSize(shapeClassRef.canvasShapes[currentActive[0]]?.textSize);
+      setFontSize(activeShape.textSize);
    }, [currentActive, shapeClassRef]);
+
+   const handleBlur = (e) => {
+      const content = e.target.value.split("\n");
+      shapeClassRef.canvasShapes[currentActive[0]].text = content;
+      shapeClassRef.draw();
+   };
 
    const handleRadius = (val) => {
       setInputText(false);
@@ -97,7 +97,6 @@ export default function CanvasShapeOptions({
    const handleFillStyle = (color) => {
       setInputText(false);
       if (!shapeClassRef) return;
-      console.log(currentActive);
       if (currentActive && currentActive.length) {
          currentActive.forEach((c) => {
             if (!shapeClassRef.canvasShapes[c]) return;
@@ -174,45 +173,37 @@ export default function CanvasShapeOptions({
    return (
       <>
          <div className="absolute bottom-5 left-[50%] z-[999] translate-x-[-50%] flex items-center divide-x-2 border border-zinc-800 gap-1">
-            {currentActive.length == 1 &&
-               currentActive[0]?.type !== shapeTypes.text && (
-                  <div className="relative">
-                     <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                           setInputText((o) => !o);
-                           inputTextRef.current && inputTextRef.current.focus();
+            {shapeClassRef?.canvasShapes[currentActive[0]]?.type !==
+               shapeTypes.text && (
+               <div className="relative">
+                  <Button
+                     className="p-2 h-fit font-extrabold"
+                     onClick={() => {
+                        console.log(currentActive);
+                        setInputText(true);
+                        if (shapeClassRef.canvasShapes[currentActive[0]]) {
+                           shapeClassRef.canvasShapes[currentActive[0]].text =
+                              textContent;
+                           shapeClassRef.draw();
+                        }
+                     }}
+                  >
+                     T
+                  </Button>
+                  {inputText && (
+                     <textarea
+                        ref={inputTextRef}
+                        placeholder="text"
+                        className="text-xs absolute -top-[150%] left-0 p-1 bg-transparent outline-none focus:outline-none w-fit h-[5ch]"
+                        onChange={(e) => {
+                           setTextContent(e.target.value);
                         }}
-                        className="p-2 h-fit font-extrabold"
-                     >
-                        T
-                     </Button>
-                     {/* <div contentEditable onFocus={true}>
-                  </div> */}
-                     {inputText && (
-                        <textarea
-                           ref={inputTextRef}
-                           placeholder="text"
-                           className="text-xs absolute -top-[150%] left-0 p-1 bg-transparent outline-none focus:outline-none w-fit h-[5ch]"
-                           defaultValue={textContent}
-                           onBlur={(e) => {
-                              const content = e.target.value.split("\n");
-                              shapeClassRef.canvasShapes[
-                                 currentActive[0]
-                              ].text = content;
-
-                              console.log(
-                                 shapeClassRef.canvasShapes[currentActive[0]]
-                                    .text,
-                              );
-                              shapeClassRef.draw();
-                           }}
-                        />
-                     )}
-                  </div>
-               )}
-
+                        defaultValue={"Hello"}
+                        // onBlur={handleBlur}
+                     />
+                  )}
+               </div>
+            )}
             <Menubar>
                <MenubarMenu className="p-1">
                   <MenubarTrigger className="w-full h-full">
@@ -580,16 +571,37 @@ export default function CanvasShapeOptions({
                   </MenubarMenu>
                )}
 
-               <MenubarMenu>
-                  <MenubarTrigger className="relative h-full w-full">
-                     <BoxIcon />
-                     <BoxIcon className="absolute top-[1.3em] left-[1.5em] bg-blue-600" />
-                  </MenubarTrigger>
-                  <MenubarContent>
-                     <p>Go Below</p>
-                     <p>Go Top</p>
-                  </MenubarContent>
-               </MenubarMenu>
+               {currentActive.length === 1 && (
+                  <MenubarMenu>
+                     <MenubarTrigger className="relative h-full w-full">
+                        <BoxIcon />
+                        <BoxIcon className="absolute top-[1.3em] left-[1.5em] bg-blue-600" />
+                     </MenubarTrigger>
+                     <MenubarContent className="w-fit">
+                        <Button
+                           onClick={() => {
+                              shapeClassRef.takeShapeToVBottom(
+                                 currentActive[0],
+                              );
+                           }}
+                           variant="ghost"
+                           size={"sm"}
+                        >
+                           <ArrowDownIcon></ArrowDownIcon>
+                        </Button>
+                        <Button
+                           onClick={() => {
+                              if (!shapeClassRef) return;
+                              shapeClassRef.takeShapeToTop(currentActive[0]);
+                           }}
+                           variant="ghost"
+                           size="sm"
+                        >
+                           <ArrowUpIcon />
+                        </Button>
+                     </MenubarContent>
+                  </MenubarMenu>
+               )}
             </Menubar>
          </div>
       </>

@@ -268,6 +268,7 @@ export default function Canvas({ id }) {
          if (data) {
             setCurrentActive(data);
          } else setCurrentActive(() => config.currentActive);
+         console.log(currentActive, config.currentActive);
       };
 
       const shape = new Shape(
@@ -537,7 +538,7 @@ export default function Canvas({ id }) {
             </div>
          </TooltipProvider>
 
-         {currentActive?.length && (
+         {(currentActive?.length || config.currentActive.length) && (
             <CanvasShapeOptions
                shapeClassRef={shapeClassRef.current}
                currentActive={currentActive}

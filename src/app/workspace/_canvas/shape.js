@@ -331,8 +331,8 @@ export default class Shapes {
          Bin.insert({ type: redoType.fresh, shapes: [this.newShapeParams] });
          this.newShapeParams = null;
          this.lastPoint = null;
-         this.draw();
          this.onChange(config.currentActive);
+         this.draw();
       }
    }
 
@@ -510,10 +510,11 @@ export default class Shapes {
          return;
       }
       // to get the current active shape so to show the shape options
+      config.currentActive = [];
 
       const { x: clickX, y: clickY } = this.getTransformedMouseCoords(e);
       let smallestShape = null;
-      this.canvasShapes.forEach((shape) => {
+      this.canvasShapes.forEach((shape, index) => {
          if (!shape) return;
 
          let x = 0;
@@ -549,16 +550,16 @@ export default class Shapes {
          }
          if (this.isIn(clickX, clickY, 0, 0, x, y, width, height)) {
             if (smallestShape == null || smallestShape.width > width) {
-               smallestShape = shape;
+               smallestShape = index;
             }
          }
       });
 
-      if (!smallestShape) return;
+      if (smallestShape == null) return;
       if (!e.ctrlKey) this.removeActiveForAll();
-      smallestShape.isActive = true;
+      this.canvasShapes[smallestShape].isActive = true;
       config.currentActive.push(smallestShape);
-      return config.currentActive;
+      return smallestShape;
    }
 
    drawArrows(startPoint, endPoint, arrowLength, context = this.context) {
@@ -1197,7 +1198,6 @@ export default class Shapes {
       // to sore the shape which have changed for undo and redo
       this.copies = [];
       // config.currentActive = null;
-      config.currentActive = [];
 
       this.newShape(mouseX, mouseY);
       if (this.isDrawing || this.newShapeParams) return;
@@ -1266,6 +1266,7 @@ export default class Shapes {
          this.massiveSelection.height =
             this.massiveSelection.isSelectedMaxY -
             this.massiveSelection.isSelectedMinY;
+         this.onChange(config.currentActive);
          return;
       } else {
          this.breakPointsCtx.clearRect(
@@ -1287,6 +1288,7 @@ export default class Shapes {
          this.massiveSelection.height = null;
       }
 
+      config.currentActive = [];
       let isResizing = false;
 
       this.canvasShapes.forEach((shape, index) => {
@@ -3534,7 +3536,7 @@ export default class Shapes {
          let minY = Math.min(mouseY, startY);
          let maxY = Math.max(mouseY, startY);
 
-         this.canvasShapes.forEach((shape) => {
+         this.canvasShapes.forEach((shape, i) => {
             if (!shape) return;
             let sx,
                sy,
@@ -3582,6 +3584,7 @@ export default class Shapes {
                if (!this.massiveSelection.isSelected) {
                   this.massiveSelection.isSelected = true;
                }
+               config.currentActive.push(i);
                this.adjustMassiveSelectionXandY(sx, sy, swidth, sheight);
                shape.isActive = true;
             }
@@ -5685,55 +5688,6 @@ export default class Shapes {
 
    getCurrentShape(current) {
       current.isActive = false;
-      // switch (current.type) {
-      //    case "rect":
-      //       const newShape = new Rect();
-      //       const id = newShape.id;
-      //       Object.assign(newShape, current);
-      //       newShape.id = id;
-      //       this.rectMap.set(newShape.id, newShape);
-      //       return newShape;
-      //    case "sphere":
-      //       const newSphere = new Circle(
-      //          current.x,
-      //          current.y,
-      //          current.xRadius,
-      //          current.yRadius,
-      //          current.text,
-      //          current.textSize,
-      //          true,
-      //       );
-      //       this.circleMap.set(newSphere.id, newSphere);
-      //       return newSphere;
-      //    case "text":
-      //       const newText = new Text(
-      //          current.x,
-      //          current.y,
-      //          current.textSize,
-      //          current.content,
-      //          current.font,
-      //          true,
-      //       );
-      //       newText.height = newText.content.length * newText.textSize;
-      //       this.textMap.set(newText.id, newText);
-      //       return newText;
-      //    case "polygon":
-      //       const newS = new Polygons(
-      //          current.x,
-      //          current.y,
-      //          current.inset,
-      //          current.lines,
-      //       );
-      //       newS.isActive = true;
-      //       newS.width = current.width;
-      //       newS.height = current.height;
-      //       newS.radius = current.radius;
-      //       current.isActive = false;
-      //       this.otherShapes.set(newS.id, newS);
-      //       return newS;
-      //    default:
-      //       break;
-      // }
       switch (current.type) {
          case shapeTypes.rect:
             const newShape = new Rect();
@@ -5786,78 +5740,73 @@ export default class Shapes {
    }
 
    duplicate(e) {
-      // if (e.altKey && config.mode === "free") {
-      //    const current = this.canvasClick(e);
-      //    if (current) {
-      //       const newShape = this.getCurrentShape(current);
-      //       const mouseMoveHandler = (moveEvent) => {
-      //          const { x, y } = this.getTransformedMouseCoords(moveEvent);
-      //          newShape.x = x;
-      //          newShape.y = y;
-      //          newShape.isActive = true;
-      //          config.currentActive = newShape;
-      //          this.onChange();
-      //          this.draw();
-      //       };
-      //       const mouseUpHandler = () => {
-      //          if (newShape.type === shapeTypes.rect) {
-      //             this.breakPoints.set(newShape.id, {
-      //                minX: newShape.x,
-      //                maxX: newShape.x + newShape.width,
-      //                minY: newShape.y,
-      //                maxX: newShape.y + newShape.height,
-      //             });
-      //          } else if (newShape.type === shapeTypes.circle) {
-      //             this.breakPoints.set(newShape.id, {
-      //                minX: newShape.x - newShape.xRadius,
-      //                maxX: newShape.x + newShape.xRadius,
-      //                minY: newShape.y - newShape.yRadius,
-      //                maxX: newShape.y + newShape.yRadius,
-      //             });
-      //          }
-      //          this.canvas.removeEventListener("mousemove", mouseMoveHandler);
-      //          this.canvas.removeEventListener("mouseup", mouseUpHandler);
-      //          this.canvas.removeEventListener("click", this.canvasClick);
-      //       };
-      //       this.canvas.addEventListener("mousemove", mouseMoveHandler);
-      //       this.canvas.addEventListener("mouseup", mouseUpHandler);
-      //    }
-      // } else if (config.mode === "handsFree") {
-      //    let { x, y } = this.getTransformedMouseCoords(e);
-      //    const handlermove = (event) => {
-      //       const { x: moveX, y: moveY } =
-      //          this.getTransformedMouseCoords(event);
-      //       if (moveX > x) {
-      //          scrollBar.scrollPositionX =
-      //             scrollBar.scrollPositionX - (moveX - x);
-      //       } else {
-      //          scrollBar.scrollPositionX =
-      //             scrollBar.scrollPositionX + (x - moveX);
-      //       }
-      //       if (moveY > y) {
-      //          scrollBar.scrollPositionY =
-      //             scrollBar.scrollPositionY - (moveY - y);
-      //       } else {
-      //          scrollBar.scrollPositionY =
-      //             scrollBar.scrollPositionY + (y - moveY);
-      //       }
-      //       this.draw();
-      //       this.drawImage();
-      //    };
-      //    const handlerUp = () => {
-      //       this.canvas.removeEventListener("mousemove", handlermove);
-      //       this.canvas.removeEventListener("mouseup", handlerUp);
-      //    };
-      //    this.canvas.addEventListener("mousemove", handlermove);
-      //    this.canvas.addEventListener("mouseup", handlerUp);
-      // } else if (e.ctrlKey) {
-      //    const current = this.canvasClick(e);
-      //    if (!current) return;
-      //    if (current?.isActive) {
-      //       current.isActive = false;
-      //    } else current.isActive = true;
-      //    this.draw();
-      // }
+      if (e.altKey && config.mode === "free") {
+         const index = this.canvasClick(e);
+         const current = this.canvasShapes[index];
+         if (!current) return;
+
+         const newShape = this.getCurrentShape(current);
+         const mouseMoveHandler = (moveEvent) => {
+            const { x, y } = this.getTransformedMouseCoords(moveEvent);
+            newShape.x = x;
+            newShape.y = y;
+            newShape.isActive = true;
+            config.currentActive = newShape;
+            this.draw();
+         };
+         const mouseUpHandler = () => {
+            if (newShape.type === shapeTypes.rect) {
+               this.breakPoints.set(newShape.id, {
+                  minX: newShape.x,
+                  maxX: newShape.x + newShape.width,
+                  minY: newShape.y,
+                  maxX: newShape.y + newShape.height,
+               });
+            } else if (newShape.type === shapeTypes.circle) {
+               this.breakPoints.set(newShape.id, {
+                  minX: newShape.x - newShape.xRadius,
+                  maxX: newShape.x + newShape.xRadius,
+                  minY: newShape.y - newShape.yRadius,
+                  maxX: newShape.y + newShape.yRadius,
+               });
+            }
+            // this.onChange()
+            this.canvas.removeEventListener("mousemove", mouseMoveHandler);
+            this.canvas.removeEventListener("mouseup", mouseUpHandler);
+            this.canvas.removeEventListener("click", this.canvasClick);
+            this.onChange([index]);
+         };
+         this.canvas.addEventListener("mousemove", mouseMoveHandler);
+         this.canvas.addEventListener("mouseup", mouseUpHandler);
+      } else if (config.mode === "handsFree") {
+         let { x, y } = this.getTransformedMouseCoords(e);
+         const handlermove = (event) => {
+            const { x: moveX, y: moveY } =
+               this.getTransformedMouseCoords(event);
+            if (moveX > x) {
+               scrollBar.scrollPositionX =
+                  scrollBar.scrollPositionX - (moveX - x);
+            } else {
+               scrollBar.scrollPositionX =
+                  scrollBar.scrollPositionX + (x - moveX);
+            }
+            if (moveY > y) {
+               scrollBar.scrollPositionY =
+                  scrollBar.scrollPositionY - (moveY - y);
+            } else {
+               scrollBar.scrollPositionY =
+                  scrollBar.scrollPositionY + (y - moveY);
+            }
+            this.draw();
+            this.drawImage();
+         };
+         const handlerUp = () => {
+            this.canvas.removeEventListener("mousemove", handlermove);
+            this.canvas.removeEventListener("mouseup", handlerUp);
+         };
+         this.canvas.addEventListener("mousemove", handlermove);
+         this.canvas.addEventListener("mouseup", handlerUp);
+      }
    }
 
    documentKeyDown(e) {
@@ -6053,7 +6002,6 @@ export default class Shapes {
 
          Bin.insert({ type: redoType.fresh, shapes: this.copies });
          this.copies = [];
-         console.log("duplicate :", config.currentActive);
          this.onChange(config.currentActive);
          this.draw();
       } else {
@@ -6202,7 +6150,6 @@ export default class Shapes {
          this.draw();
          this.drawImage();
       }
-      this.onChange();
    }
 
    checkShapeExistandMake(shapeId, shape) {
@@ -6433,47 +6380,26 @@ export default class Shapes {
       this.draw();
    }
 
-   takeShapeToTop(current) {
-      let x, y, width, height;
-      switch (current.type) {
-         case shapeTypes.others:
-            x = current.x - current.radius;
-            y = current.y - current.radius;
-            width = current.width;
-            height = current.height;
-            break;
-         case currentTypes.sphere:
-            x = current.x - current.xRadius;
-            y = current.y - current.yRadius;
-            width = 2 * current.xRadius;
-            height = 2 * current.xRadius;
-            break;
-         case currentTypes.line:
-            x = current.minX;
-            y = current.minY;
-            width = current.maxX - current.minX;
-            height = current.maxY - current.minY;
-            break;
-         default:
-            x = current.x;
-            y = current.y;
-            width = current.width;
-            height = current.height;
-            break;
-      }
-      this.canvasShapes.forEach((shape, index) => {
-         if (!shape || current.id === shape.id) return;
-         if (
-            shape.x > x ||
-            shape.x + shape.width < x + width ||
-            shape.y > y ||
-            shape.y + shape.height < y + height
-         ) {
-            let temp = shape;
-            this.canvasShapes[index] = current;
-            current = shape;
-         }
-      });
+   takeShapeToTop(index) {
+      const shape = this.canvasShapes[index];
+      if (!shape) return;
+
+      this.canvasShapes[index] = this.canvasShapes.pop();
+      this.canvasShapes.push(shape);
+
+      this.draw();
+      this.onChange([this.canvasShapes.length - 1]);
+   }
+
+   takeShapeToVBottom(index) {
+      if (index < 0 || index >= this.canvasShapes.length) return;
+      console.log("in");
+      [this.canvasShapes[index], this.canvasShapes[0]] = [
+         this.canvasShapes[0],
+         this.canvasShapes[index],
+      ];
+      this.draw();
+      this.onChange([0]);
    }
 
    initialize() {
