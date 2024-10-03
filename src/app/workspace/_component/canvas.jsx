@@ -254,21 +254,20 @@ export default function Canvas({ id }) {
       }
 
       // store initial data;
-      if (canvasR.current) {
-         if (!shapesfromDB) {
-            canvasR.current.setInitialState(JSON.parse(JSON.stringify([])));
-         } else {
-            canvasR.current.setInitialState(
-               JSON.parse(JSON.stringify(initialData.current)),
-            );
-         }
-      }
+      // if (canvasR.current) {
+      //    if (!shapesfromDB) {
+      //       canvasR.current.setInitialState(JSON.parse(JSON.stringify([])));
+      //    } else {
+      //       canvasR.current.setInitialState(
+      //          JSON.parse(JSON.stringify(initialData.current)),
+      //       );
+      //    }
+      // }
 
       const onChange = (data) => {
          if (data) {
             setCurrentActive(data);
          } else setCurrentActive(() => config.currentActive);
-         console.log(currentActive, config.currentActive);
       };
 
       const shape = new Shape(
@@ -389,7 +388,6 @@ export default function Canvas({ id }) {
             record.deletedShapes.size > 0
          ) {
             // insert
-
             // if (newShape.length > 0) {
             //    insertShape({ shapes: newShape, projectId: id });
             // }
@@ -404,7 +402,7 @@ export default function Canvas({ id }) {
             //       projectId: id,
             //    });
             // }
-            record.initialState = record.currentState;
+            record.initialState = new Map(record.currentState);
          }
       }, 10000);
       return () => {

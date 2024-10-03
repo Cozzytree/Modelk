@@ -1,3 +1,12 @@
+function createBsonId() {
+    const timestamp = Math.floor(Date.now() / 1000).toString(16); // 4-byte timestamp
+    const random = Math.random().toString(16).substring(2, 18); // 5-byte random value
+    const increment = (createBsonId.counter++).toString(16).padStart(3, '0'); // 3-byte incrementing counter
+
+    // Concatenate to form the 24-character hex string
+    return timestamp + random + increment;
+}
+
 class DefaultStyles {
    constructor() {
       this.width = 100;
@@ -9,7 +18,7 @@ class DefaultStyles {
       this.borderColor = "white";
       this.fillStyle = "transparent";
       this.fillType = "full"; // full , net
-      this.id = Date.now();
+      this.id = createBsonId();
       this.textSize = 15;
       this.text = [];
       this.textPosition = "center"; // "center" || "left" || "right"

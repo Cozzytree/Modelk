@@ -18,15 +18,11 @@ class CanvasRecord {
    }
 
    // Method to update the current state
-   updateCurrentState(...maps) {
+   updateCurrentState(maps = []) {
       this.currentState = new Map();
-      maps.forEach((map) => {
-         map.forEach((value, key) => {
-            this.currentState.set(
-               key,
-               JSON.parse(JSON.stringify({ Params: value })),
-            );
-         });
+      maps.forEach((val) => {
+         if (!val) return;
+         this.currentState.set(val.id, JSON.parse(JSON.stringify(val)));
       });
    }
 
@@ -38,7 +34,7 @@ class CanvasRecord {
       // Determine deleted shapes
       this.initialState.forEach((shape, id) => {
          if (!this.currentState.has(id)) {
-            this.deletedShapes.add(shape.Params.shapeId);
+            this.deletedShapes.add(shape.id);
          }
       });
 
@@ -47,10 +43,11 @@ class CanvasRecord {
          const initialShape = this.initialState.get(id);
          if (!initialShape) {
             // New shape
-            this.newShapes.set(id, shape.Params);
-         } else if (this.shapeHasChanged(initialShape.Params, shape.Params)) {
+            this.newShapes.set(id, shape);
+         } else if (this.shapeHasChanged(initialShape, shape)) {
             // Updated shape
-            this.updatedShapes.set(id, shape.Params);
+            console.log("in here");
+            this.updatedShapes.set(id, shape);
          }
       });
    }
@@ -66,11 +63,8 @@ class CanvasRecord {
 
       // Check each property in initialShape
       for (const [key, val] of Object.entries(initialShape)) {
-         // Check if the property exists in updatedShape
-         if (!updatedShape.hasOwnProperty(key)) {
-            return true;
-         }
          // Check if the property value is different
+
          if (JSON.stringify(updatedShape[key]) !== JSON.stringify(val)) {
             return true;
          }
@@ -79,6 +73,7 @@ class CanvasRecord {
       // If all checks pass, the shapes are the same
       return false;
    }
+
    getUpdatedShapes() {
       let newShape = [];
       let updated = [];
