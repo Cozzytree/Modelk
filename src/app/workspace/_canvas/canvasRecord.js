@@ -12,7 +12,7 @@ class CanvasRecord {
       this.initialState = new Map(
          state.map((shape) => [
             shape.Params.id,
-            { Params: { ...shape.Params, shapeId: shape._id } },
+            { Params: { ...shape.Params } },
          ]),
       );
    }
@@ -46,7 +46,6 @@ class CanvasRecord {
             this.newShapes.set(id, shape);
          } else if (this.shapeHasChanged(initialShape, shape)) {
             // Updated shape
-            console.log("in here");
             this.updatedShapes.set(id, shape);
          }
       });
@@ -82,7 +81,7 @@ class CanvasRecord {
          newShape.push(v);
       });
       this.updatedShapes.forEach((s) => {
-         updated.push({ shapeId: s.shapeId, params: s });
+         updated.push({ shapeId: s.id, params: s });
       });
 
       return { newShape, updated };

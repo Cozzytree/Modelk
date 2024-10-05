@@ -1,11 +1,15 @@
+import { Button } from "@/components/ui/button";
+import { Scale } from "@/lib/utils";
 import { MinusIcon, PlusIcon } from "@radix-ui/react-icons";
 
 export default function ZoomLabel({
    scale,
    canvas,
+   setScale,
 }: {
+   setScale: Function;
    scale: Number | any;
-   canvas: HTMLCanvasElement;
+   canvas: any;
 }) {
    const handleImage = () => {
       // Create a temporary canvas
@@ -33,12 +37,36 @@ export default function ZoomLabel({
       document.body.removeChild(link);
    };
 
+   const handleZoom = (type: "up" | "down") => {
+      if (!canvas) return;
+      Scale.scale = Math.round(Scale.scale * 10) / 10;
+      if (type === "up") {
+         Scale.scale *= Scale.scalingFactor;
+      } else {
+         Scale.scale /= Scale.scalingFactor;
+      }
+      Scale.scale = Math.round(Scale.scale * 10) / 10;
+      setScale(Scale.scale);
+      canvas.draw();
+   };
+
    return (
-      <div className="absolute right-5 z-[999] w-[100px] top-10 flex justify-center gap-1 items-center h-[40px]">
-         <MinusIcon cursor="pointer" />
-         <span className="text-lg font-bold">{scale * 100} %</span>
-         <PlusIcon cursor="pointer" />
-         <div onClick={handleImage}>Save as image</div>
+      <div className="z-[999] flex gap-1 items-center flex-col">
+         <div className="flex items-center justify-center gap-2">
+            <MinusIcon cursor="pointer" onClick={() => handleZoom("down")} />
+            <span className="text-sm font-bold">
+               {(scale * 100).toFixed(0)} %
+            </span>
+            <PlusIcon cursor="pointer" onClick={() => handleZoom("up")} />
+         </div>
+         <Button
+            variant={"ghost"}
+            size="sm"
+            className="p-1 h-fit"
+            onClick={handleImage}
+         >
+            Save as image
+         </Button>
       </div>
    );
 }

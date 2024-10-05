@@ -35,6 +35,12 @@ import {
    useUpdateShapes,
 } from "@/requests/shapeRequests.ts";
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
+import {
+   Menubar,
+   MenubarContent,
+   MenubarMenu,
+   MenubarTrigger,
+} from "@/components/ui/menubar.tsx";
 
 const buttons = [
    { icon: <HandIcon width={"100%"} />, label: "handsFree" },
@@ -280,6 +286,7 @@ export default function Canvas({ id }) {
       shapeClassRef.current = shape;
 
       setShapeInitialized(true);
+      shape.initializeShapeArray();
       shape.initialize();
       shape.draw();
       shape.drawImage();
@@ -543,7 +550,24 @@ export default function Canvas({ id }) {
                setCurrent={setCurrentActive}
             />
          )}
-         <ZoomLabel scale={scale} canvas={canvasRef.current} />
+         <div className="absolute right-4 top-14 z-20">
+            <Menubar className="h-fit p-0">
+               <MenubarMenu>
+                  <MenubarTrigger
+                     className={`${buttonVariants({ variant: "ghost", size: "sm" })} p-1 h-fit `}
+                  >
+                     {(scale * 100).toFixed(0)}
+                  </MenubarTrigger>
+                  <MenubarContent side="left">
+                     <ZoomLabel
+                        setScale={setScale}
+                        scale={scale}
+                        canvas={shapeClassRef.current}
+                     />
+                  </MenubarContent>
+               </MenubarMenu>
+            </Menubar>
+         </div>
       </>
    );
 }

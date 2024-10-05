@@ -77,21 +77,27 @@ export default function CanvasShapeOptions({
    };
 
    const handleRadius = (val) => {
-      setInputText(false);
-      if (config.currentActive) {
-         config.currentActive.radius = val;
-         setCurrent(config.currentActive);
-         if (shapeClassRef) shapeClassRef.draw();
-      }
+      if (!currentActive || !currentActive.length || !shapeClassRef) return;
+      currentActive.forEach((c) => {
+         if (!shapeClassRef.canvasShapes[c]) return;
+         shapeClassRef.canvasShapes[c].radius = val;
+      });
+      shapeClassRef.draw();
    };
 
    const changeFontSizes = (value) => {
+      if (!shapeClassRef || !currentActive || !currentActive.length) return;
+      currentActive.forEach((c) => {
+         if (
+            !shapeClassRef.canvasShapes[c] ||
+            !shapeClassRef.canvasShapes[c].textSize
+         )
+            return;
+         shapeClassRef.canvasShapes[c].textSize = value;
+      });
+
+      shapeClassRef.draw();
       setInputText(false);
-      if (config.currentActive) {
-         config.currentActive.textSize = value;
-         setCurrent(config.currentActive);
-         if (shapeClassRef) shapeClassRef.draw();
-      }
    };
 
    const handleFillStyle = (color) => {
@@ -131,26 +137,39 @@ export default function CanvasShapeOptions({
       if (!currentActive || !currentActive.length || !shapeClassRef) return;
 
       currentActive.forEach((c) => {
-         if (shapeClassRef?.canvasShapes[c]) return;
-         shapeClassRef.canvasShapes[0].textPosition = allign;
+         if (!shapeClassRef?.canvasShapes[c]) return;
+         shapeClassRef.canvasShapes[c].textPosition = allign;
       });
       shapeClassRef.draw();
    };
 
    const changeFont = (font) => {
-      if (config.currentActive) {
-         config.currentActive.font = font;
-         setCurrent(config.currentActive);
-         if (shapeClassRef) shapeClassRef.draw();
-      }
+      if (!currentActive || !currentActive.length || !shapeClassRef) return;
+      currentActive.forEach((c) => {
+         if (
+            !shapeClassRef?.canvasShapes[c] ||
+            !shapeClassRef?.canvasShapes[c].font
+         )
+            return;
+         shapeClassRef.canvasShapes[c].font = font;
+      });
+
+      shapeClassRef.draw();
    };
 
    const changeFontWeight = (weight) => {
-      if (config.currentActive) {
-         config.currentActive.fontWeight = weight;
-         setCurrent(config.currentActive);
-         if (shapeClassRef) shapeClassRef.draw();
-      }
+      if (!currentActive || !currentActive.length || !shapeClassRef) return;
+
+      currentActive.forEach((c) => {
+         if (
+            !shapeClassRef?.canvasShapes[c] ||
+            !shapeClassRef?.canvasShapes[c].fontWeight
+         )
+            return;
+         shapeClassRef.canvasShapes[c].fontWeight = weight;
+      });
+
+      shapeClassRef.draw();
    };
 
    const handleThickness = (thick) => {
@@ -163,11 +182,16 @@ export default function CanvasShapeOptions({
    };
 
    const textAlignVertical = (position) => {
-      if (config.currentActive) {
-         config.currentActive.allignVertical = position;
-         setCurrent(config.currentActive);
-         if (shapeClassRef) shapeClassRef.draw();
-      }
+      if (!currentActive || !currentActive.length || !shapeClassRef) return;
+      currentActive.forEach((c) => {
+         if (
+            !shapeClassRef?.canvasShapes[c] ||
+            !shapeClassRef?.canvasShapes[c].allignVertical
+         )
+            return;
+         shapeClassRef.canvasShapes[c].allignVertical = position;
+      });
+      shapeClassRef.draw();
    };
 
    return (
@@ -553,23 +577,21 @@ export default function CanvasShapeOptions({
                   </div>
                )}
 
-               {currentActive[0]?.type === shapeTypes.rect && (
-                  <MenubarMenu>
-                     <MenubarTrigger className="w-full h-full">
-                        <SquareIcon className="h-full" />
-                     </MenubarTrigger>
-                     <MenubarContent className="flex flex-col items-center divide-y-2 gap-2">
-                        <div
-                           onClick={() => handleRadius(10)}
-                           className="w-[25px] h-[25px] bg-secondary rounded-md"
-                        ></div>
-                        <div
-                           onClick={() => handleRadius(0)}
-                           className="w-[25px] h-[25px] bg-secondary rounded-none"
-                        ></div>
-                     </MenubarContent>
-                  </MenubarMenu>
-               )}
+               <MenubarMenu>
+                  <MenubarTrigger className="w-full h-full">
+                     <SquareIcon className="h-full" />
+                  </MenubarTrigger>
+                  <MenubarContent className="flex flex-col items-center divide-y-2 gap-2">
+                     <div
+                        onClick={() => handleRadius(10)}
+                        className="w-[25px] h-[25px] bg-secondary rounded-md"
+                     ></div>
+                     <div
+                        onClick={() => handleRadius(0)}
+                        className="w-[25px] h-[25px] bg-secondary rounded-none"
+                     ></div>
+                  </MenubarContent>
+               </MenubarMenu>
 
                {currentActive.length === 1 && (
                   <MenubarMenu>
