@@ -2,26 +2,29 @@ import { Scale, config, scrollBar, shapeTypes } from "@/lib/utils.ts";
 import getStroke from "perfect-freehand";
 import { canvasRecord } from "../_canvas/canvasRecord";
 import {
-   Circle,
-   Figure,
-   Line,
-   Pencil,
-   Polygons,
-   Rect,
-   Text,
+    Circle,
+    Figure,
+    Line,
+    Pencil,
+    Polygons,
+    Rect,
+    Text,
 } from "../_component/stylesClass.js";
 import { Bin, Restore, redoType } from "./../_recycleBin.js";
-import { lineResizeLogic, lineResizeWhenConnected } from "./resize/lineResize";
+import { recalculateMassiveSelection } from "./massselection";
+import { lineConnectShape, lineResizeLogic, lineResizeWhenConnected } from "./resizeAndDrag/lineResize";
+import { pencilresize } from "./resizeAndDrag/pencilresize";
+import { rectResizeParams, updateRectParams } from "./resizeAndDrag/rectResize";
+import { textresize } from "./resizeAndDrag/textresize";
 import {
-   drawFigure,
-   drawLine,
-   drawRect,
-   drawSHapes,
-   drawSphere,
-   drawText,
-   findSlope,
+    drawFigure,
+    drawLine,
+    drawRect,
+    drawSHapes,
+    drawSphere,
+    drawText,
+    findSlope,
 } from "./utilsFunc.js";
-import { rectResizeParams } from "./resize/rectResize";
 
 const getStrokeOptions = {
    size: 3,
@@ -884,68 +887,6 @@ export default class Shapes {
          }
       });
 
-      // other shapes
-      // this.otherShapes.forEach((shape) => {
-      //    const { x, y, inset, lines, radius, isActive, width, height } = shape;
-      //    const r = Math.abs(radius);
-
-      //    drawDotsAndRect(x - r, y - r, width, height, this.tolerance, isActive);
-
-      //    drawSHapes(shape, this.context);
-      // });
-
-      // figures
-      // this.figureMap.forEach((figure) => {
-      //    const { id, y, x, title, width, height, radius, isActive } = figure;
-      //    let ele = document.querySelector(`[data-containerId="${id}"]`);
-
-      //    if (!ele) {
-      //       // If the element does not exist, create a new one
-      //       ele = document.createElement("div");
-      //       ele.setAttribute("data-containerId", id);
-      //       ele.classList.add("z-[2]", "text-xs", "text-zinc-400", "p-[3px]");
-      //       this.canvasDiv.append(ele);
-      //    }
-      //    ele.style.pointerEvents = isActive ? "none" : "visible";
-      //    ele.textContent = title;
-      //    ele.style.padding = "2px 3px";
-      //    ele.style.position = "absolute";
-      //    ele.style.width = `${width} px`;
-      //    ele.style.height = `${height} px`;
-      //    ele.style.border = isActive ? `1px solid ${this.activeColor}` : "none";
-      //    ele.style.borderRadius = "3px";
-
-      //    // Compute the unscaled position
-      //    const unscaledY = y - scrollBar.scrollPositionY / Scale.scale;
-      //    const unscaledX = x - scrollBar.scrollPositionX / Scale.scale;
-
-      //    // Adjust position inversely related to the scaling factor
-      //    ele.style.top = `${y - 32 - scrollBar.scrollPositionY / Scale.scale}px`;
-      //    ele.style.left = `${x - scrollBar.scrollPositionX / Scale.scale}px`;
-
-      //    // Apply scaling and translation using transform
-      //    ele.style.transform = `scale(${Scale.scale})`;
-      //    // ele.style.translate = `${scrollBar.scrollPositionX}px;`;
-      //    ele.style.transformOrigin = "top left"; // Ensure scaling from the top-left corner
-
-      //    if (isActive) {
-      //       this.dots(
-      //          { x: x, y: y },
-      //          { x: x + width, y: y },
-      //          {
-      //             x: x + width,
-      //             y: y + height,
-      //          },
-      //          { x: x, y: y + height },
-      //          { context: this.context },
-      //       );
-      //    }
-
-      //    //rect
-      //    const path = drawRect(figure, this.context, this.activeColor, true);
-      //    figPath.push({ path, isActive });
-      // });
-
       linePath.forEach(({ path, borderColor, isActive, lineWidth }) => {
          this.context.lineWidth = lineWidth;
          this.context.strokeStyle = isActive ? this.activeColor : borderColor;
@@ -955,7 +896,6 @@ export default class Shapes {
          this.context.lineWidth = 1.2;
          this.context.strokeStyle = isActive ? this.activeColor : "grey";
          this.context.fillStyle = "black";
-         // this.context.fill(path);
          this.context.stroke(path);
       });
 
@@ -1637,25 +1577,23 @@ export default class Shapes {
             const { curvePoints, lineType, minX, maxX, minY, maxY } = shape;
             let inside = false;
             for (let i = 0; i < curvePoints.length - 1; i++) {
-               let slope1 = findSlope(
+              let slope1 = findSlope(
                   mouseY,
                   curvePoints[i].y,
                   mouseX,
                   curvePoints[i].x,
                );
-               let slope2 = findSlope(
-                  mouseY,
-                  curvePoints[i + 1].y,
-                  mouseX,
-                  curvePoints[i + 1].x,
+              let slope2 = findSlope(
+                mouseY,
+                curvePoints[i + 1].y,
+                mouseX,
+                curvePoints[i + 1].x,
                );
-               if (!isFinite(slope1)) slope1 = Infinity;
-               if (!isFinite(slope2)) slope2 = Infinity;
 
-               if (Math.abs(slope1 - slope2) <= 0.3) {
-                  inside = true;
-                  break;
-               }
+              if (Math.abs(slope1 - slope2) <= 0.3) {
+                 inside = true;
+                 break;
+              }
             }
             if (
                inside &&
@@ -2325,7 +2263,7 @@ export default class Shapes {
             mouseY + this.massiveSelection.offsetY;
 
          this.canvasShapes.forEach((shape) => {
-            if (!shape.isActive) return;
+            if (!shape || !shape.isActive) return;
             switch (shape.type) {
                case shapeTypes.pencil:
                   shape.minX = mouseX + shape.offsetX;
@@ -2449,109 +2387,6 @@ export default class Shapes {
                shape.isActive = true;
             } else shape.isActive = false;
          });
-         // this.rectMap.forEach((rect) => {
-         //    if (
-         //       this.isIn(
-         //          rect.x,
-         //          rect.y,
-         //          rect.width,
-         //          rect.height,
-         //          x,
-         //          y,
-         //          width,
-         //          height,
-         //          rect,
-         //       )
-         //    ) {
-         //       rect.isActive = true;
-         //    } else rect.isActive = false;
-         // });
-         // this.circleMap.forEach((circle) => {
-         //    if (
-         //       this.isIn(
-         //          circle.x - circle.xRadius,
-         //          circle.y - circle.yRadius,
-         //          2 * circle.xRadius,
-         //          2 * circle.yRadius,
-         //          x,
-         //          y,
-         //          width,
-         //          height,
-         //          circle,
-         //       )
-         //    ) {
-         //       circle.isActive = true;
-         //    } else circle.isActive = false;
-         // });
-         // this.lineMap.forEach((line) => {
-         //    if (
-         //       this.isIn(
-         //          line.minX,
-         //          line.minY,
-         //          line.maxX - line.minX,
-         //          line.maxY - line.minY,
-         //          x,
-         //          y,
-         //          width,
-         //          height,
-         //          line,
-         //       )
-         //    ) {
-         //       line.isActive = true;
-         //    } else line.isActive = false;
-         // });
-         // this.textMap.forEach((text) => {
-         //    if (
-         //       this.isIn(
-         //          text.x,
-         //          text.y,
-         //          text.width,
-         //          text.height,
-         //          x,
-         //          y,
-         //          width,
-         //          height,
-         //          text,
-         //       )
-         //    ) {
-         //       text.isActive = true;
-         //    } else text.isActive = false;
-         // });
-         // this.figureMap.forEach((fig) => {
-         //    if (
-         //       this.isIn(
-         //          fig.x,
-         //          fig.y,
-         //          fig.width,
-         //          fig.height,
-         //          x,
-         //          y,
-         //          width,
-         //          height,
-         //          fig,
-         //       )
-         //    ) {
-         //       fig.isActive = true;
-         //    } else fig.isActive = false;
-         // });
-         // this.otherShapes.forEach((other) => {
-         //    if (
-         //       this.isIn(
-         //          other.x - other.radius,
-         //          other.y - other.radius,
-         //          other.width,
-         //          other.height,
-         //          x,
-         //          y,
-         //          width,
-         //          height,
-         //       )
-         //    ) {
-         //       other.isActive = true;
-         //    } else {
-         //       other.isActive = false;
-         //    }
-         // });
 
          this.draw();
       }
@@ -2689,13 +2524,8 @@ export default class Shapes {
                break;
             case shapeTypes.text:
                if (mouseX > theResizeElement.x && mouseY > theResizeElement.y) {
-                  const { initialSize } = this.resizeElement;
-                  theResizeElement.textSize =
-                     Math.max(
-                        12, // Minimum size to prevent text from becoming too small
-                        (mouseX - theResizeElement.x) * 0.2 +
-                           (mouseY - theResizeElement.y) * 0.3,
-                     ) * 0.5;
+                  // const { initialSize } = this.resizeElement;
+                  textresize({mouseX , mouseY, theResizeElement})
                }
 
                this.updateLinesPointTo(theResizeElement);
@@ -2706,196 +2536,17 @@ export default class Shapes {
                const originalWidth = initialMaxX - initialMinX;
                const originalHeight = initialMaxY - initialMinY;
 
-               if (this.resizeElement.direction == "left-edge") {
-                  // Determine new boundaries based on the mouse position
-                  let newMinX = mouseX > initialMaxX ? initialMaxX : mouseX;
-                  let newMaxX = mouseX > initialMaxX ? mouseX : initialMaxX;
-
-                  // Calculate the original dimensions and new width
-                  const newWidth = newMaxX - newMinX;
-
-                  if (originalWidth === 0) {
-                     return;
-                  }
-
-                  // Calculate the width scale factor
-                  const widthScaleFactor = newWidth / originalWidth;
-
-                  // Adjust the points based on the offsetX and width scale factor
-                  theResizeElement.points.forEach((point) => {
-                     point.x = newMinX + point.offsetX * widthScaleFactor;
-                  });
-
-                  // Update the resized shape
-                  theResizeElement.minX = newMinX;
-                  theResizeElement.maxX = newMaxX;
-               } else if (this.resizeElement.direction == "right-edge") {
-                  // Determine new boundaries based on the mouse position
-                  let newMinX = mouseX > initialMinX ? initialMinX : mouseX;
-                  let newMaxX = mouseX > initialMinX ? mouseX : initialMinX;
-
-                  // Calculate the original dimensions and new width
-                  const newWidth = newMaxX - newMinX;
-
-                  if (originalWidth === 0) {
-                     return;
-                  }
-
-                  // Calculate the width scale factor
-                  const widthScaleFactor = newWidth / originalWidth;
-
-                  // Adjust the points based on the offsetX and width scale factor
-                  theResizeElement.points.forEach((point) => {
-                     point.x = newMaxX + point.offsetX * widthScaleFactor;
-                  });
-
-                  // Update the resized shape
-                  theResizeElement.minX = newMinX;
-                  theResizeElement.maxX = newMaxX;
-               } else if (this.resizeElement.direction == "top-edge") {
-                  // Determine new boundaries based on the mouse position
-                  let newMinY = mouseY > initialMaxY ? initialMaxY : mouseY;
-                  let newMaxY = mouseY > initialMaxY ? mouseY : initialMaxY;
-
-                  // Calculate the original dimensions and new height
-                  const newHeight = newMaxY - newMinY;
-
-                  if (originalHeight === 0) {
-                     return;
-                  }
-
-                  // Calculate the height scale factor
-                  const heightScaleFactor = newHeight / originalHeight;
-
-                  // Adjust the points based on the offsetY and height scale factor
-                  theResizeElement.points.forEach((point) => {
-                     point.y = newMinY + point.offsetY * heightScaleFactor;
-                  });
-
-                  // Update the resized shape
-                  theResizeElement.minY = newMinY;
-                  theResizeElement.maxY = newMaxY;
-               } else if (this.resizeElement.direction == "bottom-edge") {
-                  // Determine new boundaries based on the mouse position
-                  let newMinY = mouseY > initialMinY ? initialMinY : mouseY;
-                  let newMaxY = mouseY > initialMinY ? mouseY : initialMinY;
-
-                  // Calculate the original dimensions and new height
-                  const newHeight = newMaxY - newMinY;
-
-                  if (originalHeight === 0) {
-                     return;
-                  }
-
-                  // Calculate the height scale factor
-                  const heightScaleFactor = newHeight / originalHeight;
-
-                  // Adjust the points based on the offsetY and height scale factor
-                  theResizeElement.points.forEach((point) => {
-                     point.y = newMaxY + point.offsetY * heightScaleFactor;
-                  });
-
-                  // Update the resized shape
-                  theResizeElement.minY = newMinY;
-                  theResizeElement.maxY = newMaxY;
-               } else {
-                  let newMinX, newMaxX, newMinY, newMaxY;
-                  let newWidth,
-                     newHeight,
-                     heightScaleFactor,
-                     widthScalingFactor;
-                  switch (this.resizeElement.direction) {
-                     case "top-left":
-                        newMinX = Math.min(initialMaxX, mouseX);
-                        newMinY = Math.min(initialMaxY, mouseY);
-                        newMaxX = Math.max(initialMaxX, mouseX);
-                        newMaxY = Math.max(initialMaxY, mouseY);
-
-                        newWidth = newMaxX - newMinX;
-                        newHeight = newMaxY - newMinY;
-
-                        if (originalHeight === 0 && originalWidth === 0) {
-                           return;
-                        }
-                        widthScalingFactor = newWidth / originalWidth;
-                        heightScaleFactor = newHeight / originalHeight;
-                        theResizeElement.points.forEach((point) => {
-                           point.y =
-                              newMinY + point.offsetY * heightScaleFactor;
-                           point.x =
-                              newMinX + point.offsetX * widthScalingFactor;
-                        });
-                        break;
-                     case "top-right":
-                        newMinX = Math.min(initialMinX, mouseX);
-                        newMaxX = Math.max(initialMinX, mouseX);
-                        newMinY = Math.min(initialMaxY, mouseY);
-                        newMaxY = Math.max(initialMaxY, mouseY);
-
-                        newWidth = newMaxX - newMinX;
-                        newHeight = newMaxY - newMinY;
-
-                        if (originalHeight === 0 && originalWidth === 0) {
-                           return;
-                        }
-                        widthScalingFactor = newWidth / originalWidth;
-                        heightScaleFactor = newHeight / originalHeight;
-                        theResizeElement.points.forEach((point) => {
-                           point.y =
-                              newMinY + point.offsetY * heightScaleFactor;
-                           point.x =
-                              newMaxX + point.offsetX * widthScalingFactor;
-                        });
-                        break;
-                     case "bottom-left":
-                        newMinX = Math.min(initialMaxX, mouseX);
-                        newMaxX = Math.max(initialMaxX, mouseX);
-                        newMinY = Math.min(initialMinY, mouseY);
-                        newMaxY = Math.max(initialMinY, mouseY);
-
-                        newWidth = newMaxX - newMinX;
-                        newHeight = newMaxY - newMinY;
-
-                        if (originalHeight === 0 && originalWidth === 0) {
-                           return;
-                        }
-                        widthScalingFactor = newWidth / originalWidth;
-                        heightScaleFactor = newHeight / originalHeight;
-                        theResizeElement.points.forEach((point) => {
-                           point.y =
-                              newMaxY + point.offsetY * heightScaleFactor;
-                           point.x =
-                              newMinX + point.offsetX * widthScalingFactor;
-                        });
-                        break;
-                     case "bottom-right":
-                        newMinX = Math.min(initialMinX, mouseX);
-                        newMaxX = Math.max(initialMinX, mouseX);
-                        newMinY = Math.min(initialMinY, mouseY);
-                        newMaxY = Math.max(initialMinY, mouseY);
-
-                        newWidth = newMaxX - newMinX;
-                        newHeight = newMaxY - newMinY;
-
-                        if (originalHeight === 0 && originalWidth === 0) {
-                           return;
-                        }
-                        widthScalingFactor = newWidth / originalWidth;
-                        heightScaleFactor = newHeight / originalHeight;
-                        theResizeElement.points.forEach((point) => {
-                           point.y =
-                              newMaxY + point.offsetY * heightScaleFactor;
-                           point.x =
-                              newMaxX + point.offsetX * widthScalingFactor;
-                        });
-                        break;
-                  }
-                  // Update the resized shape
-                  theResizeElement.minY = newMinY;
-                  theResizeElement.maxY = newMaxY;
-                  theResizeElement.maxX = newMaxX;
-                  theResizeElement.minX = newMinX;
-               }
+               pencilresize(
+                 {
+                   direction : this.resizeElement.direction,
+                   initialMaxX,
+                   initialMaxY,
+                   initialMinX,
+                   initialMinY,
+                   mouseX,
+                   mouseY,
+                   theResizeElement
+                 })
                this.drawImage();
                break;
             case shapeTypes.line:
@@ -2922,305 +2573,6 @@ export default class Shapes {
                break;
          }
       }
-
-      // let rectResize = this.rectMap.get(this.resizeElement?.key);
-      // let circleResize = this.circleMap.get(this.resizeElement?.key);
-      // let textResize = this.textMap.get(this.resizeElement?.key);
-      // let lineResize = this.lineMap.get(this.resizeElement?.key);
-      // let imageResize = this.imageMap.get(this.resizeElement?.key);
-      // let figResize = this.figureMap.get(this.resizeElement?.key);
-      // let pencilResize = this.pencilMap.get(this.resizeElement?.key);
-      // let otherResize = this.otherShapes.get(this.resizeElement?.key);
-      // if (rectResize) {
-      //    squareResize(rectResize);
-      //    this.updateLinesPointTo(rectResize);
-      // } else if (imageResize) {
-      //    squareResize(imageResize);
-      //    this.updateLinesPointTo(imageResize);
-      //    const { x, y, width, height, isActive } = imageResize;
-      //    this.breakPointsCtx.clearRect(
-      //       0,
-      //       0,
-      //       this.canvasbreakPoints.width,
-      //       this.canvasbreakPoints.height,
-      //    );
-
-      //    this.breakPointsCtx.save();
-      //    this.breakPointsCtx.translate(
-      //       -scrollBar.scrollPositionX,
-      //       -scrollBar.scrollPositionY,
-      //    );
-      //    if (isActive) {
-      //       this.dots(
-      //          { x: x - this.tolerance, y: y - this.tolerance },
-      //          { x: x + width + this.tolerance, y: y - this.tolerance },
-      //          {
-      //             x: x + width + this.tolerance,
-      //             y: y + height + this.tolerance,
-      //          },
-      //          { x: x - this.tolerance, y: y + height + this.tolerance },
-      //          { context: this.breakPointsCtx },
-      //       );
-
-      //       this.breakPointsCtx.strokeStyle = this.activeColor;
-      //       this.breakPointsCtx.rect(
-      //          x - this.tolerance,
-      //          y - this.tolerance,
-      //          width + 2 * this.tolerance,
-      //          height + 2 * this.tolerance,
-      //       );
-      //       this.breakPointsCtx.stroke();
-      //    }
-      //    this.breakPointsCtx.scale(Scale.scale, Scale.scale);
-      //    this.breakPointsCtx.drawImage(
-      //       this.resizeElement?.img,
-      //       x,
-      //       y,
-      //       width,
-      //       height,
-      //    );
-      //    this.breakPointsCtx.restore();
-      // } else if (circleResize) {
-      //    if (this.resizeElement.direction === "horizontel") {
-      //       circleResize.isActive = true;
-      //       circleResize.xRadius = Math.abs(mouseX - circleResize.x);
-      //    } else if (this.resizeElement.direction === "vertical") {
-      //       circleResize.isActive = true;
-      //       circleResize.yRadius = Math.abs(mouseY - circleResize.y);
-      //    } else {
-      //       circleResize.isActive = true;
-      //       circleResize.xRadius = Math.abs(mouseX - circleResize.x);
-      //       circleResize.yRadius = Math.abs(mouseY - circleResize.y);
-      //    }
-      //    this.updateLinesPointTo(circleResize);
-      // } else if (textResize) {
-      //    if (mouseX > textResize.x && mouseY > textResize.y) {
-      //       const { initialSize } = this.resizeElement;
-      //       textResize.textSize =
-      //          Math.max(
-      //             12, // Minimum size to prevent text from becoming too small
-      //             (mouseX - textResize.x) * 0.2 + (mouseY - textResize.y) * 0.3,
-      //          ) * 0.5;
-      //    }
-
-      //    this.updateLinesPointTo(textResize);
-      // } else if (lineResize) {
-      //    lineResizeLogic({
-      //       mouseX,
-      //       mouseY,
-      //       line: lineResize,
-      //       direction: this.resizeElement.direction,
-      //       index: this.resizeElement.index,
-      //    });
-      //    this.lineConnectParams(mouseX, mouseY);
-      // } else if (figResize) {
-      //    squareResize(figResize);
-      //    for (const [_, rect] of this.rectMap) {
-      //       if (
-      //          rect.x > figResize.x &&
-      //          rect.x + rect.width < figResize.x + figResize.width &&
-      //          rect.y > figResize.y &&
-      //          rect.t + rect.height < figResize.y + figResize.height
-      //       ) {
-      //          rect.containerId = this.resizeElement?.key;
-      //          rect.isActive = true;
-      //       } else {
-      //          rect.containerId = null;
-      //       }
-      //    }
-      // } else if (pencilResize) {
-      //    const { initialMaxX, initialMinX, initialMinY, initialMaxY } =
-      //       this.resizeElement;
-      //    const originalWidth = initialMaxX - initialMinX;
-      //    const originalHeight = initialMaxY - initialMinY;
-
-      //    if (this.resizeElement.direction == "left-edge") {
-      //       // Determine new boundaries based on the mouse position
-      //       let newMinX = mouseX > initialMaxX ? initialMaxX : mouseX;
-      //       let newMaxX = mouseX > initialMaxX ? mouseX : initialMaxX;
-
-      //       // Calculate the original dimensions and new width
-      //       const newWidth = newMaxX - newMinX;
-
-      //       if (originalWidth === 0) {
-      //          return;
-      //       }
-
-      //       // Calculate the width scale factor
-      //       const widthScaleFactor = newWidth / originalWidth;
-
-      //       // Adjust the points based on the offsetX and width scale factor
-      //       pencilResize.points.forEach((point) => {
-      //          point.x = newMinX + point.offsetX * widthScaleFactor;
-      //       });
-
-      //       // Update the resized shape
-      //       pencilResize.minX = newMinX;
-      //       pencilResize.maxX = newMaxX;
-      //    } else if (this.resizeElement.direction == "right-edge") {
-      //       // Determine new boundaries based on the mouse position
-      //       let newMinX = mouseX > initialMinX ? initialMinX : mouseX;
-      //       let newMaxX = mouseX > initialMinX ? mouseX : initialMinX;
-
-      //       // Calculate the original dimensions and new width
-      //       const newWidth = newMaxX - newMinX;
-
-      //       if (originalWidth === 0) {
-      //          return;
-      //       }
-
-      //       // Calculate the width scale factor
-      //       const widthScaleFactor = newWidth / originalWidth;
-
-      //       // Adjust the points based on the offsetX and width scale factor
-      //       pencilResize.points.forEach((point) => {
-      //          point.x = newMaxX + point.offsetX * widthScaleFactor;
-      //       });
-
-      //       // Update the resized shape
-      //       pencilResize.minX = newMinX;
-      //       pencilResize.maxX = newMaxX;
-      //    } else if (this.resizeElement.direction == "top-edge") {
-      //       // Determine new boundaries based on the mouse position
-      //       let newMinY = mouseY > initialMaxY ? initialMaxY : mouseY;
-      //       let newMaxY = mouseY > initialMaxY ? mouseY : initialMaxY;
-
-      //       // Calculate the original dimensions and new height
-      //       const newHeight = newMaxY - newMinY;
-
-      //       if (originalHeight === 0) {
-      //          return;
-      //       }
-
-      //       // Calculate the height scale factor
-      //       const heightScaleFactor = newHeight / originalHeight;
-
-      //       // Adjust the points based on the offsetY and height scale factor
-      //       pencilResize.points.forEach((point) => {
-      //          point.y = newMinY + point.offsetY * heightScaleFactor;
-      //       });
-
-      //       // Update the resized shape
-      //       pencilResize.minY = newMinY;
-      //       pencilResize.maxY = newMaxY;
-      //    } else if (this.resizeElement.direction == "bottom-edge") {
-      //       // Determine new boundaries based on the mouse position
-      //       let newMinY = mouseY > initialMinY ? initialMinY : mouseY;
-      //       let newMaxY = mouseY > initialMinY ? mouseY : initialMinY;
-
-      //       // Calculate the original dimensions and new height
-      //       const newHeight = newMaxY - newMinY;
-
-      //       if (originalHeight === 0) {
-      //          return;
-      //       }
-
-      //       // Calculate the height scale factor
-      //       const heightScaleFactor = newHeight / originalHeight;
-
-      //       // Adjust the points based on the offsetY and height scale factor
-      //       pencilResize.points.forEach((point) => {
-      //          point.y = newMaxY + point.offsetY * heightScaleFactor;
-      //       });
-
-      //       // Update the resized shape
-      //       pencilResize.minY = newMinY;
-      //       pencilResize.maxY = newMaxY;
-      //    } else {
-      //       let newMinX, newMaxX, newMinY, newMaxY;
-      //       let newWidth, newHeight, heightScaleFactor, widthScalingFactor;
-      //       switch (this.resizeElement.direction) {
-      //          case "top-left":
-      //             newMinX = Math.min(initialMaxX, mouseX);
-      //             newMinY = Math.min(initialMaxY, mouseY);
-      //             newMaxX = Math.max(initialMaxX, mouseX);
-      //             newMaxY = Math.max(initialMaxY, mouseY);
-
-      //             newWidth = newMaxX - newMinX;
-      //             newHeight = newMaxY - newMinY;
-
-      //             if (originalHeight === 0 && originalWidth === 0) {
-      //                return;
-      //             }
-      //             widthScalingFactor = newWidth / originalWidth;
-      //             heightScaleFactor = newHeight / originalHeight;
-      //             pencilResize.points.forEach((point) => {
-      //                point.y = newMinY + point.offsetY * heightScaleFactor;
-      //                point.x = newMinX + point.offsetX * widthScalingFactor;
-      //             });
-      //             break;
-      //          case "top-right":
-      //             newMinX = Math.min(initialMinX, mouseX);
-      //             newMaxX = Math.max(initialMinX, mouseX);
-      //             newMinY = Math.min(initialMaxY, mouseY);
-      //             newMaxY = Math.max(initialMaxY, mouseY);
-
-      //             newWidth = newMaxX - newMinX;
-      //             newHeight = newMaxY - newMinY;
-
-      //             if (originalHeight === 0 && originalWidth === 0) {
-      //                return;
-      //             }
-      //             widthScalingFactor = newWidth / originalWidth;
-      //             heightScaleFactor = newHeight / originalHeight;
-      //             pencilResize.points.forEach((point) => {
-      //                point.y = newMinY + point.offsetY * heightScaleFactor;
-      //                point.x = newMaxX + point.offsetX * widthScalingFactor;
-      //             });
-      //             break;
-      //          case "bottom-left":
-      //             newMinX = Math.min(initialMaxX, mouseX);
-      //             newMaxX = Math.max(initialMaxX, mouseX);
-      //             newMinY = Math.min(initialMinY, mouseY);
-      //             newMaxY = Math.max(initialMinY, mouseY);
-
-      //             newWidth = newMaxX - newMinX;
-      //             newHeight = newMaxY - newMinY;
-
-      //             if (originalHeight === 0 && originalWidth === 0) {
-      //                return;
-      //             }
-      //             widthScalingFactor = newWidth / originalWidth;
-      //             heightScaleFactor = newHeight / originalHeight;
-      //             pencilResize.points.forEach((point) => {
-      //                point.y = newMaxY + point.offsetY * heightScaleFactor;
-      //                point.x = newMinX + point.offsetX * widthScalingFactor;
-      //             });
-      //             break;
-      //          case "bottom-right":
-      //             newMinX = Math.min(initialMinX, mouseX);
-      //             newMaxX = Math.max(initialMinX, mouseX);
-      //             newMinY = Math.min(initialMinY, mouseY);
-      //             newMaxY = Math.max(initialMinY, mouseY);
-
-      //             newWidth = newMaxX - newMinX;
-      //             newHeight = newMaxY - newMinY;
-
-      //             if (originalHeight === 0 && originalWidth === 0) {
-      //                return;
-      //             }
-      //             widthScalingFactor = newWidth / originalWidth;
-      //             heightScaleFactor = newHeight / originalHeight;
-      //             pencilResize.points.forEach((point) => {
-      //                point.y = newMaxY + point.offsetY * heightScaleFactor;
-      //                point.x = newMaxX + point.offsetX * widthScalingFactor;
-      //             });
-      //             break;
-      //       }
-      //       // Update the resized shape
-      //       pencilResize.minY = newMinY;
-      //       pencilResize.maxY = newMaxY;
-      //       pencilResize.maxX = newMaxX;
-      //       pencilResize.minX = newMinX;
-      //    }
-      //    this.drawImage();
-      // } else if (otherResize) {
-      //    const { initailX } = this.resizeElement;
-      //    otherResize.radius = Math.abs(otherResize.x - mouseX);
-      //    otherResize.width = 2 * otherResize.radius;
-      //    otherResize.height = 2 * otherResize.radius;
-      //    this.updateLinesPointTo(otherResize);
-      // }
 
       if (theResizeElement) {
          this.draw();
@@ -3330,225 +2682,6 @@ export default class Shapes {
          }
       }
 
-      // if (this.resizeElement?.key) {
-      //    this.draw();
-      //    return;
-      // }
-
-      // Dragging
-      // let rect = this.rectMap.get(this.dragElement);
-      // let arc = this.circleMap.get(this.dragElement);
-      // let text = this.textMap.get(this.dragElement);
-      // let line = this.lineMap.get(this.dragElement);
-      // let image = this.imageMap.get(this.dragElement?.key);
-      // let pencilDrag = this.pencilMap.get(this.dragElement);
-      // let figDrag = this.figureMap.get(this.dragElement);
-      // let otherDrag = this.otherShapes.get(this.dragElement);
-
-      // if (rect) {
-      //    rect.isActive = true;
-      //    rect.x = mouseX - rect.offsetX;
-      //    rect.y = mouseY - rect.offsetY;
-
-      //    this.showGuides(
-      //       rect.x,
-      //       rect.y,
-      //       rect.width,
-      //       rect.height,
-      //       this.dragElement,
-      //       rect,
-      //    );
-      //    //  this.drawRenderCanvas(rect.type, rect);
-
-      //    this.updateLinesPointTo(rect);
-      // } else if (arc) {
-      //    arc.isActive = true;
-      //    arc.x = mouseX - arc.offsetX;
-      //    arc.y = mouseY - arc.offsetY;
-      //    this.showGuides(
-      //       arc.x - arc.xRadius,
-      //       arc.y - arc.yRadius,
-      //       2 * arc.xRadius,
-      //       2 * arc.xRadius,
-      //       this.dragElement,
-      //       arc,
-      //    );
-      //    //  this.drawRenderCanvas(arc.type, arc);
-
-      //    this.updateLinesPointTo(arc);
-      // } else if (text) {
-      //    text.x = mouseX - text.offsetX;
-      //    text.y = mouseY - text.offsetY;
-      //    this.showGuides(
-      //       text.x,
-      //       text.y,
-      //       text.width,
-      //       text.height,
-      //       this.dragElement,
-      //       text,
-      //    );
-
-      //    //  this.drawRenderCanvas("text", text);
-      //    this.updateLinesPointTo(text);
-      // } else if (line) {
-      //    line.curvePoints.forEach((ele) => {
-      //       const deltaX = mouseX - ele.offsetX;
-      //       const deltaY = mouseY - ele.offsetY;
-      //       this.showGuides(
-      //          line.curvePoints[0].x,
-      //          line.curvePoints[0].y,
-      //          line.maxX - line.minX,
-      //          line.maxY - line.minY,
-      //          this.dragElement,
-      //          line,
-      //       );
-      //       ele.x = deltaX;
-      //       ele.y = deltaY;
-      //    });
-      // } else if (image) {
-      //    image.x = mouseX - image.offsetX;
-      //    image.y = mouseY - image.offsetY;
-
-      //    const { x, y, width, height, isActive } = image;
-      //    this.breakPointsCtx.clearRect(
-      //       0,
-      //       0,
-      //       this.canvasbreakPoints.width,
-      //       this.canvasbreakPoints.height,
-      //    );
-
-      //    this.breakPointsCtx.save();
-      //    this.breakPointsCtx.translate(
-      //       -scrollBar.scrollPositionX,
-      //       -scrollBar.scrollPositionY,
-      //    );
-      //    if (isActive) {
-      //       this.dots(
-      //          { x: x - this.tolerance, y: y - this.tolerance },
-      //          { x: x + width + this.tolerance, y: y - this.tolerance },
-      //          {
-      //             x: x + width + this.tolerance,
-      //             y: y + height + this.tolerance,
-      //          },
-      //          { x: x - this.tolerance, y: y + height + this.tolerance },
-      //          { context: this.breakPointsCtx },
-      //       );
-
-      //       this.breakPointsCtx.strokeStyle = this.activeColor;
-      //       this.breakPointsCtx.rect(
-      //          x - this.tolerance,
-      //          y - this.tolerance,
-      //          width + 2 * this.tolerance,
-      //          height + 2 * this.tolerance,
-      //       );
-      //       this.breakPointsCtx.stroke();
-      //    }
-
-      //    this.breakPointsCtx.scale(Scale.scale, Scale.scale);
-      //    this.breakPointsCtx.drawImage(
-      //       this.dragElement?.src,
-      //       x,
-      //       y,
-      //       width,
-      //       height,
-      //    );
-      //    this.breakPointsCtx.restore();
-      //    this.updateLinesPointTo(image);
-      // } else if (pencilDrag) {
-      // pencilDrag.minX = mouseX + pencilDrag.offsetX;
-      // pencilDrag.minY = mouseY + pencilDrag.offsetY;
-      // pencilDrag.maxY = pencilDrag.minY + pencilDrag.height;
-      // pencilDrag.maxX = pencilDrag.minX + pencilDrag.width;
-
-      // pencilDrag.points.forEach((point) => {
-      //    point.x = mouseX + point.offsetX;
-      //    point.y = mouseY + point.offsetY;
-      // });
-      // this.drawImage();
-      // this.showGuides(
-      //    pencilDrag.minX,
-      //    pencilDrag.minY,
-      //    pencilDrag.maxX - pencilDrag.minX,
-      //    pencilDrag.maxY - pencilDrag.minY,
-      //    this.dragElement,
-      //    pencilDrag,
-      // );
-      // return;
-      // } else if (figDrag) {
-      //    figDrag.x = mouseX - figDrag.offsetX;
-      //    figDrag.y = mouseY - figDrag.offsetY;
-
-      //    this.rectMap.forEach((rect) => {
-      //       if (rect.containerId === this.dragElement) {
-      //          rect.x = mouseX - rect.offsetX;
-      //          rect.y = mouseY - rect.offsetY;
-      //          if (rect.pointTo.length > 0) {
-      //             this.updateLinesPointTo(rect);
-      //          }
-      //       }
-      //    });
-
-      //    this.circleMap.forEach((circle) => {
-      //       if (circle.containerId === this.dragElement) {
-      //          circle.x = mouseX - circle.offsetX;
-      //          circle.y = mouseY - circle.offsetY;
-      //          if (circle.pointTo.length > 0) {
-      //             this.updateLinesPointTo(circle);
-      //          }
-      //       }
-      //    });
-
-      //    this.lineMap.forEach((line) => {
-      //       if (line.containerId === this.dragElement) {
-      //          line.minX = mouseX + line.offsetX;
-      //          line.minY = mouseY + line.offsetY;
-      //          line.maxX = line.minX + line.width;
-      //          line.maxY = line.minY + line.height;
-      //          line.curvePoints.forEach((point) => {
-      //             point.x = mouseX + point.offsetX;
-      //             point.y = mouseY + point.offsetY;
-      //          });
-      //       }
-      //    });
-
-      //    this.textMap.forEach((text) => {
-      //       if (text.containerId === this.dragElement) {
-      //          text.x = mouseX - text.offsetX;
-      //          text.y = mouseY - text.offsetY;
-      //       }
-      //    });
-
-      //    this.imageMap.forEach((image) => {
-      //       if (image.containerId === this.dragElement) {
-      //          image.x = mouseX - image.offsetX;
-      //          image.y = mouseY - image.offsetY;
-      //       }
-      //    });
-
-      //    this.pencilMap.forEach((pencil) => {
-      //       if (pencil.containerId !== this.dragElement) return;
-      //       pencil.minX = mouseX - pencil.offsetX;
-      //       pencil.minY = mouseY - pencil.offsetY;
-      //       pencil.maxY = pencil.minX + pencil.width;
-      //       pencil.maxY = pencil.minY + pencil.height;
-      //       pencil.points.forEach((point) => {
-      //          point.x = mouseX - point.offsetX;
-      //          point.y = mouseY - point.offsetY;
-      //       });
-      //    });
-      // } else if (otherDrag) {
-      //    otherDrag.x = mouseX - otherDrag.offsetX;
-      //    otherDrag.y = mouseY - otherDrag.offsetY;
-      //    this.showGuides(
-      //       otherDrag.x - otherDrag.radius,
-      //       otherDrag.y - otherDrag.radius,
-      //       otherDrag.width,
-      //       otherDrag.height,
-      //       this.dragElement,
-      //       otherDrag,
-      //    );
-      //    this.updateLinesPointTo(otherDrag);
-      // }
       this.draw();
       // this.drawImage();
    }
@@ -3667,7 +2800,24 @@ export default class Shapes {
 
          // massive is selected
          if (this.massiveSelection.isSelected) {
-            this.reEvaluateMassiveSelection();
+           /* calculate the massive selection parameters update guides */
+           recalculateMassiveSelection({
+             massiveSelection : this.massiveSelection,
+             breakpointsMap : this.breakPoints,
+             shapes : this.canvasShapes
+           })
+           this.massiveSelectionRect(
+              this.massiveSelection.isSelectedMinX - this.tolerance,
+              this.massiveSelection.isSelectedMinY - this.tolerance,
+              this.massiveSelection.isSelectedMaxX -
+                 this.massiveSelection.isSelectedMinX +
+                 2 * this.tolerance,
+              this.massiveSelection.isSelectedMaxY -
+                 this.massiveSelection.isSelectedMinY +
+                 2 * this.tolerance,
+           );
+           this.draw();
+
             return;
          }
       }
@@ -3686,22 +2836,7 @@ export default class Shapes {
       if (theResizeElement) {
          switch (theResizeElement.type) {
             case shapeTypes.rect:
-               theResizeElement.isActive = true;
-               theResizeElement.width = Math.max(theResizeElement.width, 20);
-               theResizeElement.height = Math.max(theResizeElement.height, 20);
-
-               // update line minMx
-               theResizeElement.pointTo.forEach((p) => {
-                  // this.updateLineMinMax(p);
-               });
-
-               this.updateGuides(
-                  theResizeElement.id,
-                  theResizeElement.x,
-                  theResizeElement.y,
-                  theResizeElement.x + theResizeElement.width,
-                  theResizeElement.y + theResizeElement.height,
-               );
+             updateRectParams({ guidesMap : this.breakPoints, theResizeElement })
                break;
             case shapeTypes.pencil:
                theResizeElement.width =
@@ -3710,379 +2845,8 @@ export default class Shapes {
                   theResizeElement.maxY - theResizeElement.min;
                break;
             case shapeTypes.line:
-               const key = theResizeElement.id;
-               if (this.resizeElement.direction === "resizeStart") {
-                  let keyUsed = false;
-                  if (theResizeElement.startTo) {
-                     let matchedConnection = null;
+               lineConnectShape({theResizeElement, mouseX, mouseY, tolerance : this.tolerance,canvasShapes  : this.canvasShapes, direction : this.resizeElement.direction})
 
-                     for (let i = 0; i < this.canvasShapes.length; i++) {
-                        if (!this.canvasShapes[i]) continue;
-                        if (
-                           this.canvasShapes[i].id ===
-                              theResizeElement.startTo &&
-                           this.canvasShapes[i].type !== shapeTypes.line
-                        ) {
-                           matchedConnection = i;
-                           break;
-                        }
-                     }
-
-                     if (matchedConnection != null) {
-                        let theShape = this.canvasShapes[matchedConnection];
-
-                        switch (theShape.type) {
-                           case shapeTypes.rect:
-                              if (
-                                 theResizeElement.curvePoints[0].x <
-                                    theShape.x ||
-                                 theResizeElement.curvePoints[0].x >
-                                    theShape.x + theShape.width ||
-                                 theResizeElement.curvePoints[0].y <
-                                    theShape.y ||
-                                 theResizeElement.curvePoints[0].y >
-                                    theShape.y + theShape.height
-                              ) {
-                                 theShape = theShape.pointTo.filter(
-                                    (r) => r !== key,
-                                 );
-                                 theResizeElement.startTo = null;
-                              }
-                              break;
-                           case shapeTypes.circle:
-                              const distance = Math.sqrt(
-                                 (theResizeElement.curvePoints[0].x -
-                                    theShape.x) **
-                                    2 +
-                                    (theResizeElement.curvePoints[0].y -
-                                       theShape.y) **
-                                       2,
-                              );
-                              if (
-                                 distance > theShape.xRadius ||
-                                 distance > theShape.yRadius
-                              ) {
-                                 theShape.pointTo = theShape.pointTo.filter(
-                                    (s) => s !== key,
-                                 );
-                                 theResizeElement.startTo = null;
-                              }
-                              break;
-                           case shapeTypes.text:
-                              if (
-                                 theResizeElement.curvePoints[0].x <
-                                    theShape.x ||
-                                 theResizeElement.curvePoints[0].x >
-                                    theShape.x + theShape.width ||
-                                 theResizeElement.curvePoints[0].y <
-                                    theShape.y ||
-                                 theResizeElement.curvePoints[0].y >
-                                    theShape.y + theShape.height
-                              ) {
-                                 theShape.pointTo = theShape.pointTo.filter(
-                                    (r) => {
-                                       return r !== key;
-                                    },
-                                 );
-                                 theResizeElement.startTo = null;
-                              }
-                              break;
-                           case shapeTypes.image:
-                              if (
-                                 theResizeElement.curvePoints[0].x <
-                                    theShape.x ||
-                                 theResizeElement.curvePoints[0].x >
-                                    theShape.x + theShape.width ||
-                                 theResizeElement.curvePoints[0].y <
-                                    theShape.y ||
-                                 theResizeElement.curvePoints[0].y >
-                                    theShape.y + theShape.height
-                              ) {
-                                 theShape.pointTo = theShape.pointTo.filter(
-                                    (p) => p !== key,
-                                 );
-                                 theResizeElement.startTo = null;
-                              }
-                              break;
-                           case shapeTypes.others:
-                              if (
-                                 theResizeElement.curvePoints[0].x <
-                                    theShape.x - theShape.radius ||
-                                 theResizeElement.curvePoints[0].x >
-                                    theShape.x + theShape.radius ||
-                                 theResizeElement.curvePoints[0].y <
-                                    theShape.y - theShape.radius ||
-                                 theResizeElement.curvePoints[0].y >
-                                    theShape.y + theShape.radius
-                              ) {
-                                 theShape.pointTo = theShape.pointTo.filter(
-                                    (p) => p !== key,
-                                 );
-                                 theResizeElement.startTo = null;
-                              }
-                              break;
-                           default:
-                              break;
-                        }
-                     }
-                  }
-
-                  this.canvasShapes.forEach((shape) => {
-                     const { type, id } = shape;
-                     if (keyUsed) return;
-                     const cond = () => {
-                        if (
-                           shape.pointTo.includes(key) ||
-                           theResizeElement.endTo === id
-                        )
-                           return;
-
-                        shape.pointTo.push(key);
-                        theResizeElement.startTo = id;
-                        keyUsed = true;
-                     };
-
-                     switch (type) {
-                        case shapeTypes.rect:
-                           cond();
-                           break;
-                        case shapeTypes.circle:
-                           const { xRadius, yRadius, x, y } = shape;
-                           const distance = Math.sqrt(
-                              (mouseX - x) ** 2 + (mouseY - y) ** 2,
-                           );
-
-                           if (
-                              (Math.abs(distance - xRadius) <= this.tolerance ||
-                                 Math.abs(distance - yRadius) <=
-                                    this.tolerance) &&
-                              !keyUsed
-                           ) {
-                              cond();
-                           }
-                           break;
-                        case shapeTypes.text:
-                           if (
-                              theResizeElement.curvePoints[0].x >= shape.x &&
-                              theResizeElement.curvePoints[0].x <=
-                                 shape.x + shape.width &&
-                              theResizeElement.curvePoints[0].y >= shape.y &&
-                              theResizeElement.curvePoints[0].y <=
-                                 shape.y + shape.height &&
-                              !keyUsed
-                           ) {
-                              cond();
-                           }
-                           break;
-                        case shapeTypes.imageMap:
-                           if (
-                              this.squareLineParams(shape, mouseX, mouseY) &&
-                              !keyUsed
-                           ) {
-                              cond();
-                           }
-                           break;
-                        case shapeTypes.others:
-                           const { radius } = shape;
-                           if (
-                              mouseX > shape.x - radius &&
-                              mouseX < shape.x + radius &&
-                              mouseY > shape.y - radius &&
-                              mouseY < shape.y + radius
-                           ) {
-                              cond();
-                           }
-                           break;
-                     }
-                  });
-
-                  keyUsed = false;
-               } else if (this.resizeElement.direction === "resizeEnd") {
-                  const length = theResizeElement.curvePoints.length - 1;
-                  let keyUsed = false;
-
-                  if (theResizeElement.endTo) {
-                     let matchedConnection = null;
-
-                     for (let i = 0; i < this.canvasShapes.length; i++) {
-                        if (!this.canvasShapes[i]) continue;
-                        if (
-                           this.canvasShapes[i].id === theResizeElement.endTo &&
-                           this.canvasShapes[i].type !== shapeTypes.line
-                        ) {
-                           matchedConnection = i;
-                           break;
-                        }
-                     }
-
-                     const theShape = this.canvasShapes[matchedConnection];
-                     if (matchedConnection !== null) {
-                        const { type } = theShape;
-
-                        switch (type) {
-                           case shapeTypes.rect:
-                              if (
-                                 theResizeElement.curvePoints[length].x <
-                                    theShape.x ||
-                                 theResizeElement.curvePoints[length].x >
-                                    theShape.x + theShape.width ||
-                                 theResizeElement.curvePoints[length].y <
-                                    theShape.y ||
-                                 theResizeElement.curvePoints[length].y >
-                                    theShape.y + theShape.height
-                              ) {
-                                 theShape.pointTo = theShape.pointTo.filter(
-                                    (r) => {
-                                       return r !== key;
-                                    },
-                                 );
-                                 theResizeElement.endTo = null;
-                              }
-                              break;
-                           case shapeTypes.text:
-                              if (
-                                 theResizeElement.curvePoints[length].x <
-                                    theShape.x ||
-                                 theResizeElement.curvePoints[length].x >
-                                    theShape.x + theShape.width ||
-                                 theResizeElement.curvePoints[length].y <
-                                    theShape.y ||
-                                 theResizeElement.curvePoints[length].y >
-                                    theShape.y + theShape.height
-                              ) {
-                                 theShape.pointTo = theShape.pointTo.filter(
-                                    (r) => {
-                                       return r !== key;
-                                    },
-                                 );
-                                 theResizeElement.endTo = null;
-                              }
-                              break;
-                           case shapeTypes.circle:
-                              const distance = Math.sqrt(
-                                 (theResizeElement.curvePoints[length].x -
-                                    theShape.x) **
-                                    2 +
-                                    (theResizeElement.curvePoints[length].y -
-                                       theShape.y) **
-                                       2,
-                              );
-                              if (
-                                 distance > theShape.xRadius ||
-                                 distance > theShape.yRadius
-                              ) {
-                                 theShape.pointTo = theShape.pointTo.filter(
-                                    (s) => s !== key,
-                                 );
-                                 theResizeElement.endTo = null;
-                              }
-                              break;
-                           case shapeTypes.image:
-                              if (
-                                 theResizeElement.curvePoints[length].x <
-                                    theShape.x ||
-                                 theResizeElement.curvePoints[length].x >
-                                    theShape.x + theShape.width ||
-                                 theResizeElement.curvePoints[length].y <
-                                    theShape.y ||
-                                 theResizeElement.curvePoints[length].y >
-                                    theShape.y + theShape.height
-                              ) {
-                                 theShape.pointTo = theShape.pointTo.filter(
-                                    (p) => p !== key,
-                                 );
-                                 theResizeElement.endTo = null;
-                              }
-                              break;
-                           case shapeTypes.others:
-                              if (
-                                 mouseX < theShape.x - theShape.radius ||
-                                 mouseX > theShape.x + theShape.radius ||
-                                 mouseY < theShape.y - theShape.radius ||
-                                 mouseY > theShape.y + theShape.radius
-                              ) {
-                                 otherShapes.pointTo =
-                                    otherShapes.pointTo.filter(
-                                       (p) => p !== key,
-                                    );
-                                 theResizeElement.endTo = null;
-                              }
-                              break;
-                        }
-                     }
-                  }
-
-                  this.canvasShapes.forEach((shape) => {
-                     if (!shape) return;
-                     const { type, id } = shape;
-                     if (keyUsed) return;
-                     const cond = () => {
-                        if (
-                           (theResizeElement.startTo === id ||
-                              shape.pointTo.includes(key)) &&
-                           shape.type === shapeTypes.line
-                        )
-                           return;
-
-                        shape.pointTo.push(key);
-                        theResizeElement.endTo = id;
-                        keyUsed = true;
-                     };
-
-                     switch (type) {
-                        case shapeTypes.rect:
-                           if (this.squareLineParams(shape, mouseX, mouseY))
-                              cond();
-                           break;
-                        case shapeTypes.circle:
-                           const { xRadius, yRadius, x, y, pointTo } = shape;
-                           const distance = Math.sqrt(
-                              (mouseX - x) ** 2 + (mouseY - y) ** 2,
-                           );
-
-                           if (
-                              Math.abs(distance - xRadius) <= this.tolerance ||
-                              Math.abs(distance - yRadius) <= this.tolerance
-                           )
-                              cond();
-                           break;
-                        case shapeTypes.text:
-                           if (
-                              theResizeElement.curvePoints[length].x >=
-                                 shape.x &&
-                              theResizeElement.curvePoints[length].x <=
-                                 shape.x + shape.width &&
-                              theResizeElement.curvePoints[length].y >=
-                                 shape.y &&
-                              theResizeElement.curvePoints[length].y <=
-                                 shape.y + shape.height &&
-                              !keyUsed
-                           )
-                              cond();
-                           break;
-                        case shapeTypes.image:
-                           if (
-                              this.squareLineParams(shape, mouseX, mouseY) &&
-                              !keyUsed
-                           )
-                              cond();
-                           break;
-                        case shapeTypes.others:
-                           const { radius } = shape;
-                           if (
-                              mouseX > shape.x - radius &&
-                              mouseX < shape.x + radius &&
-                              mouseY > shape.y - radius &&
-                              mouseY < shape.y + radius
-                           )
-                              cond();
-                           break;
-                     }
-                  });
-
-                  keyUsed = false;
-               }
-               theResizeElement.isActive = true;
                this.updateLineMinMax(theResizeElement);
                break;
             case shapeTypes.circle:
@@ -4107,22 +2871,21 @@ export default class Shapes {
                }
                break;
             case shapeTypes.figure:
-               theResizeElement.width = Math.max(theResizeElement.width, 20);
-               theResizeElement.height = Math.max(theResizeElement.height, 20);
-
-               const { x, y, width, height } = theResizeElement;
+              updateRectParams({ guidesMap : this.breakPoints, theResizeElement })
+               // theResizeElement.width = Math.max(theResizeElement.width, 20);
+               // theResizeElement.height = Math.max(theResizeElement.height, 20);
                this.getShapesInsideFigure(
                   theResizeElement,
                   this.resizeElement?.key,
                );
 
-               this.updateGuides(
-                  theResizeElement.id,
-                  x,
-                  y,
-                  x + width,
-                  y + height,
-               );
+               // this.updateGuides(
+               //    theResizeElement.id,
+               //    x,
+               //    y,
+               //    x + width,
+               //    y + height,
+               // );
                break;
             case shapeTypes.others:
                this.updateGuides(
@@ -4137,25 +2900,7 @@ export default class Shapes {
                break;
          }
       }
-      // if (rect) {
-      //    rect.isActive = true;
-      //    rect.width = Math.max(rect.width, 20);
-      //    rect.height = Math.max(rect.height, 20);
-
-      //    // update line minMx
-      //    rect.pointTo.forEach((p) => {
-      //       this.updateLineMinMax(p);
-      //    });
-
-      //    if (this.resizeElement?.key)
-      //       this.updateGuides(
-      //          this.resizeElement.key,
-      //          rect.x,
-      //          rect.y,
-      //          rect.x + rect.width,
-      //          rect.y + rect.height,
-      //       );
-      // } else if (imageResize) {
+      // else if (imageResize) {
       //    imageResize.width = Math.max(imageResize.width, 20);
       //    imageResize.height = Math.max(imageResize.height, 20);
       //    imageResize.isActive = true;
@@ -4561,6 +3306,7 @@ export default class Shapes {
                if (theDragElement.pointTo?.length > 0) {
                   theDragElement.pointTo.forEach((l) => {
                      for (let i = 0; i < this.canvasShapes.length; i++) {
+                       if (!this.canvasShapes[i]) continue;
                         if (l === this.canvasShapes[i].id) {
                            this.updateLineMinMax(this.canvasShapes[i]);
                            break;
@@ -4789,85 +3535,6 @@ export default class Shapes {
             pencil,
          );
       });
-   }
-
-   adjustMassiveSelectionXandY(x, y, width, height) {
-      if (x + width > this.massiveSelection.isSelectedMaxX) {
-         this.massiveSelection.isSelectedMaxX = x + width;
-      }
-      if (x < this.massiveSelection.isSelectedMinX) {
-         this.massiveSelection.isSelectedMinX = x;
-      }
-      if (y < this.massiveSelection.isSelectedMinY) {
-         this.massiveSelection.isSelectedMinY = y;
-      }
-      if (y + height > this.massiveSelection.isSelectedMaxY) {
-         this.massiveSelection.isSelectedMaxY = y + height;
-      }
-   }
-
-   reEvaluateMassiveSelection() {
-      this.massiveSelection.isDown = false;
-      this.massiveSelection.isSelectedMinX = Infinity;
-      this.massiveSelection.isSelectedMinY = Infinity;
-      this.massiveSelection.isSelectedMaxX = -Infinity;
-      this.massiveSelection.isSelectedMaxY = -Infinity;
-
-      this.canvasShapes.forEach((shape) => {
-         let x, y, width, height;
-
-         if (shape.isActive) {
-            switch (shape.type) {
-               case shapeTypes.circle:
-                  x = shape.x - shape.xRadius;
-                  y = shape.y - shape.yRadius;
-                  width = 2 * shape.xRadius;
-                  height = 2 * shape.yRadius;
-                  break;
-               case shapeTypes.line:
-                  this.updateLineMinMax(shape);
-                  x = shape.minX;
-                  y = shape.minY;
-                  width = shape.maxX - x;
-                  height = shape.maxX - y;
-                  break;
-               case shapeTypes.others:
-                  x = shape.x - shape.radius;
-                  y = shape.y = shape.radius;
-                  width = width;
-                  height = shape.height;
-                  break;
-               case shapeTypes.pencil:
-                  x = shape.minX;
-                  y = shape.minY;
-                  width = shape.width;
-                  height = shape.height;
-                  break;
-               default:
-                  x = shape.x;
-                  y = shape.y;
-                  width = shape.width;
-                  height = shape.height;
-                  break;
-            }
-
-            this.adjustMassiveSelectionXandY(x, y, width, height);
-            this.updateGuides(shape.id, x, y, x + width, y + height);
-         }
-      });
-
-      this.massiveSelectionRect(
-         this.massiveSelection.isSelectedMinX - this.tolerance,
-         this.massiveSelection.isSelectedMinY - this.tolerance,
-         this.massiveSelection.isSelectedMaxX -
-            this.massiveSelection.isSelectedMinX +
-            2 * this.tolerance,
-         this.massiveSelection.isSelectedMaxY -
-            this.massiveSelection.isSelectedMinY +
-            2 * this.tolerance,
-      );
-
-      this.draw();
    }
 
    massiveSelectionRect(x, y, width, height) {
@@ -5648,6 +4315,7 @@ export default class Shapes {
       };
 
       this.canvasShapes.forEach((shape) => {
+         if (!shape) return;
          const type = shape.type;
 
          if (type == shapeTypes.circle) {
