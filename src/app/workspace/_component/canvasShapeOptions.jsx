@@ -61,7 +61,7 @@ export default function CanvasShapeOptions({
       }
 
       const activeShape = shapeClassRef.canvasShapes[currentActive[0]];
-      if (!activeShape || !activeShape.text) {
+      if (!activeShape || !activeShape.text.length) {
          return;
       }
 
