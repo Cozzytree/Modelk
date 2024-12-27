@@ -49,32 +49,23 @@ export default function CanvasShapeOptions({
    setCurrent,
    shapeClassRef,
 }) {
-   const [inputText, setInputText] = useState(false);
-   const [textContent, setTextContent] = useState("");
    const [fontSize, setFontSize] = useState(0);
-   const inputTextRef = useRef(null);
 
-   useEffect(() => {
-      let text = "";
-      if (!shapeClassRef) {
-         return;
-      }
+   // useEffect(() => {
+   //    let text = "";
+   //    if (!shapeClassRef) {
+   //       return;
+   //    }
 
-      const activeShape = shapeClassRef.canvasShapes[currentActive[0]];
-      if (!activeShape || !activeShape.text.length) {
-         return;
-      }
+   //    const activeShape = shapeClassRef.canvasShapes[currentActive[0]];
+   //    if (!activeShape || !activeShape.text.length) {
+   //       return;
+   //    }
 
-      text = activeShape.text.filter((t) => t.length).join("\n");
-      setTextContent(text);
-      setFontSize(activeShape.textSize);
-   }, [currentActive, shapeClassRef]);
-
-   const handleBlur = (e) => {
-      const content = e.target.value.split("\n");
-      shapeClassRef.canvasShapes[currentActive[0]].text = content;
-      shapeClassRef.draw();
-   };
+   //    text = activeShape.text.filter((t) => t.length).join("\n");
+   //    setTextContent(text);
+   //    setFontSize(activeShape.textSize);
+   // }, [currentActive, shapeClassRef]);
 
    const handleRadius = (val) => {
       if (!currentActive || !currentActive.length || !shapeClassRef) return;
@@ -97,11 +88,9 @@ export default function CanvasShapeOptions({
       });
 
       shapeClassRef.draw();
-      setInputText(false);
    };
 
    const handleFillStyle = (color) => {
-      setInputText(false);
       if (!shapeClassRef) return;
       if (currentActive && currentActive.length) {
          currentActive.forEach((c) => {
@@ -121,7 +110,6 @@ export default function CanvasShapeOptions({
    };
 
    const lineColor = (color) => {
-      setInputText(false);
       if (!shapeClassRef) return;
       if (currentActive && currentActive.length) {
          currentActive.forEach((c) => {
@@ -197,37 +185,6 @@ export default function CanvasShapeOptions({
    return (
       <>
          <div className="absolute bottom-5 left-[50%] z-[999] translate-x-[-50%] flex items-center divide-x-2 border border-zinc-800 gap-1">
-            {shapeClassRef?.canvasShapes[currentActive[0]]?.type !==
-               shapeTypes.text && (
-               <div className="relative">
-                  <Button
-                     className="p-2 h-fit font-extrabold"
-                     onClick={() => {
-                        console.log(currentActive);
-                        setInputText(true);
-                        if (shapeClassRef.canvasShapes[currentActive[0]]) {
-                           shapeClassRef.canvasShapes[currentActive[0]].text =
-                              textContent;
-                           shapeClassRef.draw();
-                        }
-                     }}
-                  >
-                     T
-                  </Button>
-                  {inputText && (
-                     <textarea
-                        ref={inputTextRef}
-                        placeholder="text"
-                        className="text-xs absolute -top-[150%] left-0 p-1 bg-transparent outline-none focus:outline-none w-fit h-[5ch]"
-                        onChange={(e) => {
-                           setTextContent(e.target.value);
-                        }}
-                        defaultValue={"Hello"}
-                        // onBlur={handleBlur}
-                     />
-                  )}
-               </div>
-            )}
             <Menubar>
                <MenubarMenu className="p-1">
                   <MenubarTrigger className="w-full h-full">

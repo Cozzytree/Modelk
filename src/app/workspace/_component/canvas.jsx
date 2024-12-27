@@ -1,5 +1,6 @@
 "use client";
 
+import EmojiPicker from "emoji-picker-react";
 import { Button, buttonVariants } from "@/components/ui/button.tsx";
 import { RedoUndo } from "../_canvas/redoundo.js";
 import {
@@ -41,6 +42,11 @@ import {
    MenubarMenu,
    MenubarTrigger,
 } from "@/components/ui/menubar.tsx";
+import {
+   Dialog,
+   DialogContent,
+   DialogTrigger,
+} from "@/components/ui/dialog.tsx";
 
 const buttons = [
    { icon: <HandIcon width={"100%"} />, label: "handsFree" },
@@ -59,6 +65,7 @@ const height = 1200;
 const startupData = [
    {
       Params: {
+         dash: [0, 0],
          allignVertical: "center",
          angle: 0,
          borderColor: "#33FFF5",
@@ -87,6 +94,7 @@ const startupData = [
    },
    {
       Params: {
+         dash: [0, 0],
          allignVertical: "center",
          angle: 0,
          borderColor: "white",
@@ -115,6 +123,7 @@ const startupData = [
    },
    {
       Params: {
+         dash: [0, 0],
          allignVertical: "top",
          angle: 0,
          arrowLeft: false,
@@ -152,6 +161,7 @@ const startupData = [
    },
    {
       Params: {
+         dash: [0, 0],
          allignVertical: "top",
          angle: 0,
          arrowLeft: false,
@@ -181,6 +191,7 @@ const startupData = [
          radius: 10,
          startTo: 1723987825532,
          text: [],
+         dash: [0, 0],
          textPosition: "center",
          textSize: 15,
          type: "line",
@@ -189,6 +200,7 @@ const startupData = [
    },
    {
       Params: {
+         dash: [0, 0],
          allignVertical: "top",
          angle: 0,
          borderColor: "white",
@@ -230,7 +242,6 @@ export default function Canvas({ id }) {
    // const { user } = useKindeBrowserClient();
 
    const initialData = useRef(startupData);
-   const [newImage, setImage] = useState(null);
    const [mode, setMode] = useState("free");
    const [currentActive, setCurrentActive] = useState([]);
    const [scale, setScale] = useState(Scale.scale);
@@ -241,12 +252,23 @@ export default function Canvas({ id }) {
    const breakPointsRef = useRef(null);
    const shapeClassRef = useRef();
    const renderCanvasRef = useRef(null);
+   const socketRef = useRef(null);
 
    useEffect(() => {
       if (isLoading) return;
       const canvas = canvasRef.current;
       const breakPointsCanvas = breakPointsRef.current;
       const renderCanvas = renderCanvasRef.current;
+
+      const socket = new WebSocket("ws://localhost:4000/ws");
+      socket.onopen = function (e) {
+         console.log(e);
+      };
+      socketRef.current = socket;
+
+      socket.onmessage = function (data) {
+         console.log("returned :", data.data);
+      };
 
       canvas.width = width;
       canvas.height = height;
@@ -289,7 +311,6 @@ export default function Canvas({ id }) {
       shape.initializeShapeArray();
       shape.initialize();
       shape.draw();
-      shape.drawImage();
 
       const keyDownHandler = (e) => {
          if (!shape) return;
@@ -328,37 +349,9 @@ export default function Canvas({ id }) {
       const handler = (e) => {
          if (config.mode === "pencil") return;
 
-         // if (
-         //    JSON.stringify(config.currentActive) !==
-         //    JSON.stringify(currentActive)
-         // ) {
-         //    setCurrentActive(config.currentActive);
-         // }
          if (config.mode !== mode) {
             setMode(config.mode);
          }
-
-         if (newImage) {
-            const { x, y } = shape.getTransformedMouseCoords(e);
-            const img = new ImageShape(newImage);
-            img.width = 300;
-            img.height = 200;
-            img.x = x;
-            img.y = y;
-            img.isActive = true;
-            shape.insertImage(img);
-            config.mode = "free";
-            setMode(config.mode);
-            setImage(null);
-         }
-
-         // if (e.ctrlKey) {
-         //    if (!shape) return;
-         //    const s = shape.canvasClick(e);
-         //    if (!s) return;
-         //    s.isActive = true;
-         //    shape.draw();
-         // }
          if (config.mode === "text") {
             const { x, y } = shape.getTransformedMouseCoords(e);
             shape.inputText(
@@ -378,7 +371,7 @@ export default function Canvas({ id }) {
          canvas.removeEventListener("click", handler);
          window.removeEventListener("wheel", zoomInOut);
       };
-   }, [currentActive, newImage, mode]);
+   }, [currentActive, mode]);
 
    useEffect(() => {
       // if (!shapeClassRef.current || !shapeInitialized || !user) return;
@@ -431,6 +424,26 @@ export default function Canvas({ id }) {
 
    return (
       <>
+         <div className="fixed top-10 right-10 z-[100]">
+            {shapeClassRef.current &&
+               shapeClassRef.current?.canvasShapes.length - 1}
+         </div>
+         <Button
+            onClick={() => {
+               if (socketRef.current) {
+                  socketRef.current.send(
+                     JSON.stringify({
+                        userId: "Hootowl",
+                        shapeId: "i am here",
+                        params: { x: 10, y: 10, width: 100, height: 100 },
+                     }),
+                  );
+               }
+            }}
+            className="absolute top-10 left-10 z-[9999]"
+         >
+            Send
+         </Button>
          <canvas
             ref={breakPointsRef}
             className="absolute top-0 left-0 z-[1] transition-all duration-200"
@@ -447,6 +460,28 @@ export default function Canvas({ id }) {
          <TooltipProvider>
             <div className="absolute top-[8%] left-2 border p-[2px] border-zinc-800 flex flex-col items-center rounded-sm gap-[2px] z-[2]">
                <Polygon setMode={setMode} />
+               <Dialog>
+                  <DialogTrigger>
+                     <ImageIcon />
+                  </DialogTrigger>
+                  <DialogContent className="w-fit h-fit">
+                     <EmojiPicker
+                        onEmojiClick={(e) => {
+                           const url = e.getImageUrl();
+                           const img = document.createElement("img");
+                           img.src = url;
+                           img.style.width = "100px";
+                           img.style.height = "100px";
+                           img.classList.add(
+                              "fixed",
+                              "top-10",
+                              "left-10",
+                              "z-[100]",
+                           );
+                        }}
+                     />
+                  </DialogContent>
+               </Dialog>
 
                {buttons.map((button, index) => (
                   <Tooltip key={index}>
@@ -483,49 +518,6 @@ export default function Canvas({ id }) {
                      </TooltipContent>
                   </Tooltip>
                ))}
-               <Tooltip>
-                  <TooltipTrigger
-                     className={`${
-                        config.mode === "image" &&
-                        "bg-secondary/70 text-primary-foreground"
-                     } ${buttonVariants({
-                        variant: "ghost",
-                        size: "icon",
-                     })} text-xs p-[10px] w-full h-fit`}
-                  >
-                     <label
-                        onClick={() => {
-                           config.mode = "image";
-                           setMode(config.mode);
-                        }}
-                        htmlFor="image"
-                     >
-                        <ImageIcon fill="transparent" />
-                     </label>
-                     <input
-                        onChange={(e) => {
-                           const file = e.target.files[0];
-                           if (!file) {
-                              config.mode = "free";
-                              setMode(config.mode);
-                           }
-                           const reader = new FileReader();
-                           reader.onload = () => {
-                              const base64Image = reader.result;
-                              setImage(base64Image);
-                           };
-                           reader.readAsDataURL(file);
-                        }}
-                        type="file"
-                        accept="image/*"
-                        id="image"
-                        className="hidden"
-                     />
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={6}>
-                     Image
-                  </TooltipContent>
-               </Tooltip>
 
                <Button
                   onClick={() => {

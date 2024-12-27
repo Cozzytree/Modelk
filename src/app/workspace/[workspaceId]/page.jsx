@@ -9,7 +9,7 @@ import Canvas from "../_component/canvas.jsx";
 const boardView = [{ name: "Document" }, { name: "Both" }, { name: "Canvas" }];
 
 export default function Workspace({ params }) {
-   const [workspaceMode, setWorksapceMode] = useState("Both");
+   const [workspaceMode, setWorksapceMode] = useState("Canvas");
    //   const { projectData, isLoading, error } = useGetProjectAssets();
 
    return (

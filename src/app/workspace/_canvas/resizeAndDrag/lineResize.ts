@@ -220,12 +220,57 @@ export function lineResizeWhenConnected({
             });
          }
       } else {
+         if (startYMidPoint < ey) {
+            ifEndShapeAbove({
+               startS: startShape,
+               start: {
+                  height: sheight,
+                  midY: startYMidPoint,
+                  midX: startXMidPoint,
+                  y: sy,
+                  x: sx,
+                  width: swidth,
+               },
+               end: {
+                  height: eheight,
+                  midY: endYMidPoint,
+                  midX: endXMidPoint,
+                  y: ey,
+                  x: ex,
+                  width: ewidth,
+               },
+               line,
+            });
+         } else if (endYMidPoint > sy && endYMidPoint < sy + sheight) {
+            ifEndShaoeMid({
+               startS: startShape,
+               start: {
+                  height: sheight,
+                  midY: startYMidPoint,
+                  midX: startXMidPoint,
+                  y: sy,
+                  x: sx,
+                  width: swidth,
+               },
+               end: {
+                  height: eheight,
+                  midY: endYMidPoint,
+                  midX: endXMidPoint,
+                  y: ey,
+                  x: ex,
+                  width: ewidth,
+               },
+               line,
+            });
+         } else {
+         }
       }
    } else if (endShape == null) {
+      if (!line.curvePoints) return;
       const last = line.curvePoints[line.curvePoints.length - 1];
       const first = line.curvePoints[0];
 
-      if (storEn === "start") {
+      if (startEn === "start") {
          const { x, y } = getClosestPoints({
             rect: startShape,
             point: { x: last.x, y: last.y },
@@ -248,6 +293,138 @@ export function lineResizeWhenConnected({
       }
    }
 }
+
+const ifEndShapeAbove = ({
+   startS,
+   start,
+   end,
+   line,
+}: {
+   startS: ShapeParams;
+   start: {
+      midX: number;
+      midY: number;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+   };
+   end: {
+      midX: number;
+      midY: number;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+   };
+   line: ShapeParams;
+}) => {
+   if (!line.curvePoints) return;
+   let last;
+
+   if (start.midX < end.x) {
+      line.curvePoints.length = 3; // length
+      last = line.curvePoints.length - 1;
+
+      const d1 = Math.abs(end.x - start.midX);
+      const d2 = Math.abs(end.y - start.midY);
+      if (d1 > d2) {
+         line.curvePoints[0] = { x: end.midX, y: end.y };
+         line.curvePoints[1] = { x: end.midX, y: start.midY };
+         line.curvePoints[last] = { x: start.x + end.width, y: start.midY };
+      } else {
+         line.curvePoints[0] = { x: end.x, y: end.midY };
+         line.curvePoints[1] = { x: start.midX, y: end.midY };
+         line.curvePoints[last] = { x: start.midX, y: start.y + start.height };
+      }
+   } else if (end.midX > start.x && end.midX < start.x + start.width) {
+      if (Math.abs(start.midX - end.midX) <= 10) {
+         line.curvePoints.length = 2;
+         last = line.curvePoints.length - 1;
+
+         startS.x = end.midX - start.width / 2;
+         line.curvePoints[0] = { x: end.midX, y: end.y };
+         line.curvePoints[last] = { x: end.midX, y: start.y + start.height };
+      } else {
+         line.curvePoints.length = 4;
+         last = line.curvePoints.length - 1;
+
+         const midY = (end.y - (start.y + start.height)) * 0.5;
+         line.curvePoints[1] = { x: end.midX, y: end.y - midY };
+         line.curvePoints[2] = { x: start.midX, y: end.y - midY };
+         line.curvePoints[last] = { x: start.midX, y: start.y + start.height };
+      }
+   } else {
+      line.curvePoints.length = 3;
+      last = line.curvePoints.length - 1;
+
+      const d1 = start.x - (end.x + end.height); // horizontal
+      const d2 = end.midY - (start.y + start.height); // vertical
+
+      if (d1 > d2) {
+         line.curvePoints[0] = { x: end.x + end.width, y: end.midY };
+         line.curvePoints[1] = { x: start.midX, y: end.midY };
+         line.curvePoints[last] = { x: start.midX, y: start.y + start.height };
+      } else {
+         line.curvePoints[0] = { x: end.midX, y: end.y };
+         line.curvePoints[1] = { x: end.midX, y: start.midY };
+         line.curvePoints[last] = { x: start.x, y: start.midY };
+      }
+   }
+};
+
+const ifEndShaoeMid = ({
+   startS,
+   start,
+   end,
+   line,
+}: {
+   startS: ShapeParams;
+   start: {
+      midX: number;
+      midY: number;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+   };
+   end: {
+      midX: number;
+      midY: number;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+   };
+   line: ShapeParams;
+}) => {
+   if (!line.curvePoints) return;
+   let last;
+   if (start.midX < end.x) {
+      if (Math.abs(start.midY - end.midY) <= 10) {
+         line.curvePoints.length = 2;
+         last = line.curvePoints.length - 1;
+
+         startS.y = end.midY - start.height * 0.5;
+
+         line.curvePoints[0] = { x: end.x, y: end.midY };
+         line.curvePoints[last] = { x: start.x + start.width, y: end.midY };
+      } else {
+         line.curvePoints.length = 4;
+         last = line.curvePoints.length - 1;
+
+         const midPointX = Math.abs((end.x - (start.x + start.width)) * 0.5);
+         line.curvePoints[1] = { x: end.x - midPointX, y: end.midY };
+         line.curvePoints[2] = { x: end.x - midPointX, y: start.midY };
+         line.curvePoints[last] = { x: start.x + start.width, y: start.midY };
+      }
+   } else if (start.midX > end.x && start.midX < end.x + end.height) {
+   } else {
+      if (Math.abs(start.midY - end.midY) <= 10) {
+      } else {
+      }
+   }
+};
 
 const ifStartShapeAbove = ({
    start,
